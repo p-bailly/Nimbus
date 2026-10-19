@@ -244,11 +244,11 @@ class Prefs private constructor(context: Context) {
      * Place ces icônes aux cases indiquées (ajout si absentes). Les cases sont calculées par
      * l'appelant à partir de la grille affichée (icônes visibles, grille éventuellement réduite).
      */
-    fun setHomeIconPositions(positions: Map<String, Pair<Int, Int>>) {
+    fun setHomeIconPositions(positions: Map<String, HomeCell>) {
         val list = _homeIcons.value
-        val updated = list.map { icon -> positions[icon.key]?.let { (x, y) -> icon.copy(x = x, y = y) } ?: icon }
+        val updated = list.map { icon -> positions[icon.key]?.let { icon.copy(page = it.page, x = it.x, y = it.y) } ?: icon }
         val added = positions.filterKeys { key -> list.none { it.key == key } }
-            .map { (key, cell) -> HomeIcon(key, cell.first, cell.second) }
+            .map { (key, cell) -> HomeIcon(key, cell.x, cell.y, cell.page) }
         setHomeIcons(updated + added)
     }
 
@@ -256,7 +256,8 @@ class Prefs private constructor(context: Context) {
 
     fun setHomeIcons(list: List<HomeIcon>) {
         _homeIcons.value = list
-        writeList(KEY_HOME_ICONS, list.map { "${it.key}@${it.x},${it.y}" })
+        // « clé@x,y » sur la première page (format d'origine), « clé@x,y,page » sur les suivantes.
+        writeList(KEY_HOME_ICONS, list.map { "${it.key}@${it.x},${it.y}" + if (it.page > 0) ",${it.page}" else "" })
     }
 
     private fun readHomeIcons(): List<HomeIcon> = readList(KEY_HOME_ICONS).mapNotNull { line ->
@@ -265,7 +266,7 @@ class Prefs private constructor(context: Context) {
         val pos = line.substring(at + 1).split(',')
         val x = pos.getOrNull(0)?.toIntOrNull() ?: return@mapNotNull null
         val y = pos.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
-        HomeIcon(line.substring(0, at), x, y)
+        HomeIcon(line.substring(0, at), x, y, pos.getOrNull(2)?.toIntOrNull()?.coerceAtLeast(0) ?: 0)
     }
 
     // ---------------------------------------------------------------- Widgets de l'accueil
@@ -277,20 +278,21 @@ class Prefs private constructor(context: Context) {
         writeHomeWidgets(list)
     }
 
-    fun removeHomeWidget(id: Int) {
-        val list = _homeWidgets.value.filterNot { it.id == id }
+    fun removeHomeWidget(id: Int) = setHomeWidgets(_homeWidgets.value.filterNot { it.id == id })
+
+    fun setHomeWidgets(list: List<HomeWidget>) {
         _homeWidgets.value = list
         writeHomeWidgets(list)
     }
 
     private fun writeHomeWidgets(list: List<HomeWidget>) =
-        writeList(KEY_HOME_WIDGETS, list.map { "${it.id}@${it.x},${it.y},${it.spanX},${it.spanY}" })
+        writeList(KEY_HOME_WIDGETS, list.map { "${it.id}@${it.x},${it.y},${it.spanX},${it.spanY}" + if (it.page > 0) ",${it.page}" else "" })
 
     private fun readHomeWidgets(): List<HomeWidget> = readList(KEY_HOME_WIDGETS).mapNotNull { line ->
         val id = line.substringBefore('@').toIntOrNull() ?: return@mapNotNull null
         val v = line.substringAfter('@').split(',').mapNotNull { it.toIntOrNull() }
-        if (v.size != 4) return@mapNotNull null
-        HomeWidget(id, v[0], v[1], v[2].coerceAtLeast(1), v[3].coerceAtLeast(1))
+        if (v.size != 4 && v.size != 5) return@mapNotNull null
+        HomeWidget(id, v[0], v[1], v[2].coerceAtLeast(1), v[3].coerceAtLeast(1), v.getOrElse(4) { 0 }.coerceAtLeast(0))
     }
 
     // ---------------------------------------------------------------- Remplacement en bloc (imports)

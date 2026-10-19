@@ -50,7 +50,7 @@ import fr.perso.nimbus.ui.settings.SettingsColors
 import fr.perso.nimbus.ui.settings.SettingsEntry
 
 /**
- * Accueil sur une seule page : horloge, grille d'icônes et de widgets, dock, recherche.
+ * Accueil : pages d'icônes et de widgets, horloge, dock, recherche, et le menu de l'appui long.
  * [active] : rien n'est affiché par-dessus.
  */
 @Composable
@@ -69,6 +69,7 @@ fun HomeScreen(
             settings = settings,
             apps = apps,
             resizingWidgetId = ui.resizingWidget,
+            pageRequest = ui.pageRequest,
             onLongPress = vm::openHomeMenu,
         )
         if (ui.homeMenu != null) HomeMenuSheet(vm = vm, apps = apps)

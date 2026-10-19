@@ -6,23 +6,31 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 
 ## Fonctionnalités
 
-**Écran d'accueil (2 pages)**
+**Écran d'accueil (plusieurs pages)**
+- Pages d'icônes et de widgets : balayer à gauche ou à droite, des points sous la grille
+  indiquent la page. Horloge, dock et barre de recherche restent fixes.
 - Grille d'icônes à placement libre (3 à 8 colonnes, 3 à 14 lignes, noms optionnels) :
   appui long puis glisser pour déplacer une icône, l'icône de la case d'arrivée
   prend la place libérée.
+- Pendant un glisser-déposer (icône, widget, ou app du tiroir), l'élément suit le doigt ;
+  tenu contre le bord gauche ou droit, il passe à la page voisine, et au bord droit de la
+  dernière page une nouvelle page vide se crée. Il se pose au lâcher, sur la page affichée.
+  Une page vidée disparaît (la première reste toujours).
 - Dock (favoris) de 4 à 6 icônes par rangée.
 - Horloge (appui : alarmes), date (appui : agenda), batterie, barre de recherche :
   chacun peut être masqué.
 - Glisser-déposer depuis le tiroir : appui long sur une app puis glisser, le tiroir
   s'efface et l'app se pose sur la case où on la lâche.
-- Widgets sur l'accueil, dans la grille (appui long sur l'accueil › Ajouter un widget).
+- Widgets dans la grille (appui long sur l'accueil › Ajouter un widget) : posés sur la
+  page affichée s'il y a la place, sinon sur la suivante qui en a, sinon sur une nouvelle.
   Appui long sur un widget : menu (Redimensionner, Supprimer) ; appui long puis glisser :
   déplacer ce widget. Les icônes qu'il recouvre se décalent vers les cases libres.
-  Paramètres › Page d'accueil › Widgets : liste des widgets, avec « Supprimer ».
-- Accueil sur une seule page. Les widgets de l'ancienne page widgets passent
-  automatiquement sur la grille au premier lancement de cette version ; les widgets
-  alloués mais affichés nulle part sont libérés au démarrage.
-- Bouton Accueil : referme tout.
+  Paramètres › Page d'accueil › Widgets : liste des widgets (avec leur page), « Supprimer ».
+- Ajouter une app à l'accueil : première case libre de la page affichée, sinon des autres
+  pages, sinon une nouvelle page.
+- Les widgets de l'ancienne page widgets passent automatiquement sur la grille ; les
+  widgets alloués mais affichés nulle part sont libérés au démarrage.
+- Bouton Accueil : referme tout et revient à la première page.
 
 **Gestes (à la Nova)**
 - Double tap, glisser vers le haut / le bas, glisser à deux doigts vers le haut /
@@ -80,8 +88,8 @@ Paramètres › Sauvegarde :
   (`.slbk`). Depuis Smart Launcher sont repris la grille d'accueil (positions,
   taille, noms masqués), les catégories du tiroir, les apps masquées, la
   fréquence d'utilisation, les noms et icônes personnalisés, la forme des icônes,
-  les colonnes du tiroir ; les widgets sont proposés à l'ajout un par un et posés sur
-  l'accueil (ceux de la première page Smart Launcher reprennent leur place).
+  les colonnes du tiroir. Chaque page Smart Launcher devient une page Nimbus ; les
+  widgets sont proposés à l'ajout un par un et reprennent leur page et leur place.
   Une app absente du téléphone est ignorée ; une app dont l'activité a changé est
   retrouvée par son paquet.
 - **Sauvegarde automatique** : une fois par jour dans le dossier choisi, les 7
@@ -146,8 +154,9 @@ app/src/main/java/fr/perso/nimbus/
     │                        AppRepository, grille d'accueil, profils, gestes
     ├── NimbusApp.kt         Racine Compose : accueil + couches au-dessus
     ├── LauncherHost.kt      Actions qui passent par l'activité
+    ├── HomeDrag.kt          Glisser-déposer sur l'accueil (calque sous le doigt)
     ├── theme/Theme.kt       Thèmes Ambiant, Material You, Sombre, Clair
-    ├── home/                Accueil, grille d'icônes et de widgets
+    ├── home/                Accueil, pages, grille d'icônes et de widgets
     ├── drawer/              Tiroir, recherche sans accents, défilement A–Z
     ├── components/          Icône d'app, feuille d'actions, dialogues (choix, PIN,
     │                        texte, choix d'app), sélecteur de widgets

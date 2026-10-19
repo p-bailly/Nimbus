@@ -108,7 +108,7 @@ import fr.perso.nimbus.ui.LauncherHost
 import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.SearchResults
 import fr.perso.nimbus.ui.UiState
-import fr.perso.nimbus.ui.LocalAppDrag
+import fr.perso.nimbus.ui.LocalHomeDrag
 import fr.perso.nimbus.ui.components.DrawerAppIcon
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -191,8 +191,8 @@ fun AppDrawer(
     val headerDrag = rememberDraggableState { delta -> offsetY = (offsetY + delta).coerceAtLeast(0f) }
 
     // Glisser-déposer vers l'accueil : le tiroir s'efface pendant le glissé et jusqu'à sa fermeture.
-    val appDrag = LocalAppDrag.current
-    LaunchedEffect(Unit) { appDrag.drawerHidden = false }
+    val homeDrag = LocalHomeDrag.current
+    LaunchedEffect(Unit) { homeDrag.drawerHidden = false }
 
     Surface(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
@@ -201,7 +201,7 @@ fun AppDrawer(
             .fillMaxSize()
             .graphicsLayer {
                 translationY = offsetY
-                alpha = if (appDrag.drawerHidden) 0f else 1f - (offsetY / (closeDistance * 4f)).coerceIn(0f, 0.5f)
+                alpha = if (homeDrag.drawerHidden) 0f else 1f - (offsetY / (closeDistance * 4f)).coerceIn(0f, 0.5f)
             },
     ) {
         Column(

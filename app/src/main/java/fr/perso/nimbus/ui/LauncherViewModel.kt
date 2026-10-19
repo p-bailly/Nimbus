@@ -22,6 +22,7 @@ import fr.perso.nimbus.data.ContactsSearch
 import fr.perso.nimbus.data.CustomIcons
 import fr.perso.nimbus.data.Gesture
 import fr.perso.nimbus.data.GestureAction
+import fr.perso.nimbus.data.HomeCell
 import fr.perso.nimbus.data.HomeIcon
 import fr.perso.nimbus.data.HomeWidget
 import fr.perso.nimbus.data.IconConfig
@@ -70,6 +71,9 @@ enum class SettingsSection { MAIN, APPEARANCE, GESTURES, BACKUP, HOME, DRAWER, S
 /** Menu ouvert par appui long sur l'accueil, à la position du doigt. */
 data class HomeMenu(val position: Offset)
 
+/** Demande d'affichage d'une page de l'accueil ; [id] change à chaque demande. */
+data class PageRequest(val page: Int, val id: Long)
+
 /** Pop-up d'appui long sur une app, ancré sur son icône (coordonnées de la fenêtre). */
 data class AppPopupRequest(val app: AppEntry, val anchor: Rect)
 
@@ -88,6 +92,7 @@ data class UiState(
     val widgetPickerOpen: Boolean = false,
     /** Widget de l'accueil en cours de redimensionnement, null sinon. */
     val resizingWidget: Int? = null,
+    val pageRequest: PageRequest = PageRequest(0, 0),
 )
 
 /** État des autorisations et services système, relu à chaque retour au premier plan. */
@@ -100,7 +105,9 @@ data class SystemStatus(
 )
 
 /** Icône de la grille d'accueil, à sa case d'affichage. */
-data class PlacedIcon(val app: AppEntry, val x: Int, val y: Int)
+data class PlacedIcon(val app: AppEntry, val page: Int, val x: Int, val y: Int) {
+    val cell: HomeCell get() = HomeCell(page, x, y)
+}
 
 data class AppsState(
     val loaded: Boolean = false,
@@ -123,6 +130,8 @@ data class AppsState(
     val homeKeys: Set<String> = emptySet(),
     /** Widgets de la grille d'accueil, ramenés dans les limites de la grille. */
     val homeWidgets: List<HomeWidget> = emptyList(),
+    /** Nombre de pages de l'accueil (au moins 1) : jusqu'à la dernière qui contient quelque chose. */
+    val pageCount: Int = 1,
     /** Toutes les apps connues (masquées comprises), par clé. */
     val byKey: Map<String, AppEntry> = emptyMap(),
 )
@@ -361,14 +370,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             home = home,
             homeKeys = lists.home.map { it.key }.toSet(),
             homeWidgets = homeWidgets,
+            pageCount = (home.map { it.page } + homeWidgets.map { it.page }).maxOrNull()?.plus(1) ?: 1,
             byKey = byKey,
         )
     }
 
     /**
      * Cases d'affichage de la grille : chaque icône garde sa case si elle est dans la grille
-     * et libre ; les autres (grille réduite, collision) prennent les premières cases libres.
-     * Rien n'est réécrit : agrandir de nouveau la grille rend leur place aux icônes.
+     * et libre ; les autres (grille réduite, collision) prennent la première case libre de leur
+     * page, sinon des pages suivantes. Rien n'est réécrit : agrandir de nouveau la grille rend
+     * leur place aux icônes.
      */
     private fun placeHome(
         icons: List<HomeIcon>,
@@ -379,23 +390,36 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         widgets: List<HomeWidget>,
     ): List<PlacedIcon> {
         // Les widgets passent en premier : une icône sous un widget prend la première case libre.
-        val taken = HashSet<Pair<Int, Int>>(widgets.flatMap { it.cells() })
+        val taken = HashSet<HomeCell>()
+        for (w in widgets) w.cells().forEach { (x, y) -> taken.add(HomeCell(w.page, x, y)) }
         val placed = ArrayList<PlacedIcon>()
-        val overflow = ArrayList<AppEntry>()
+        val overflow = ArrayList<Pair<AppEntry, Int>>()
         for (icon in icons) {
             val app = byKey[icon.key]?.takeIf(showable) ?: continue
-            val cell = icon.x to icon.y
-            if (icon.x in 0 until columns && icon.y in 0 until rows && taken.add(cell)) {
-                placed.add(PlacedIcon(app, icon.x, icon.y))
+            if (icon.x in 0 until columns && icon.y in 0 until rows && taken.add(HomeCell(icon.page, icon.x, icon.y))) {
+                placed.add(PlacedIcon(app, icon.page, icon.x, icon.y))
             } else {
-                overflow.add(app)
+                overflow.add(app to icon.page)
             }
         }
-        if (overflow.isNotEmpty()) {
-            val free = (0 until rows).flatMap { y -> (0 until columns).map { x -> x to y } }.filter { it !in taken }
-            overflow.zip(free).forEach { (app, cell) -> placed.add(PlacedIcon(app, cell.first, cell.second)) }
+        for ((app, page) in overflow) {
+            val cell = firstFree(taken, page, columns, rows)
+            taken.add(cell)
+            placed.add(PlacedIcon(app, cell.page, cell.x, cell.y))
         }
         return placed
+    }
+
+    /** Première case libre à partir de la page [fromPage] (les pages suivantes au besoin, jusqu'à une page vide). */
+    private fun firstFree(taken: Set<HomeCell>, fromPage: Int, columns: Int, rows: Int): HomeCell {
+        var page = fromPage
+        while (true) {
+            for (y in 0 until rows) for (x in 0 until columns) {
+                val cell = HomeCell(page, x, y)
+                if (cell !in taken) return cell
+            }
+            page++
+        }
     }
 
     /** Widgets ramenés dans la grille (après réduction de la grille, par exemple). */
@@ -461,13 +485,22 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun closeWidgetPicker() = _ui.update { it.copy(widgetPickerOpen = false) }
 
+    /** Page de l'accueil affichée (signalée par l'interface) : les ajouts y vont en priorité. */
+    private var homePage = 0
+
+    fun onHomePageShown(page: Int) {
+        homePage = page
+    }
+
+    fun showHomePage(page: Int) = _ui.update { it.copy(pageRequest = PageRequest(page, it.pageRequest.id + 1)) }
+
     /** Mode redimensionnement d'un seul widget (poignée), null pour en sortir. */
     fun setResizingWidget(id: Int?) = _ui.update { it.copy(resizingWidget = id, homeMenu = null) }
 
-    /** Bouton Accueil : tout refermer. */
+    /** Bouton Accueil : tout refermer et revenir à la première page. */
     fun goHome() {
         resetOnStop = false
-        _ui.value = UiState()
+        _ui.update { UiState(pageRequest = PageRequest(0, it.pageRequest.id + 1)) }
     }
 
     fun onLauncherStopped() {
@@ -618,132 +651,183 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     // ---------------------------------------------------------------- Grille d'accueil
 
-    /** Ajoute l'app dans la première case libre de la grille affichée. */
-    fun addToHome(app: AppEntry) {
+    /** Cases occupées de la grille affichée (icônes et widgets, toutes pages). */
+    private fun takenCells(state: AppsState): MutableSet<HomeCell> {
+        val taken = state.home.mapTo(HashSet()) { it.cell }
+        for (w in state.homeWidgets) w.cells().forEach { (x, y) -> taken.add(HomeCell(w.page, x, y)) }
+        return taken
+    }
+
+    /**
+     * Première case libre, page [first] d'abord, puis les suivantes, les précédentes, et enfin
+     * une nouvelle page. [first] au-delà des pages existantes : la nouvelle page directement.
+     */
+    private fun firstFreeCell(taken: Set<HomeCell>, first: Int, pageCount: Int): HomeCell {
+        if (first >= pageCount) return HomeCell(pageCount, 0, 0)
         val s = settings.value
+        for (page in (first until pageCount) + (0 until first)) {
+            for (y in 0 until s.homeRows) for (x in 0 until s.homeColumns) {
+                val cell = HomeCell(page, x, y)
+                if (cell !in taken) return cell
+            }
+        }
+        return HomeCell(pageCount, 0, 0)
+    }
+
+    /**
+     * Supprime les pages vides (la première reste toujours) en renumérotant les suivantes.
+     * Retourne la nouvelle numérotation, pour suivre un élément qui vient d'être posé.
+     */
+    private fun compactPages(): (Int) -> Int {
+        val state = apps.value
+        // Icône d'une app masquée ou absente : invisible, elle ne retient pas sa page.
+        fun shown(icon: HomeIcon) = !state.loaded ||
+            state.byKey[icon.key]?.let { it.profile != ProfileType.PRIVATE && it.key !in state.hiddenKeys } == true
+        val icons = prefs.homeIcons.value
+        val widgets = prefs.homeWidgets.value
+        val used = (icons.filter(::shown).map { it.page } + widgets.map { it.page } + 0).toSortedSet()
+        val remap = used.withIndex().associate { (index, page) -> page to index }
+        val newPage = { page: Int -> remap[page] ?: 0 }
+        if (icons.any { newPage(it.page) != it.page }) prefs.setHomeIcons(icons.map { it.copy(page = newPage(it.page)) })
+        if (widgets.any { newPage(it.page) != it.page }) prefs.setHomeWidgets(widgets.map { it.copy(page = newPage(it.page)) })
+        return newPage
+    }
+
+    /**
+     * Ajoute l'app à la première case libre, en commençant par la page [page] (celle affichée par
+     * défaut) ; une nouvelle page est créée si tout est plein. Retourne la page de l'icône.
+     */
+    fun addToHome(app: AppEntry, page: Int = homePage): Int? {
         val state = apps.value
         if (state.home.any { it.app.key == app.key }) {
             SystemActions.toast(context, "${app.label} est déjà sur l'accueil")
-            return
+            return null
         }
-        val taken = state.home.map { it.x to it.y }.toSet() + state.homeWidgets.flatMap { it.cells() }
-        val free = (0 until s.homeRows).firstNotNullOfOrNull { y ->
-            (0 until s.homeColumns).firstOrNull { x -> (x to y) !in taken }?.let { x -> x to y }
-        }
-        if (free == null) {
-            SystemActions.toast(context, "Plus de place sur l'accueil (agrandis la grille dans les paramètres)")
-            return
-        }
-        prefs.setHomeIconPositions(mapOf(app.key to free))
-        SystemActions.toast(context, "${app.label} ajoutée à l'accueil")
+        val cell = firstFreeCell(takenCells(state), page, state.pageCount)
+        prefs.setHomeIconPositions(mapOf(app.key to cell))
+        SystemActions.toast(context, if (cell.page == page) "${app.label} ajoutée à l'accueil" else "${app.label} ajoutée à l'accueil, page ${cell.page + 1}")
+        if (cell.page != homePage) showHomePage(cell.page)
+        return cell.page
     }
 
-    fun removeFromHome(app: AppEntry) = prefs.removeHomeIcon(app.key)
+    fun removeFromHome(app: AppEntry) {
+        prefs.removeHomeIcon(app.key)
+        compactPages()
+    }
 
     /**
-     * App lâchée depuis le tiroir sur la case (x, y). Déjà sur l'accueil : simple déplacement.
+     * App lâchée depuis le tiroir sur la case [cell]. Déjà sur l'accueil : simple déplacement.
      * Case occupée par une icône : celle-ci prend la première case libre ; par un widget :
-     * l'app va à la première case libre.
+     * l'app va à la première case libre. Retourne la page de l'app (null si rien n'a changé).
      */
-    fun dropOnHome(app: AppEntry, x: Int, y: Int) {
-        if (app.profile == ProfileType.PRIVATE) return
+    fun dropOnHome(app: AppEntry, cell: HomeCell): Int? {
+        if (app.profile == ProfileType.PRIVATE) return null
         val state = apps.value
-        if (state.home.any { it.app.key == app.key }) {
-            moveHomeIcon(app, x, y)
-            return
+        if (state.home.any { it.app.key == app.key }) return moveHomeIcon(app, cell)
+        val taken = takenCells(state)
+        if (state.homeWidgets.any { it.page == cell.page && (cell.x to cell.y) in it.cells() }) {
+            val free = firstFreeCell(taken, cell.page, state.pageCount)
+            prefs.setHomeIconPositions(mapOf(app.key to free))
+            return free.page
         }
-        if (state.homeWidgets.any { (x to y) in it.cells() }) {
-            addToHome(app)
-            return
-        }
-        val s = settings.value
-        val taken = state.home.map { it.x to it.y }.toSet() + state.homeWidgets.flatMap { it.cells() } + (x to y)
-        val moves = mutableMapOf(app.key to (x to y))
-        state.home.firstOrNull { it.x == x && it.y == y }?.let { occupant ->
-            val free = (0 until s.homeRows).firstNotNullOfOrNull { row ->
-                (0 until s.homeColumns).firstOrNull { col -> (col to row) !in taken }?.let { col -> col to row }
-            }
-            if (free == null) {
-                SystemActions.toast(context, "Plus de place sur l'accueil")
-                return
-            }
-            moves[occupant.app.key] = free
+        val moves = mutableMapOf(app.key to cell)
+        state.home.firstOrNull { it.cell == cell }?.let { occupant ->
+            moves[occupant.app.key] = firstFreeCell(taken + cell, cell.page, maxOf(state.pageCount, cell.page + 1))
         }
         prefs.setHomeIconPositions(moves)
+        return cell.page
     }
 
     /**
-     * Déplace une icône vers la case (x, y). L'icône affichée dans cette case prend la case
-     * qu'occupait l'icône déplacée. Tout est calculé sur la grille affichée, pas sur les
-     * positions enregistrées (qui peuvent être hors d'une grille réduite).
+     * Déplace une icône vers la case [to], éventuellement sur une autre page (ou une page
+     * nouvelle). L'icône affichée dans cette case prend la case qu'occupait l'icône déplacée.
+     * Tout est calculé sur la grille affichée, pas sur les positions enregistrées (qui peuvent
+     * être hors d'une grille réduite). Retourne la page finale de l'icône (null si rien n'a changé).
      */
-    fun moveHomeIcon(app: AppEntry, x: Int, y: Int) {
-        val placed = apps.value.home
-        val from = placed.firstOrNull { it.app.key == app.key } ?: return
-        if (from.x == x && from.y == y) return
+    fun moveHomeIcon(app: AppEntry, to: HomeCell): Int? {
+        val state = apps.value
+        val from = state.home.firstOrNull { it.app.key == app.key } ?: return null
+        if (from.cell == to) return null
         // Pas d'icône sous un widget.
-        if (apps.value.homeWidgets.any { (x to y) in it.cells() }) return
-        val occupant = placed.firstOrNull { it.x == x && it.y == y }
-        val moves = mutableMapOf(app.key to (x to y))
-        if (occupant != null) moves[occupant.app.key] = from.x to from.y
+        if (state.homeWidgets.any { it.page == to.page && (to.x to to.y) in it.cells() }) return null
+        val occupant = state.home.firstOrNull { it.cell == to }
+        val moves = mutableMapOf(app.key to to)
+        if (occupant != null) moves[occupant.app.key] = from.cell
         prefs.setHomeIconPositions(moves)
+        return compactPages()(to.page)
     }
 
     // ---------------------------------------------------------------- Widgets de l'accueil
 
     /**
-     * Pose un widget sur la grille. Ordre de recherche : emplacement demandé (import), puis
-     * zone libre d'icônes, puis zone sans autre widget (les icônes se décalent), en réduisant
-     * la taille si besoin. Retourne false si aucune place.
+     * Pose un widget sur la grille, à la taille demandée. Ordre de recherche : emplacement
+     * [preferred] (import, icônes décalées au besoin), puis une zone libre de la page affichée,
+     * des autres pages, et sinon une nouvelle page. Retourne la page du widget.
      * Les widgets déjà posés sont lus dans les préférences, à jour immédiatement : plusieurs
      * ajouts d'affilée (import, migration) ne se superposent pas.
      */
-    fun addHomeWidget(id: Int, spanX: Int, spanY: Int, preferred: Pair<Int, Int>? = null): Boolean {
+    fun addHomeWidget(id: Int, spanX: Int, spanY: Int, preferred: HomeCell? = null): Int {
         val s = settings.value
         val columns = s.homeColumns
         val rows = s.homeRows
         val widgets = fitWidgets(prefs.homeWidgets.value, columns, rows).filter { it.id != id }
-        val icons = if (apps.value.loaded) apps.value.home.map { it.x to it.y }.toSet()
-        else prefs.homeIcons.value.map { it.x to it.y }.toSet()
+        val icons = if (apps.value.loaded) apps.value.home.map { it.cell }.toSet()
+        else prefs.homeIcons.value.map { HomeCell(it.page, it.x, it.y) }.toSet()
+        val pageCount = maxOf(apps.value.pageCount, (widgets.map { it.page } + icons.map { it.page }).maxOrNull()?.plus(1) ?: 1)
         fun fits(w: HomeWidget, avoidIcons: Boolean) =
             w.x >= 0 && w.y >= 0 && w.x + w.spanX <= columns && w.y + w.spanY <= rows &&
-                widgets.none { it.overlaps(w) } && (!avoidIcons || w.cells().none { it in icons })
+                widgets.none { it.overlaps(w) } && (!avoidIcons || w.cells().none { (x, y) -> HomeCell(w.page, x, y) in icons })
+        fun place(w: HomeWidget): Int {
+            prefs.putHomeWidget(w)
+            return w.page
+        }
 
-        val startX = spanX.coerceIn(1, columns)
-        val startY = spanY.coerceIn(1, rows)
-        preferred?.let { (x, y) ->
-            val w = HomeWidget(id, x, y, startX, startY)
-            if (fits(w, avoidIcons = false)) {
-                prefs.putHomeWidget(w)
-                return true
-            }
+        val sx = spanX.coerceIn(1, columns)
+        val sy = spanY.coerceIn(1, rows)
+        preferred?.let { cell ->
+            val w = HomeWidget(id, cell.x, cell.y, sx, sy, cell.page.coerceAtLeast(0))
+            if (fits(w, avoidIcons = false)) return place(w)
         }
-        for (sy in startY downTo 1) for (sx in startX downTo 1) for (avoidIcons in listOf(true, false)) {
+        val first = (preferred?.page ?: homePage).coerceIn(0, pageCount)
+        for (page in (first until pageCount) + (0 until first)) {
             for (y in 0..rows - sy) for (x in 0..columns - sx) {
-                val w = HomeWidget(id, x, y, sx, sy)
-                if (fits(w, avoidIcons)) {
-                    prefs.putHomeWidget(w)
-                    return true
-                }
+                val w = HomeWidget(id, x, y, sx, sy, page)
+                if (fits(w, avoidIcons = true)) return place(w)
             }
         }
-        return false
+        return place(HomeWidget(id, 0, 0, sx, sy, pageCount))
     }
 
-    /** Déplace ou redimensionne un widget de l'accueil ; refusé s'il sort de la grille ou chevauche un autre widget. */
-    fun updateHomeWidget(widget: HomeWidget) {
+    /**
+     * Déplace (éventuellement vers une autre page) ou redimensionne un widget de l'accueil ;
+     * refusé s'il sort de la grille ou chevauche un autre widget. Retourne la page finale du
+     * widget (null si refusé ou inchangé).
+     */
+    fun updateHomeWidget(widget: HomeWidget): Int? {
         val s = settings.value
-        val ok = widget.x >= 0 && widget.y >= 0 && widget.spanX >= 1 && widget.spanY >= 1 &&
+        val ok = widget.page >= 0 && widget.x >= 0 && widget.y >= 0 && widget.spanX >= 1 && widget.spanY >= 1 &&
             widget.x + widget.spanX <= s.homeColumns && widget.y + widget.spanY <= s.homeRows &&
             apps.value.homeWidgets.none { it.id != widget.id && it.overlaps(widget) }
-        if (ok) prefs.putHomeWidget(widget)
-        else SystemActions.toast(context, "Pas de place : un autre widget occupe cette zone")
+        if (!ok) {
+            SystemActions.toast(context, "Pas de place : un autre widget occupe cette zone")
+            return null
+        }
+        if (apps.value.homeWidgets.any { it == widget }) return null
+        prefs.putHomeWidget(widget)
+        return compactPages()(widget.page)
+    }
+
+    /** Déplace un widget de l'accueil vers [to] (coin haut gauche), même page ou non. */
+    fun moveHomeWidget(id: Int, to: HomeCell): Int? {
+        val widget = apps.value.homeWidgets.firstOrNull { it.id == id } ?: return null
+        return updateHomeWidget(widget.copy(page = to.page, x = to.x, y = to.y))
     }
 
     fun removeHomeWidget(id: Int) {
         prefs.removeHomeWidget(id)
         WidgetHostManager.get(context).deleteId(id)
         _ui.update { it.copy(resizingWidget = null) }
+        compactPages()
     }
 
     /**
@@ -765,25 +849,19 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     /**
      * L'ancienne page des widgets n'existe plus : ses widgets passent sur la grille de
-     * l'accueil (même identifiant, rien à reconfigurer). Sans aucune place, le widget est supprimé.
+     * l'accueil (même identifiant, rien à reconfigurer), sur une nouvelle page s'il le faut.
      */
     private fun migrateWidgetsPage() {
         val slots = prefs.widgets.value
         if (slots.isEmpty()) return
         val host = WidgetHostManager.get(context)
-        var dropped = 0
         for (slot in slots) {
-            val onHome = prefs.homeWidgets.value.any { it.id == slot.id } || run {
+            if (prefs.homeWidgets.value.none { it.id == slot.id }) {
                 val (spanX, spanY) = host.info(slot.id)?.let(::defaultWidgetSpan) ?: (2 to 2)
                 addHomeWidget(slot.id, spanX, spanY)
             }
             prefs.removeWidget(slot.id)
-            if (!onHome) {
-                host.deleteId(slot.id)
-                dropped++
-            }
         }
-        if (dropped > 0) SystemActions.toast(context, "Plus de place sur l'accueil : $dropped widget(s) retiré(s)")
     }
 
     /**

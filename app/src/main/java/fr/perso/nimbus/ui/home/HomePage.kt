@@ -7,6 +7,26 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import fr.perso.nimbus.data.HomeCell
+import fr.perso.nimbus.ui.DragItem
+import fr.perso.nimbus.ui.LocalHomeDrag
+import fr.perso.nimbus.ui.PageRequest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -78,28 +98,130 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Page principale : horloge, date, batterie, grille d'icônes, dock (favoris) et barre de recherche. */
+/** Zone contre le bord des pages où un élément glissé fait passer à la page voisine. */
+private val EDGE_ZONE = 32.dp
+
+/** Temps de maintien contre le bord avant de changer de page. */
+private const val EDGE_HOLD_MS = 450L
+
+/** Marge latérale de la grille dans chaque page (et de l'en-tête, du dock). */
+private val SIDE_PADDING = 12.dp
+
+/**
+ * Accueil : horloge, date et batterie en haut, pages d'icônes et de widgets (balayer à gauche
+ * ou à droite), dock (favoris) et barre de recherche en bas. Un élément glissé et tenu contre le
+ * bord des pages fait passer à la page voisine ; au bord droit de la dernière, une page vide
+ * s'ajoute. Les pages vidées disparaissent (la première reste toujours).
+ */
 @Composable
 fun HomePage(
     vm: LauncherViewModel,
     settings: LauncherSettings,
     apps: AppsState,
     resizingWidgetId: Int?,
+    pageRequest: PageRequest,
     onLongPress: (Offset) -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
     val badges by vm.badges.collectAsStateWithLifecycle()
     val swipeActions by vm.iconSwipeActions.collectAsStateWithLifecycle()
-    val current by rememberUpdatedState(settings)
-    val longPress by rememberUpdatedState(onLongPress)
     val doubleTapEnabled = settings.doubleTapAction != GestureAction.NONE
     val multiTouchEnabled = listOf(Gesture.TWO_FINGER_UP, Gesture.TWO_FINGER_DOWN, Gesture.PINCH_IN, Gesture.PINCH_OUT)
         .any { settings.actionFor(it) != GestureAction.NONE }
     val badgeDot = settings.badgeStyle == BadgeStyle.DOT
 
     val context = LocalContext.current
+    val density = LocalDensity.current
     val widgetHost = remember { WidgetHostManager.get(context) }
-    val resizingWidget by rememberUpdatedState(resizingWidgetId)
+    val drag = LocalHomeDrag.current
+
+    // Pages : celles qui ont du contenu, plus une page vide ajoutée pendant un glissé ([minPages]).
+    val dataPages by rememberUpdatedState(apps.pageCount)
+    var minPages by remember { mutableIntStateOf(0) }
+    val pagerState = rememberPagerState { maxOf(dataPages, minPages) }
+    val iconsByPage = remember(apps.home) { apps.home.groupBy { it.page } }
+    val widgetsByPage = remember(apps.homeWidgets) { apps.homeWidgets.groupBy { it.page } }
+
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.collect { page ->
+            vm.onHomePageShown(page)
+            vm.setResizingWidget(null)
+        }
+    }
+    LaunchedEffect(pageRequest) {
+        if (pageRequest.id == 0L) return@LaunchedEffect
+        // Page qui vient d'être créée : on attend qu'elle existe.
+        withTimeoutOrNull(1000) { snapshotFlow { pagerState.pageCount }.first { it > pageRequest.page } }
+        pagerState.animateScrollToPage(pageRequest.page)
+    }
+
+    // Lâcher : la page finale de l'élément (renumérotée si une page s'est vidée) est affichée
+    // une fois l'accueil recalculé ; la page vide ajoutée pendant le glissé disparaît alors.
+    var landing by remember { mutableStateOf<Landing?>(null) }
+    SideEffect {
+        drag.gridColumns = settings.homeColumns
+        drag.gridRows = settings.homeRows
+        drag.onDrop = { item, area ->
+            val page = pagerState.currentPage
+            val cell = area?.let { HomeCell(page, it.x, it.y) }
+            val landingPage = when (item) {
+                is DragItem.App -> when {
+                    item.from == null -> {
+                        vm.closeDrawer()
+                        if (cell != null) vm.dropOnHome(item.app, cell) else vm.addToHome(item.app, page)
+                    }
+                    cell != null -> vm.moveHomeIcon(item.app, cell)
+                    else -> null
+                }
+                is DragItem.Widget -> cell?.let { vm.moveHomeWidget(item.widget.id, it) }
+            }
+            landing = landingPage?.let { Landing(it, apps) }
+        }
+    }
+    val dragging = drag.item != null
+    LaunchedEffect(dragging, apps, landing) {
+        if (dragging) return@LaunchedEffect
+        val target = landing
+        if (target == null) {
+            minPages = 0
+            return@LaunchedEffect
+        }
+        // Accueil pas encore recalculé : on l'attend (l'effet repart dès qu'il arrive), sans
+        // attendre indéfiniment si rien n'a changé à l'écran.
+        if (apps === target.before) delay(500)
+        landing = null
+        minPages = 0
+        if (pagerState.currentPage != target.page) pagerState.scrollToPage(target.page)
+    }
+
+    // Doigt tenu contre un bord pendant un glissé : page voisine, ou nouvelle page à droite de
+    // la dernière (une seule page vide à la fois).
+    val edgePx = with(density) { EDGE_ZONE.toPx() }
+    val edge by remember { derivedStateOf { drag.edge(edgePx) } }
+    LaunchedEffect(edge) {
+        if (edge == 0) return@LaunchedEffect
+        while (true) {
+            delay(EDGE_HOLD_MS)
+            val target = pagerState.currentPage + edge
+            if (target < 0 || target > dataPages) break
+            if (target >= pagerState.pageCount) {
+                minPages = target + 1
+                snapshotFlow { pagerState.pageCount }.first { it > target }
+            }
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            pagerState.animateScrollToPage(target)
+        }
+    }
+
+    val backgroundGestures = Modifier.homeBackground(
+        doubleTapEnabled = doubleTapEnabled,
+        onTap = { if (resizingWidgetId != null) vm.setResizingWidget(null) },
+        onDoubleTap = { vm.onGesture(Gesture.DOUBLE_TAP) },
+        onLongPress = {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onLongPress(it)
+        },
+    )
 
     Box(
         Modifier
@@ -129,27 +251,14 @@ fun HomePage(
         // Calque de fond : double tap et appui long ne concernent que les zones vides. Posé
         // sous le contenu, il ne reçoit pas les touchers des icônes ni des widgets (un détecteur
         // de tap posé sur toute la page consommerait l'appui avant le widget, qui ne réagirait plus).
-        Box(
-            Modifier
-                .fillMaxSize()
-                // Sans action de double tap, on ne déclare pas le détecteur : il retarderait l'appui long.
-                .pointerInput(doubleTapEnabled) {
-                    detectTapGestures(
-                        onTap = { if (resizingWidget != null) vm.setResizingWidget(null) },
-                        onDoubleTap = if (doubleTapEnabled) { _ -> vm.onGesture(Gesture.DOUBLE_TAP) } else null,
-                        onLongPress = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            longPress(it)
-                        },
-                    )
-                },
-        )
+        // Les pages ont le leur : le défilement des pages recouvre celui-ci.
+        Box(Modifier.fillMaxSize().then(backgroundGestures))
 
         Column(
             Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
-                .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
+                .padding(bottom = 16.dp),
         ) {
             if (settings.showClock || settings.showBattery) {
                 Column(
@@ -166,56 +275,129 @@ fun HomePage(
                 }
             }
 
-            HomeGrid(
-                icons = apps.home,
-                widgets = apps.homeWidgets,
-                widgetHost = widgetHost,
-                resizingWidget = resizingWidgetId,
-                onResizeWidget = vm::setResizingWidget,
-                onUpdateWidget = vm::updateHomeWidget,
-                onRemoveWidget = vm::removeHomeWidget,
-                columns = settings.homeColumns,
-                rows = settings.homeRows,
-                iconSizeDp = settings.iconSize.dp,
-                showLabels = settings.homeShowLabels,
-                badges = badges,
-                badgeDot = badgeDot,
-                hasSwipeAction = { it.key in swipeActions },
-                onOpen = vm::launch,
-                onActions = vm::showAppPopup,
-                onMove = vm::moveHomeIcon,
-                onSwipeUp = { app -> vm.swipeTarget(app)?.let(vm::launch) },
+            HorizontalPager(
+                state = pagerState,
+                // Toutes les pages restent composées : un élément glissé garde son geste quand
+                // sa page sort de l'écran, et les widgets ne se recréent pas à chaque défilement.
+                beyondViewportPageCount = maxOf(1, pagerState.pageCount - 1),
+                userScrollEnabled = !dragging,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-            )
+                    .fillMaxWidth()
+                    .onGloballyPositioned { coords ->
+                        val bounds = coords.boundsInRoot()
+                        val side = with(density) { SIDE_PADDING.toPx() }
+                        drag.pagerBounds = bounds
+                        drag.gridBounds = Rect(bounds.left + side, bounds.top, bounds.right - side, bounds.bottom)
+                    },
+            ) { page ->
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().then(backgroundGestures))
+                    HomeGrid(
+                        page = page,
+                        isTarget = page == pagerState.currentPage,
+                        icons = iconsByPage[page].orEmpty(),
+                        widgets = widgetsByPage[page].orEmpty(),
+                        widgetHost = widgetHost,
+                        resizingWidget = resizingWidgetId,
+                        onResizeWidget = vm::setResizingWidget,
+                        onUpdateWidget = vm::updateHomeWidget,
+                        onRemoveWidget = vm::removeHomeWidget,
+                        columns = settings.homeColumns,
+                        rows = settings.homeRows,
+                        iconSizeDp = settings.iconSize.dp,
+                        showLabels = settings.homeShowLabels,
+                        badges = badges,
+                        badgeDot = badgeDot,
+                        hasSwipeAction = { it.key in swipeActions },
+                        onOpen = vm::launch,
+                        onActions = vm::showAppPopup,
+                        onSwipeUp = { app -> vm.swipeTarget(app)?.let(vm::launch) },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = SIDE_PADDING),
+                    )
+                }
+            }
 
-            if (apps.favorites.isNotEmpty()) {
-                Dock(
-                    favorites = apps.favorites,
-                    columns = settings.dockColumns,
-                    iconSizeDp = settings.iconSize.dp,
-                    showLabels = settings.showLabels,
-                    badges = badges,
-                    badgeDot = badgeDot,
-                    swipeActions = swipeActions,
-                    vm = vm,
-                )
-            } else if (apps.home.isEmpty() && apps.homeWidgets.isEmpty() && apps.loaded) {
-                WallpaperText(
-                    "Appui long sur une app du tiroir › Ajouter à l'accueil",
-                    fontSize = 13.sp,
+            if (pagerState.pageCount > 1) {
+                PageIndicator(
+                    count = pagerState.pageCount,
+                    current = pagerState.currentPage,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
-                        .padding(bottom = 16.dp),
+                        .padding(top = 6.dp),
                 )
             }
-            if (settings.showSearchBar) {
-                IconButton(onClick = { vm.openDrawer() }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Toutes les apps", tint = Color.White)
+
+            Column(Modifier.padding(horizontal = SIDE_PADDING)) {
+                if (apps.favorites.isNotEmpty()) {
+                    Dock(
+                        favorites = apps.favorites,
+                        columns = settings.dockColumns,
+                        iconSizeDp = settings.iconSize.dp,
+                        showLabels = settings.showLabels,
+                        badges = badges,
+                        badgeDot = badgeDot,
+                        swipeActions = swipeActions,
+                        vm = vm,
+                    )
+                } else if (apps.home.isEmpty() && apps.homeWidgets.isEmpty() && apps.loaded) {
+                    WallpaperText(
+                        "Appui long sur une app du tiroir › Ajouter à l'accueil",
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(bottom = 16.dp),
+                    )
                 }
-                SearchBar(onClick = { vm.openDrawer(focusSearch = true) })
+                if (settings.showSearchBar) {
+                    IconButton(onClick = { vm.openDrawer() }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Toutes les apps", tint = Color.White)
+                    }
+                    SearchBar(onClick = { vm.openDrawer(focusSearch = true) })
+                }
             }
+        }
+    }
+}
+
+/** Page où afficher l'élément qui vient d'être lâché, et l'accueil tel qu'il était avant. */
+private class Landing(val page: Int, val before: AppsState)
+
+/**
+ * Gestes du fond (zones vides) : tap, double tap, appui long. Sans action de double tap, le
+ * double tap n'est pas déclaré : il retarderait l'appui long.
+ */
+private fun Modifier.homeBackground(
+    doubleTapEnabled: Boolean,
+    onTap: () -> Unit,
+    onDoubleTap: () -> Unit,
+    onLongPress: (Offset) -> Unit,
+): Modifier = composed {
+    val tap by rememberUpdatedState(onTap)
+    val doubleTap by rememberUpdatedState(onDoubleTap)
+    val longPress by rememberUpdatedState(onLongPress)
+    pointerInput(doubleTapEnabled) {
+        detectTapGestures(
+            onTap = { tap() },
+            onDoubleTap = if (doubleTapEnabled) { _ -> doubleTap() } else null,
+            onLongPress = { longPress(it) },
+        )
+    }
+}
+
+/** Points sous les pages : la page affichée est le plus gros. */
+@Composable
+private fun PageIndicator(count: Int, current: Int, modifier: Modifier = Modifier) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        repeat(count) { i ->
+            val selected = i == current
+            Box(
+                Modifier
+                    .size(if (selected) 8.dp else 6.dp)
+                    .background(Color.White.copy(alpha = if (selected) 0.95f else 0.5f), CircleShape),
+            )
         }
     }
 }

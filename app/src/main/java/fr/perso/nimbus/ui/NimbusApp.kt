@@ -56,15 +56,11 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     // n'est utilisé que si aucun écran au-dessus n'intercepte le geste.
     BackHandler {}
 
-    // Glisser-déposer tiroir -> accueil : lâché sur une case, ou ailleurs (première case libre).
-    val appDrag = remember { AppDragState() }
-    appDrag.onDrop = { app, cell ->
-        if (cell != null) vm.dropOnHome(app, cell.first, cell.second) else vm.addToHome(app)
-        vm.closeDrawer()
-    }
+    // Glisser-déposer sur l'accueil (icônes, widgets, apps du tiroir) : le lâcher est géré par l'accueil.
+    val homeDrag = remember { HomeDragState() }
 
     NimbusTheme(mode = settings.themeMode, wallpaperColor = wallpaperColor) {
-        CompositionLocalProvider(LocalAppDrag provides appDrag) {
+        CompositionLocalProvider(LocalHomeDrag provides homeDrag) {
             // Couleurs des icônes à thème, à la manière du Pixel : fond pastel / motif accentué.
             val scheme = MaterialTheme.colorScheme
             val themedBackground = if (dark) scheme.surfaceContainerHighest else scheme.primaryContainer
@@ -139,7 +135,7 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                     )
                 }
 
-                AppDragLayer(appDrag, settings.iconSize.dp)
+                HomeDragLayer(homeDrag, settings.iconSize.dp)
 
                 if (ui.widgetPickerOpen) {
                     WidgetPicker(

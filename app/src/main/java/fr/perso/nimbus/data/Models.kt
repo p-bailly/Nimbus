@@ -186,14 +186,18 @@ data class LauncherSettings(
     }
 }
 
-/** Une icône posée sur la grille de l'accueil, en colonne [x] et ligne [y]. */
-data class HomeIcon(val key: String, val x: Int, val y: Int)
+/** Une case de l'accueil : page (0 = première), colonne, ligne. */
+data class HomeCell(val page: Int, val x: Int, val y: Int)
 
-/** Un widget posé sur la grille de l'accueil : case en haut à gauche ([x], [y]) et taille en cases. */
-data class HomeWidget(val id: Int, val x: Int, val y: Int, val spanX: Int, val spanY: Int) {
+/** Une icône posée sur la grille de l'accueil, en colonne [x] et ligne [y] de la page [page]. */
+data class HomeIcon(val key: String, val x: Int, val y: Int, val page: Int = 0)
+
+/** Un widget posé sur la grille de l'accueil : case en haut à gauche ([x], [y]), taille en cases, page. */
+data class HomeWidget(val id: Int, val x: Int, val y: Int, val spanX: Int, val spanY: Int, val page: Int = 0) {
+    /** Cases couvertes, sur sa page. */
     fun cells(): List<Pair<Int, Int>> = (y until y + spanY).flatMap { row -> (x until x + spanX).map { it to row } }
 
-    fun overlaps(other: HomeWidget): Boolean =
+    fun overlaps(other: HomeWidget): Boolean = page == other.page &&
         x < other.x + other.spanX && other.x < x + spanX && y < other.y + other.spanY && other.y < y + spanY
 }
 

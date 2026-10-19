@@ -1,5 +1,6 @@
 package fr.perso.nimbus.ui.home
 
+import android.view.View
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -21,7 +22,8 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -35,10 +37,10 @@ import kotlin.math.roundToInt
 
 /**
  * Affiche le widget [id]. Sa taille est transmise au widget une fois stabilisée
- * (pas à chaque image d'un redimensionnement).
+ * (pas à chaque image d'un redimensionnement). [onView] reçoit la vue créée (capture d'image).
  */
 @Composable
-fun HostedWidget(id: Int, host: WidgetHostManager, modifier: Modifier = Modifier) {
+fun HostedWidget(id: Int, host: WidgetHostManager, modifier: Modifier = Modifier, onView: (View) -> Unit = {}) {
     val density = LocalDensity.current
     val info = remember(id) { host.info(id) }
     var viewSize by remember { mutableStateOf(IntSize.Zero) }
@@ -62,32 +64,38 @@ fun HostedWidget(id: Int, host: WidgetHostManager, modifier: Modifier = Modifier
         }
     } else {
         AndroidView(
-            factory = { ctx -> host.createView(ctx, id) ?: FrameLayout(ctx) },
+            factory = { ctx -> (host.createView(ctx, id) ?: FrameLayout(ctx)).also(onView) },
             modifier = modifier.onSizeChanged { viewSize = it },
         )
     }
 }
 
 /**
- * Gestes d'un widget, sans lui voler ses touchers : un widget (vue Android) ne reçoit les
- * événements qu'en dernier, et seulement s'ils n'ont pas été consommés avant. Rien n'est donc
- * consommé tant que l'appui long n'a pas eu lieu.
- * - appui long sans bouger -> [onMenu] (position du doigt, locale) ;
- * - appui long puis glisser -> [onDrag] (déplacement cumulé) puis [onDragEnd] au lâcher.
- * Après l'appui long tout est consommé : le widget reçoit une annulation, pas un clic.
+ * Appui long puis glisser, sans voler les touchers : rien n'est consommé avant l'appui long
+ * (un widget, vue Android, ne reçoit les événements qu'en dernier et seulement s'ils n'ont pas
+ * été consommés avant ; le tap d'une icône reste à son propre détecteur). Ensuite :
+ * - lâché sans bouger -> [onLongPress] (position locale du doigt) ;
+ * - glissé -> [onDragStart] (position locale du doigt au départ, et dans la fenêtre), [onDrag]
+ *   (position du doigt dans la fenêtre, juste même quand la page défile sous le doigt), puis
+ *   [onDragEnd] au lâcher ou [onDragCancel].
+ * Après l'appui long tout est consommé : un widget reçoit une annulation, pas un clic.
  */
-fun Modifier.widgetGestures(
-    onMenu: (Offset) -> Unit,
+fun Modifier.longPressDrag(
+    onLongPress: (Offset) -> Unit,
+    onDragStart: (local: Offset, root: Offset) -> Unit,
     onDrag: (Offset) -> Unit,
-    onDragEnd: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
 ): Modifier = composed {
-    val menu by rememberUpdatedState(onMenu)
+    val longPress by rememberUpdatedState(onLongPress)
+    val start by rememberUpdatedState(onDragStart)
     val move by rememberUpdatedState(onDrag)
     val end by rememberUpdatedState(onDragEnd)
     val cancel by rememberUpdatedState(onDragCancel)
     val haptics = LocalHapticFeedback.current
-    pointerInput(Unit) {
+    // Coordonnées de l'élément, pour situer le doigt dans la fenêtre.
+    val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    onGloballyPositioned { coords[0] = it }.pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             val slop = viewConfiguration.touchSlop
@@ -105,26 +113,28 @@ fun Modifier.widgetGestures(
             }
             if (cancelled != null) return@awaitEachGesture
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            val press = down
-            var total = Offset.Zero
             var dragging = false
+            fun root(local: Offset): Offset? = coords[0]?.takeIf { it.isAttached }?.localToRoot(local)
             val released = try {
-                drag(press.id) { change ->
-                    total += change.positionChange()
+                drag(down.id) { change ->
                     change.consume()
-                    if (!dragging && total.getDistance() > slop) dragging = true
-                    if (dragging) move(total)
+                    if (!dragging && (change.position - down.position).getDistance() > slop) {
+                        val at = root(down.position) ?: return@drag
+                        dragging = true
+                        start(down.position, at)
+                    }
+                    if (dragging) root(change.position)?.let(move)
                 }
             } catch (e: CancellationException) {
-                // Geste interrompu en plein glissé : le widget ne doit pas rester décalé.
+                // Geste interrompu en plein glissé : l'élément revient à sa place.
                 if (dragging) cancel()
                 throw e
             }
             currentEvent.changes.forEach { it.consume() }
             when {
                 !released -> if (dragging) cancel()
-                dragging -> end(total)
-                else -> menu(press.position)
+                dragging -> end()
+                else -> longPress(down.position)
             }
         }
     }

@@ -55,7 +55,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.perso.nimbus.data.AppEntry
-import fr.perso.nimbus.ui.LocalAppDrag
+import fr.perso.nimbus.ui.DragItem
+import fr.perso.nimbus.ui.LocalHomeDrag
 
 /** Ombre portée des textes posés directement sur le fond d'écran. */
 val WallpaperTextShadow = Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 2f), blurRadius = 8f)
@@ -125,7 +126,7 @@ fun DrawerAppIcon(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHapticFeedback.current
-    val appDrag = LocalAppDrag.current
+    val homeDrag = LocalHomeDrag.current
     val current by rememberUpdatedState(app)
     val click by rememberUpdatedState(onClick)
     val longClick by rememberUpdatedState(onLongClick)
@@ -158,16 +159,16 @@ fun DrawerAppIcon(
                         val c = coords
                         if (!dragging && canDrag && c != null && total.getDistance() > slop) {
                             dragging = true
-                            appDrag.start(current, c.localToRoot(change.position))
+                            homeDrag.start(DragItem.App(current, from = null), c.localToRoot(change.position))
                         }
-                        if (dragging && c != null) appDrag.position = c.localToRoot(change.position)
+                        if (dragging && c != null) homeDrag.position = c.localToRoot(change.position)
                     },
                     onDragEnd = {
-                        if (dragging) appDrag.drop() else longClick(coords?.boundsInWindow() ?: Rect.Zero)
+                        if (dragging) homeDrag.drop() else longClick(coords?.boundsInWindow() ?: Rect.Zero)
                         dragging = false
                     },
                     onDragCancel = {
-                        if (dragging) appDrag.cancel()
+                        if (dragging) homeDrag.cancel()
                         dragging = false
                     },
                 )

@@ -21,6 +21,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.HomeCell
 import fr.perso.nimbus.data.HomeWidget
 import fr.perso.nimbus.data.PendingWidget
 import fr.perso.nimbus.service.SystemActions
@@ -141,26 +142,28 @@ class MainActivity : ComponentActivity(), LauncherHost {
         outState.putInt(KEY_PENDING_WIDGET, pendingWidgetId)
         // Choix d'icône et widgets en attente survivent à une recréation (passage en mode sombre…).
         outState.putString(KEY_ICON_TARGET, iconTargetKey)
-        outState.putIntArray(KEY_PENDING_PLACEMENT, pendingWidgetPlacement?.let { intArrayOf(it.x, it.y, it.spanX, it.spanY) })
+        outState.putIntArray(KEY_PENDING_PLACEMENT, pendingWidgetPlacement?.let { intArrayOf(it.x, it.y, it.spanX, it.spanY, it.page) })
         outState.putIntArray(
             KEY_QUEUE_HOME,
             widgetQueue.flatMap { w -> w.home?.let { listOf(it.x, it.y, it.spanX, it.spanY) } ?: listOf(-1, -1, -1, -1) }.toIntArray(),
         )
+        outState.putIntArray(KEY_QUEUE_PAGES, widgetQueue.map { it.home?.page ?: 0 }.toIntArray())
         outState.putStringArrayList(KEY_QUEUE_PROVIDERS, ArrayList(widgetQueue.map { it.provider }))
     }
 
     private fun restoreTransientState(state: Bundle) {
         iconTargetKey = state.getString(KEY_ICON_TARGET)
-        pendingWidgetPlacement = state.getIntArray(KEY_PENDING_PLACEMENT)?.takeIf { it.size == 4 }
-            ?.let { HomeWidget(0, it[0], it[1], it[2], it[3]) }
+        pendingWidgetPlacement = state.getIntArray(KEY_PENDING_PLACEMENT)?.takeIf { it.size >= 4 }
+            ?.let { HomeWidget(0, it[0], it[1], it[2], it[3], it.getOrElse(4) { 0 }) }
         val homes = state.getIntArray(KEY_QUEUE_HOME) ?: IntArray(0)
+        val pages = state.getIntArray(KEY_QUEUE_PAGES) ?: IntArray(0)
         val providers = state.getStringArrayList(KEY_QUEUE_PROVIDERS).orEmpty()
         providers.forEachIndexed { i, provider ->
             widgetQueue.add(
                 PendingWidget(
                     provider,
                     home = homes.getOrNull(i * 4 + 2)?.takeIf { it > 0 }?.let {
-                        HomeWidget(0, homes[i * 4], homes[i * 4 + 1], homes[i * 4 + 2], homes[i * 4 + 3])
+                        HomeWidget(0, homes[i * 4], homes[i * 4 + 1], homes[i * 4 + 2], homes[i * 4 + 3], pages.getOrElse(i) { 0 })
                     },
                 )
             )
@@ -374,14 +377,16 @@ class MainActivity : ComponentActivity(), LauncherHost {
         if (resultCode == RESULT_OK && info != null) commitWidget(id, info) else cancelWidget(id)
     }
 
-    /** Étape 3 : poser le widget sur la grille de l'accueil (à sa place d'origine après un import, si elle est libre). */
+    /**
+     * Étape 3 : poser le widget sur la grille de l'accueil (à sa place d'origine après un import,
+     * si elle est libre ; sinon dans un espace libre, au besoin sur une nouvelle page), puis
+     * afficher sa page.
+     */
     private fun commitWidget(id: Int, info: AppWidgetProviderInfo) {
         val placement = pendingWidgetPlacement
         val (spanX, spanY) = placement?.let { it.spanX to it.spanY } ?: viewModel.defaultWidgetSpan(info)
-        if (!viewModel.addHomeWidget(id, spanX, spanY, placement?.let { it.x to it.y })) {
-            widgetHost.deleteId(id)
-            SystemActions.toast(this, "Plus de place sur l'accueil pour ce widget (agrandis la grille dans les paramètres)")
-        }
+        val page = viewModel.addHomeWidget(id, spanX, spanY, placement?.let { HomeCell(it.page, it.x, it.y) })
+        viewModel.showHomePage(page)
         clearPendingWidget()
         addNextQueuedWidget()
     }
@@ -402,6 +407,7 @@ class MainActivity : ComponentActivity(), LauncherHost {
         const val KEY_ICON_TARGET = "iconTargetKey"
         const val KEY_QUEUE_PROVIDERS = "widgetQueueProviders"
         const val KEY_QUEUE_HOME = "widgetQueueHome"
+        const val KEY_QUEUE_PAGES = "widgetQueuePages"
         const val KEY_PENDING_PLACEMENT = "pendingWidgetPlacement"
         const val REQUEST_CONFIGURE_WIDGET = 42
         const val MAX_IMPORT_BYTES = 64 * 1024 * 1024

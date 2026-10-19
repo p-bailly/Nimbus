@@ -14,7 +14,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -312,7 +311,11 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                         Spacer(Modifier.width(24.dp))
                         Column(Modifier.weight(1f)) {
                             Text(label, fontSize = 18.sp)
-                            Text("${widget.spanX} × ${widget.spanY} cases", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "Page ${widget.page + 1} · ${widget.spanX} × ${widget.spanY} cases",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         TextButton(onClick = { vm.removeHomeWidget(widget.id) }) {
                             Text("Supprimer", color = MaterialTheme.colorScheme.error)

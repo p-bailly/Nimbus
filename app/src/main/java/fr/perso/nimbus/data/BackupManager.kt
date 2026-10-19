@@ -48,7 +48,7 @@ class BackupManager(context: Context, private val prefs: Prefs) {
             val info = host.info(w.id) ?: continue
             widgets.put(
                 JSONObject().put("provider", info.provider.flattenToString())
-                    .put("home", JSONArray(listOf(w.x, w.y, w.spanX, w.spanY))),
+                    .put("home", JSONArray(listOf(w.x, w.y, w.spanX, w.spanY, w.page))),
             )
         }
         root.put("widgets", widgets)
@@ -90,8 +90,8 @@ class BackupManager(context: Context, private val prefs: Prefs) {
             for (i in 0 until array.length()) {
                 val o = array.optJSONObject(i) ?: continue
                 val provider = o.optString("provider").takeIf { it.isNotBlank() } ?: continue
-                val home = o.optJSONArray("home")?.takeIf { it.length() == 4 }?.let { a ->
-                    HomeWidget(0, a.optInt(0), a.optInt(1), a.optInt(2).coerceAtLeast(1), a.optInt(3).coerceAtLeast(1))
+                val home = o.optJSONArray("home")?.takeIf { it.length() == 4 || it.length() == 5 }?.let { a ->
+                    HomeWidget(0, a.optInt(0), a.optInt(1), a.optInt(2).coerceAtLeast(1), a.optInt(3).coerceAtLeast(1), a.optInt(4).coerceAtLeast(0))
                 }
                 widgets.add(PendingWidget(provider, heightDp = o.optInt("heightDp").takeIf { it > 0 }, home = home))
             }

@@ -361,10 +361,13 @@ object SmartLauncherImport {
         val rows = (grid?.optInt("rows", 6) ?: 6).coerceIn(3, 14)
         val dockVisible = grid?.optJSONObject("dockSettings")?.optBoolean("show", true) ?: true
 
-        // Accueil : page 1 à sa place, puis le reste (autres pages, dossiers, collisions) dans les cases libres.
+        // Accueil : chaque page Smart Launcher devient une page Nimbus (dans l'ordre, sans trou),
+        // icônes à leur place ; le reste (dossiers, collisions, hors grille) dans les cases libres.
+        val pageOf = (backup.home.orEmpty().mapNotNull { it.screen } + backup.widgets.map { it.screen })
+            .filter { it >= 0 }.distinct().sorted().withIndex().associate { (i, screen) -> screen to i }
         val homeIcons = LinkedHashMap<String, HomeIcon>()
         var duplicates = 0
-        val taken = HashSet<Pair<Int, Int>>()
+        val taken = HashSet<HomeCell>()
         val leftovers = ArrayList<String>()
         val customLabels = LinkedHashMap<String, String>()
         val customIcons = LinkedHashMap<String, ByteArray>()
@@ -378,19 +381,23 @@ object SmartLauncherImport {
                 duplicates++
                 continue
             }
-            val cell = item.x to item.y
-            if (item.screen == 0 && item.x in 0 until columns && item.y in 0 until rows && cell !in taken) {
-                homeIcons[key] = HomeIcon(key, item.x, item.y)
+            val page = item.screen?.let { pageOf[it] }
+            val cell = HomeCell(page ?: 0, item.x, item.y)
+            if (page != null && item.x in 0 until columns && item.y in 0 until rows && cell !in taken) {
+                homeIcons[key] = HomeIcon(key, item.x, item.y, page)
                 taken.add(cell)
             } else {
                 leftovers.add(key)
             }
         }
-        val free = (0 until rows).flatMap { y -> (0 until columns).map { x -> x to y } }.filter { it !in taken }.iterator()
+        // Cases libres de la première page, puis des suivantes (nouvelles pages au besoin).
+        val free = generateSequence(0) { it + 1 }
+            .flatMap { page -> (0 until rows).asSequence().flatMap { y -> (0 until columns).asSequence().map { x -> HomeCell(page, x, y) } } }
+            .filter { it !in taken }
+            .iterator()
         for (key in leftovers) {
-            if (!free.hasNext()) break
-            val (x, y) = free.next()
-            homeIcons[key] = HomeIcon(key, x, y)
+            val cell = free.next()
+            homeIcons[key] = HomeIcon(key, cell.x, cell.y, cell.page)
         }
 
         // Tiroir : catégories, apps masquées, compteurs d'utilisation.
@@ -429,18 +436,15 @@ object SmartLauncherImport {
             usage = if (backup.drawer != null) usage else null,
             customLabels = customLabels,
             customIcons = customIcons,
-            // Page 1 de Smart Launcher -> même place sur l'accueil ; autres pages -> première place libre.
+            // Même page et même place que dans Smart Launcher.
             widgets = backup.widgets.map { w ->
-                if (w.screen == 0) {
-                    val spanX = w.spanX.coerceIn(1, columns)
-                    val spanY = w.spanY.coerceIn(1, rows)
-                    PendingWidget(
-                        w.provider,
-                        home = HomeWidget(0, w.x.coerceIn(0, columns - spanX), w.y.coerceIn(0, rows - spanY), spanX, spanY),
-                    )
-                } else {
-                    PendingWidget(w.provider, heightFraction = w.spanY.toFloat() / rows)
-                }
+                val spanX = w.spanX.coerceIn(1, columns)
+                val spanY = w.spanY.coerceIn(1, rows)
+                val page = pageOf[w.screen] ?: 0
+                PendingWidget(
+                    w.provider,
+                    home = HomeWidget(0, w.x.coerceIn(0, columns - spanX), w.y.coerceIn(0, rows - spanY), spanX, spanY, page),
+                )
             },
             unresolved = unresolved,
             duplicates = duplicates,
