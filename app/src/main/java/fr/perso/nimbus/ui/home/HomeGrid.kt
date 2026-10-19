@@ -7,22 +7,21 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -34,18 +33,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import fr.perso.nimbus.R
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.HomeWidget
 import fr.perso.nimbus.ui.LocalAppDrag
@@ -53,6 +57,7 @@ import fr.perso.nimbus.ui.PlacedIcon
 import fr.perso.nimbus.ui.components.AppIconContent
 import fr.perso.nimbus.ui.components.swipeUp
 import fr.perso.nimbus.widgets.WidgetHostManager
+import kotlinx.coroutines.delay
 import kotlin.math.floor
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -74,6 +79,7 @@ fun HomeGrid(
     onResizeWidget: (Int?) -> Unit,
     onUpdateWidget: (HomeWidget) -> Unit,
     onRemoveWidget: (Int) -> Unit,
+    onMoveWidgetToPage: (Int, Int) -> Unit,
     columns: Int,
     rows: Int,
     iconSizeDp: Int,
@@ -82,7 +88,7 @@ fun HomeGrid(
     badgeDot: Boolean,
     hasSwipeAction: (AppEntry) -> Boolean,
     onOpen: (AppEntry) -> Unit,
-    onActions: (AppEntry) -> Unit,
+    onActions: (AppEntry, Rect) -> Unit,
     onMove: (AppEntry, Int, Int) -> Unit,
     onSwipeUp: (AppEntry) -> Unit,
     modifier: Modifier = Modifier,
@@ -107,6 +113,8 @@ fun HomeGrid(
         var dragOffset by remember { mutableStateOf(Offset.Zero) }
         var target by remember { mutableStateOf<Pair<Int, Int>?>(null) }
 
+        // Widget tenu contre le bord droit : il va passer sur la page widgets.
+        var edgeHover by remember { mutableStateOf(false) }
         for (widget in widgets) {
             key("widget:${widget.id}") {
                 HomeWidgetCell(
@@ -122,9 +130,12 @@ fun HomeGrid(
                     onUpdate = onUpdateWidget,
                     onResize = { onResizeWidget(widget.id) },
                     onRemove = { onRemoveWidget(widget.id) },
+                    onEdge = { edgeHover = it == 1 },
+                    onMoveToPage = { onMoveWidgetToPage(widget.id, (cellH * widget.spanY).value.roundToInt()) },
                 )
             }
         }
+        if (edgeHover) EdgeIndicator(toRight = true, modifier = Modifier.align(Alignment.CenterEnd))
 
         // Case visée par une app glissée depuis le tiroir.
         DrawerDropTarget(cellW, cellH)
@@ -135,6 +146,7 @@ fun HomeGrid(
             key(icon.app.key) {
                 val current by rememberUpdatedState(icon)
                 val isDragging = dragging == icon.app.key
+                var iconCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
                 fun cellUnderFinger(): Pair<Int, Int> {
                     val cx = (current.x + 0.5f) * cellWPx + dragOffset.x
@@ -148,6 +160,7 @@ fun HomeGrid(
                     modifier = Modifier
                         .offset(cellW * icon.x, cellH * icon.y)
                         .size(cellW, cellH)
+                        .onGloballyPositioned { iconCoords = it }
                         .zIndex(if (isDragging) 1f else 0f)
                         // Ordre important : le déplacement (dernier) voit les événements en premier.
                         .pointerInput(Unit) { detectTapGestures(onTap = { onOpen(current.app) }) }
@@ -167,7 +180,7 @@ fun HomeGrid(
                                 },
                                 onDragEnd = {
                                     if (dragOffset.getDistance() <= slop) {
-                                        onActions(current.app)
+                                        onActions(current.app, iconCoords?.boundsInWindow() ?: Rect.Zero)
                                     } else {
                                         val (x, y) = cellUnderFinger()
                                         if (x != current.x || y != current.y) onMove(current.app, x, y)
@@ -214,6 +227,26 @@ private fun DrawerDropTarget(cellW: Dp, cellH: Dp) {
     LocalAppDrag.current.hoveredCell()?.let { (x, y) -> DropTarget(x, y, 1, 1, cellW, cellH) }
 }
 
+/** Bande lumineuse contre le bord de l'écran : lâcher ou maintenir ici change le widget de page. */
+@Composable
+fun EdgeIndicator(toRight: Boolean, modifier: Modifier = Modifier) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .zIndex(4f)
+            .fillMaxHeight(0.6f)
+            .width(28.dp)
+            .background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(14.dp)),
+    ) {
+        Icon(
+            painterResource(R.drawable.ms_chevron_right),
+            contentDescription = if (toRight) "Vers la page widgets" else "Vers l'accueil",
+            tint = Color.White,
+            modifier = Modifier.graphicsLayer { if (!toRight) rotationZ = 180f },
+        )
+    }
+}
+
 /** Zone visée par un déplacement : fond translucide, sans contour. */
 @Composable
 private fun DropTarget(x: Int, y: Int, spanX: Int, spanY: Int, cellW: Dp, cellH: Dp) {
@@ -246,9 +279,22 @@ private fun HomeWidgetCell(
     onUpdate: (HomeWidget) -> Unit,
     onResize: () -> Unit,
     onRemove: () -> Unit,
+    onEdge: (Int) -> Unit,
+    onMoveToPage: () -> Unit,
 ) {
     val current by rememberUpdatedState(widget)
     val update by rememberUpdatedState(onUpdate)
+    val haptics = LocalHapticFeedback.current
+    // Tenu contre le bord droit : passage sur la page widgets après un court maintien.
+    var atRightEdge by remember { mutableStateOf(false) }
+    LaunchedEffect(atRightEdge) {
+        if (atRightEdge) {
+            delay(EDGE_HOLD_MS)
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onEdge(0)
+            onMoveToPage()
+        }
+    }
     // Position / taille visée pendant un glissé (null hors glissé).
     var preview by remember { mutableStateOf<HomeWidget?>(null) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
@@ -285,6 +331,10 @@ private fun HomeWidgetCell(
                 onDragCancel = {
                     dragOffset = Offset.Zero
                     preview = null
+                },
+                onEdge = { edge ->
+                    atRightEdge = edge == 1
+                    onEdge(edge)
                 },
             ),
     ) {
@@ -368,22 +418,28 @@ fun WidgetMenu(
     onRemove: () -> Unit,
     onToHome: (() -> Unit)? = null,
 ) {
-    DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
+    DropdownMenu(
+        expanded = true,
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shadowElevation = 8.dp,
+    ) {
         DropdownMenuItem(
             text = { Text("Redimensionner") },
-            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+            leadingIcon = { Icon(painterResource(R.drawable.ms_open_in_full), contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
             onClick = onResize,
         )
         if (onToHome != null) {
             DropdownMenuItem(
                 text = { Text("Mettre sur l'accueil") },
-                leadingIcon = { Icon(Icons.Default.Home, contentDescription = null) },
+                leadingIcon = { Icon(painterResource(R.drawable.ms_add_to_home_screen), contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 onClick = onToHome,
             )
         }
         DropdownMenuItem(
             text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
-            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            leadingIcon = { Icon(painterResource(R.drawable.ms_delete), contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             onClick = onRemove,
         )
     }

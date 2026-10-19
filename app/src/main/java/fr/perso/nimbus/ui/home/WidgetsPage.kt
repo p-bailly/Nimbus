@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -62,6 +63,7 @@ import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.WidgetTarget
 import fr.perso.nimbus.ui.components.WallpaperTextShadow
 import fr.perso.nimbus.widgets.WidgetHostManager
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 private const val MIN_HEIGHT_DP = 60f
@@ -88,7 +90,9 @@ fun WidgetsPage(
     // Position (haut, hauteur) de chaque widget, pour savoir où il atterrit quand on le glisse.
     val bounds = remember { mutableStateMapOf<Int, Pair<Float, Float>>() }
     var dragging by remember { mutableStateOf<Int?>(null) }
-    var dragDy by remember { mutableFloatStateOf(0f) }
+    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    // Widget tenu contre le bord gauche : il va passer sur l'accueil.
+    var edgeHover by remember { mutableStateOf(false) }
 
     fun reorder(id: Int, dy: Float) {
         val (top, height) = bounds[id] ?: return
@@ -170,21 +174,22 @@ fun WidgetsPage(
                                 slot = slot,
                                 host = host,
                                 resizing = resizingWidget == slot.id,
-                                dragDy = if (dragging == slot.id) dragDy else 0f,
+                                dragOffset = if (dragging == slot.id) dragOffset else Offset.Zero,
                                 onPositioned = { top, height -> bounds[slot.id] = top to height },
-                                onDrag = { dy ->
+                                onDrag = { total ->
                                     dragging = slot.id
-                                    dragDy = dy
+                                    dragOffset = total
                                 },
-                                onDragEnd = { dy ->
-                                    reorder(slot.id, dy)
+                                onDragEnd = { total ->
+                                    reorder(slot.id, total.y)
                                     dragging = null
-                                    dragDy = 0f
+                                    dragOffset = Offset.Zero
                                 },
                                 onDragCancel = {
                                     dragging = null
-                                    dragDy = 0f
+                                    dragOffset = Offset.Zero
                                 },
+                                onEdge = { edgeHover = it == -1 },
                                 onStartResize = { vm.setResizingWidget(slot.id) },
                                 onResize = { vm.resizeWidget(slot.id, it) },
                                 onToHome = { vm.moveWidgetToHome(slot.id) },
@@ -194,6 +199,15 @@ fun WidgetsPage(
                     }
                 }
             }
+        }
+
+        if (edgeHover) {
+            EdgeIndicator(
+                toRight = false,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 4.dp),
+            )
         }
     }
 }
@@ -214,11 +228,12 @@ private fun WidgetItem(
     slot: WidgetSlot,
     host: WidgetHostManager,
     resizing: Boolean,
-    dragDy: Float,
+    dragOffset: Offset,
     onPositioned: (Float, Float) -> Unit,
-    onDrag: (Float) -> Unit,
-    onDragEnd: (Float) -> Unit,
+    onDrag: (Offset) -> Unit,
+    onDragEnd: (Offset) -> Unit,
     onDragCancel: () -> Unit,
+    onEdge: (Int) -> Unit,
     onStartResize: () -> Unit,
     onResize: (Int) -> Unit,
     onToHome: () -> Unit,
@@ -230,12 +245,23 @@ private fun WidgetItem(
     val heightDp = (slot.heightDp + resizeDp).coerceIn(MIN_HEIGHT_DP, MAX_HEIGHT_DP)
     val resize by rememberUpdatedState(onResize)
     var menuAt by remember { mutableStateOf<Offset?>(null) }
+    val haptics = LocalHapticFeedback.current
+    // Tenu contre le bord gauche : passage sur l'accueil après un court maintien.
+    var atLeftEdge by remember { mutableStateOf(false) }
+    LaunchedEffect(atLeftEdge) {
+        if (atLeftEdge) {
+            delay(EDGE_HOLD_MS)
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            onEdge(0)
+            onToHome()
+        }
+    }
 
     Box(
         Modifier
             .fillMaxWidth()
             .height(heightDp.dp)
-            .zIndex(if (dragDy != 0f) 1f else 0f)
+            .zIndex(if (dragOffset != Offset.Zero) 1f else 0f)
             .onGloballyPositioned { coords ->
                 val b = coords.boundsInRoot()
                 onPositioned(b.top, b.height)
@@ -243,17 +269,22 @@ private fun WidgetItem(
             // Gestes sur la boîte fixe ; seul le contenu suit le doigt.
             .widgetGestures(
                 onMenu = { menuAt = it },
-                onDrag = { onDrag(it.y) },
-                onDragEnd = { onDragEnd(it.y) },
+                onDrag = onDrag,
+                onDragEnd = onDragEnd,
                 onDragCancel = onDragCancel,
+                onEdge = { edge ->
+                    atLeftEdge = edge == -1
+                    onEdge(edge)
+                },
             ),
     ) {
         Box(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    translationY = dragDy
-                    if (dragDy != 0f) {
+                    translationX = dragOffset.x
+                    translationY = dragOffset.y
+                    if (dragOffset != Offset.Zero) {
                         scaleX = 1.02f
                         scaleY = 1.02f
                         alpha = 0.9f

@@ -34,6 +34,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
@@ -42,6 +43,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.onLongClick
@@ -76,16 +78,18 @@ fun AppIcon(
     showLabel: Boolean,
     badgeCount: Int,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (Rect) -> Unit,
     modifier: Modifier = Modifier,
     onWallpaper: Boolean = false,
     badgeDot: Boolean = false,
     onSwipeUp: (() -> Unit)? = null,
 ) {
     val haptics = LocalHapticFeedback.current
+    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
+            .onGloballyPositioned { coords = it }
             .clip(RoundedCornerShape(16.dp))
             .combinedClickable(
                 onClickLabel = "Ouvrir ${app.label}",
@@ -93,7 +97,7 @@ fun AppIcon(
                 onClick = onClick,
                 onLongClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onLongClick()
+                    onLongClick(coords?.boundsInWindow() ?: Rect.Zero)
                 },
             )
             .then(if (onSwipeUp != null) Modifier.swipeUp(onSwipeUp) else Modifier)
@@ -117,7 +121,7 @@ fun DrawerAppIcon(
     badgeDot: Boolean,
     canDrag: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (Rect) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHapticFeedback.current
@@ -134,7 +138,7 @@ fun DrawerAppIcon(
             .onGloballyPositioned { coords = it }
             .semantics {
                 onClick(label = "Ouvrir ${app.label}") { click(); true }
-                onLongClick(label = "Actions pour ${app.label}") { longClick(); true }
+                onLongClick(label = "Actions pour ${app.label}") { longClick(coords?.boundsInWindow() ?: Rect.Zero); true }
             }
             // Ordre important : le glisser (dernier) voit les événements avant l'appui simple.
             .pointerInput(Unit) { detectTapGestures(onTap = { click() }) }
@@ -159,7 +163,7 @@ fun DrawerAppIcon(
                         if (dragging && c != null) appDrag.position = c.localToRoot(change.position)
                     },
                     onDragEnd = {
-                        if (dragging) appDrag.drop() else longClick()
+                        if (dragging) appDrag.drop() else longClick(coords?.boundsInWindow() ?: Rect.Zero)
                         dragging = false
                     },
                     onDragCancel = {

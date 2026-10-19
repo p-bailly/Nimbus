@@ -174,6 +174,7 @@ fun HomePage(
                 onResizeWidget = vm::setResizingWidget,
                 onUpdateWidget = vm::updateHomeWidget,
                 onRemoveWidget = vm::removeHomeWidget,
+                onMoveWidgetToPage = vm::moveHomeWidgetToPage,
                 columns = settings.homeColumns,
                 rows = settings.homeRows,
                 iconSizeDp = settings.iconSize.dp,
@@ -182,7 +183,7 @@ fun HomePage(
                 badgeDot = badgeDot,
                 hasSwipeAction = { it.key in swipeActions },
                 onOpen = vm::launch,
-                onActions = vm::showAppSheet,
+                onActions = vm::showAppPopup,
                 onMove = vm::moveHomeIcon,
                 onSwipeUp = { app -> vm.swipeTarget(app)?.let(vm::launch) },
                 modifier = Modifier
@@ -245,7 +246,7 @@ private fun Dock(
                                 badgeCount = badges[app.packageName] ?: 0,
                                 badgeDot = badgeDot,
                                 onClick = { vm.launch(app) },
-                                onLongClick = { vm.showAppSheet(app) },
+                                onLongClick = { anchor -> vm.showAppPopup(app, anchor) },
                                 onWallpaper = true,
                                 onSwipeUp = if (app.key in swipeActions) {
                                     { vm.swipeTarget(app)?.let(vm::launch) }

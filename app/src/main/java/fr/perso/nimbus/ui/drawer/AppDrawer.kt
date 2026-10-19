@@ -572,7 +572,7 @@ private fun LazyGridScope.appItems(
             // Les apps de l'espace privé ne vont pas sur l'accueil.
             canDrag = app.profile != ProfileType.PRIVATE,
             onClick = { vm.launch(app) },
-            onLongClick = { vm.showAppSheet(app) },
+            onLongClick = { anchor -> vm.showAppPopup(app, anchor) },
             modifier = Modifier.fillMaxWidth(),
         )
     }

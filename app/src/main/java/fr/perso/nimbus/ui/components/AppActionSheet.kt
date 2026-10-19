@@ -1,6 +1,5 @@
 package fr.perso.nimbus.ui.components
 
-import android.content.pm.ShortcutInfo
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -34,7 +33,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,27 +40,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.data.AppCategory
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.ProfileType
-import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherHost
 import fr.perso.nimbus.ui.LauncherViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-
-private class ShortcutItem(val info: ShortcutInfo, val label: String, val icon: ImageBitmap?)
 
 private enum class SheetDialog { CATEGORY, RENAME, SWIPE }
 
@@ -78,8 +66,6 @@ fun AppActionSheet(
     vm: LauncherViewModel,
     host: LauncherHost,
 ) {
-    val context = LocalContext.current
-    val iconPx = with(LocalDensity.current) { 24.dp.roundToPx() }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val overrides by vm.categoryOverrides.collectAsStateWithLifecycle()
@@ -93,20 +79,7 @@ fun AppActionSheet(
     val onHome = app.key in apps.homeKeys
     val isHidden = app.key in apps.hiddenKeys
 
-    // Les raccourcis ne sont accessibles qu'au launcher par défaut.
-    var shortcuts by remember(app.key) { mutableStateOf(emptyList<ShortcutItem>()) }
-    LaunchedEffect(app.key) {
-        shortcuts = withContext(Dispatchers.IO) {
-            SystemActions.shortcuts(context, app).map { info ->
-                val icon = try {
-                    SystemActions.shortcutIcon(context, info)?.toBitmap(iconPx, iconPx)?.asImageBitmap()
-                } catch (e: Exception) {
-                    null
-                }
-                ShortcutItem(info, (info.shortLabel ?: info.longLabel ?: "").toString(), icon)
-            }
-        }
-    }
+    val shortcuts = rememberAppShortcuts(app)
 
     // Referme la feuille avec son animation, puis exécute l'action.
     fun closeThen(action: () -> Unit) {

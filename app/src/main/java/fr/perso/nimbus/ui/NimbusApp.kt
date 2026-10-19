@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.ui.components.AppActionSheet
+import fr.perso.nimbus.ui.components.AppPopup
 import fr.perso.nimbus.ui.components.WidgetPicker
 import fr.perso.nimbus.ui.drawer.AppDrawer
 import fr.perso.nimbus.ui.home.HomeScreen
@@ -88,7 +89,7 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                     enter = slideInHorizontally { it / 4 } + fadeIn(),
                     exit = slideOutHorizontally { it / 4 } + fadeOut(),
                 ) {
-                    SettingsScreen(vm = vm, host = host)
+                    SettingsScreen(vm = vm, host = host, section = ui.settingsSection)
                 }
 
                 AnimatedVisibility(
@@ -101,6 +102,10 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
 
                 // L'app de la feuille est rafraîchie (nom, icône) ; si elle a disparu (espace privé
                 // verrouillé, désinstallation), la feuille n'est plus affichée.
+                ui.appPopup?.let { request ->
+                    apps.byKey[request.app.key]?.let { app -> AppPopup(app, request.anchor, apps, vm) }
+                }
+
                 ui.sheetApp?.let { apps.byKey[it.key] }?.let { app ->
                     AppActionSheet(app = app, apps = apps, vm = vm, host = host)
                 }

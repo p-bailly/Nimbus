@@ -3,46 +3,64 @@ package fr.perso.nimbus.ui.home
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import fr.perso.nimbus.R
 import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.HomeMenu
 import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.LocalAppDrag
+import fr.perso.nimbus.ui.SettingsSection
 import fr.perso.nimbus.ui.UiState
 import fr.perso.nimbus.ui.WidgetTarget
+import fr.perso.nimbus.ui.components.AppPickerDialog
+import fr.perso.nimbus.ui.settings.SettingsColors
+import fr.perso.nimbus.ui.settings.SettingsEntry
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 const val PAGE_HOME = 0
 const val PAGE_WIDGETS = 1
@@ -113,7 +131,7 @@ fun HomeScreen(
                 .padding(bottom = 6.dp),
         )
 
-        ui.homeMenu?.let { HomeMenuPopup(menu = it, vm = vm) }
+        ui.homeMenu?.let { HomeMenuSheet(menu = it, vm = vm, apps = apps) }
     }
 }
 
@@ -131,34 +149,112 @@ private fun PageIndicator(count: Int, current: Int, modifier: Modifier = Modifie
     }
 }
 
-/** Menu de l'appui long, affiché à l'endroit du doigt. */
+/**
+ * Menu de l'appui long sur le fond, en panneau du bas (comme Smart Launcher) : raccourcis
+ * en tuiles, accès directs aux réglages de la page, puis « Voir tous les paramètres ».
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeMenuPopup(menu: HomeMenu, vm: LauncherViewModel) {
+private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState) {
     val context = LocalContext.current
-    Box(
-        Modifier
-            .offset { IntOffset(menu.position.x.roundToInt(), menu.position.y.roundToInt()) }
-            .size(1.dp),
+    val onHomePage = menu.page == PAGE_HOME
+    var pickingIcon by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(
+        onDismissRequest = vm::closeHomeMenu,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
-        DropdownMenu(expanded = true, onDismissRequest = vm::closeHomeMenu) {
-            MenuItem(if (menu.page == PAGE_HOME) "Ajouter un widget ici" else "Ajouter un widget", Icons.Default.Add) {
-                vm.openWidgetPicker(if (menu.page == PAGE_HOME) WidgetTarget.HOME else WidgetTarget.PAGE)
+        Column(Modifier.padding(bottom = 16.dp)) {
+            Text(
+                if (onHomePage) "Page d'accueil" else "Page des widgets",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp),
+            ) {
+                if (onHomePage) {
+                    MenuTile(R.drawable.ms_add_box, "Ajouter une icône") { pickingIcon = true }
+                }
+                MenuTile(R.drawable.ms_dashboard_customize, "Ajouter un widget") {
+                    vm.openWidgetPicker(if (onHomePage) WidgetTarget.HOME else WidgetTarget.PAGE)
+                }
+                MenuTile(R.drawable.ms_wallpaper, "Fond d'écran") {
+                    vm.closeHomeMenu()
+                    SystemActions.openWallpaperPicker(context)
+                }
+                MenuTile(R.drawable.ms_apps, "Toutes les apps") { vm.openDrawer() }
             }
-            MenuItem("Fond d'écran", Icons.Default.Star) {
-                vm.closeHomeMenu()
-                SystemActions.openWallpaperPicker(context)
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+            )
+            SettingsEntry(R.drawable.ms_palette, SettingsColors.Orange, "Apparence globale") {
+                vm.openSettings(SettingsSection.APPEARANCE)
             }
-            MenuItem("Toutes les apps", Icons.AutoMirrored.Filled.List) { vm.openDrawer() }
-            MenuItem("Paramètres Nimbus", Icons.Default.Settings) { vm.openSettings() }
+            SettingsEntry(R.drawable.ms_home, SettingsColors.Blue, "Page d'accueil", chevron = true) {
+                vm.openSettings(SettingsSection.HOME)
+            }
+            SettingsEntry(R.drawable.ms_swipe, SettingsColors.Red, "Gestes et raccourcis") {
+                vm.openSettings(SettingsSection.GESTURES)
+            }
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                onClick = { vm.openSettings() },
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
+                    Icon(painterResource(R.drawable.ms_settings), contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Voir tous les paramètres", fontSize = 16.sp)
+                }
+            }
         }
+    }
+
+    if (pickingIcon) {
+        AppPickerDialog(
+            title = "Ajouter une icône",
+            apps = apps.visible.filter { it.key !in apps.homeKeys },
+            onPick = { app ->
+                pickingIcon = false
+                vm.closeHomeMenu()
+                app?.let(vm::addToHome)
+            },
+            onDismiss = { pickingIcon = false },
+        )
     }
 }
 
+/** Tuile du menu de l'accueil : icône et libellé sur deux lignes. */
 @Composable
-private fun MenuItem(label: String, icon: ImageVector, onClick: () -> Unit) {
-    DropdownMenuItem(
-        text = { Text(label) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
-        onClick = onClick,
-    )
+private fun MenuTile(icon: Int, label: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(96.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 4.dp),
+    ) {
+        Icon(painterResource(icon), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            label,
+            fontSize = 13.sp,
+            lineHeight = 16.sp,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+        )
+    }
 }

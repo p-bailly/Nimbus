@@ -15,11 +15,13 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   chacun peut être masqué.
 - Glisser-déposer depuis le tiroir : appui long sur une app puis glisser, le tiroir
   s'efface et l'app se pose sur la case où on la lâche.
-- Widgets sur l'accueil, dans la grille (appui long sur l'accueil › Ajouter un widget
-  ici). Appui long sur un widget : menu (Redimensionner, Supprimer) ; appui long puis
-  glisser : déplacer ce widget. Les icônes qu'il recouvre se décalent vers les cases libres.
+- Widgets sur l'accueil, dans la grille (appui long sur l'accueil › Ajouter un widget).
+  Appui long sur un widget : menu (Redimensionner, Supprimer) ; appui long puis glisser :
+  déplacer ce widget. Les icônes qu'il recouvre se décalent vers les cases libres.
 - Page widgets (à droite) : pour les widgets en plus. Même appui long (menu avec en plus
   « Mettre sur l'accueil ») ; appui long puis glisser pour changer leur ordre.
+- Un widget glissé et tenu contre le bord de l'écran passe à l'autre page (accueil ↔
+  page widgets).
 - Bouton Accueil : referme tout et revient à la première page.
 
 **Gestes (à la Nova)**
@@ -30,7 +32,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   paramètres, ou ouvrir l'app de son choix.
 - Glisser vers le haut sur une icône de l'accueil ou du dock : ouvre une seconde
   app (réglable par icône).
-- Appui long sur le fond : menu (widget, fond d'écran, apps, paramètres).
+- Appui long sur le fond : panneau « Page d'accueil » (ajouter une icône, un widget, fond
+  d'écran, toutes les apps, réglages de la page, tous les paramètres).
 
 **Tiroir d'applications**
 - Onglets de catégories automatiques, balayables (catégorie modifiable par app).
@@ -46,8 +49,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Icônes à thème façon Pixel (Android 13+), packs d'icônes ADW / Nova.
 - Par app : nom et icône personnalisés (image de la galerie).
 - Pastilles de notification (nombre ou simple point).
-- Appui long : raccourcis de l'app, accueil, dock, glissé, renommer, icône,
-  catégorie, masquer, infos, désinstaller.
+- Appui long sur une app : petit pop-up (raccourcis de l'app, Infos, Accueil,
+  Désinstaller) ; « Plus » ouvre le reste (dock, glissé, renommer, icône, catégorie, masquer).
 
 **Pixel / Android récent**
 - Espace privé (Android 15+) : section en bas du tiroir avec verrouillage /
@@ -58,6 +61,11 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Profil professionnel : mise en pause / reprise, apps en pause grisées.
 - Thème Material You (Android 12+) ou Ambiant (palette tirée du fond d'écran).
 - Bibliothèque native alignée sur 16 Ko (pages mémoire 16 Ko des Pixel récents).
+
+**Paramètres** à la manière de Smart Launcher : page principale avec bandeaux
+(launcher par défaut, accès aux notifications, gestes système), puis Apparence globale
+(avec aperçu), Gestes, Sauvegarde, et les pages Accueil, Applications, Recherche,
+Notifications, Sécurité, À propos. Icônes Material Symbols (Google, licence Apache 2.0).
 
 **Confidentialité** : apps masquées dans un écran protégé par code PIN
 (4 à 8 chiffres, stocké haché en SHA-256).

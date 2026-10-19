@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import fr.perso.nimbus.data.AppCategory
@@ -64,11 +65,17 @@ import kotlin.math.roundToInt
 /** Écran affiché au-dessus de l'accueil. */
 enum class Screen { HOME, SETTINGS, HIDDEN_APPS }
 
+/** Pages des paramètres (une page principale et ses sous-pages). */
+enum class SettingsSection { MAIN, APPEARANCE, GESTURES, BACKUP, HOME, DRAWER, SEARCH, NOTIFICATIONS, PRIVACY, ABOUT }
+
 /** Menu ouvert par appui long sur l'accueil : page du pager et position du doigt. */
 data class HomeMenu(val page: Int, val position: Offset)
 
 /** Demande de défilement du pager d'accueil ; [id] change à chaque nouvelle demande. */
 data class PageRequest(val page: Int, val id: Long)
+
+/** Pop-up d'appui long sur une app, ancré sur son icône (coordonnées de la fenêtre). */
+data class AppPopupRequest(val app: AppEntry, val anchor: Rect)
 
 /** Destination d'un widget choisi dans le sélecteur. */
 enum class WidgetTarget { HOME, PAGE }
@@ -79,8 +86,11 @@ data class UiState(
     val focusSearch: Boolean = false,
     val query: String = "",
     val screen: Screen = Screen.HOME,
-    /** App dont la feuille d'actions est ouverte. */
+    val settingsSection: SettingsSection = SettingsSection.MAIN,
+    /** App dont la feuille d'actions complète est ouverte (« Plus »). */
     val sheetApp: AppEntry? = null,
+    /** Pop-up compact de l'appui long sur une app. */
+    val appPopup: AppPopupRequest? = null,
     val homeMenu: HomeMenu? = null,
     val widgetPickerOpen: Boolean = false,
     val widgetTarget: WidgetTarget = WidgetTarget.HOME,
@@ -308,7 +318,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
         // Une app qui disparaît (désinstallée, espace privé verrouillé) ferme sa feuille d'actions.
         apps.onEach { state ->
-            _ui.update { ui -> if (ui.sheetApp != null && ui.sheetApp.key !in state.byKey) ui.copy(sheetApp = null) else ui }
+            _ui.update { ui ->
+                ui.copy(
+                    sheetApp = ui.sheetApp?.takeIf { it.key in state.byKey },
+                    appPopup = ui.appPopup?.takeIf { it.app.key in state.byKey },
+                )
+            }
         }.launchIn(viewModelScope)
 
         refreshCustomIconKeys()
@@ -411,19 +426,37 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun consumeSearchFocus() = _ui.update { it.copy(focusSearch = false) }
 
-    fun openSettings() = _ui.update {
-        it.copy(screen = Screen.SETTINGS, drawerOpen = false, query = "", homeMenu = null, resizingWidget = null)
+    fun openSettings(section: SettingsSection = SettingsSection.MAIN) = _ui.update {
+        it.copy(
+            screen = Screen.SETTINGS,
+            settingsSection = section,
+            drawerOpen = false,
+            query = "",
+            homeMenu = null,
+            resizingWidget = null,
+        )
     }
+
+    fun openSettingsSection(section: SettingsSection) = _ui.update { it.copy(settingsSection = section) }
 
     /** À n'appeler qu'après vérification du code PIN. */
     fun openHiddenApps() = _ui.update { it.copy(screen = Screen.HIDDEN_APPS) }
 
-    /** Retour d'un cran : apps masquées -> réglages -> accueil. */
+    /** Retour d'un cran : apps masquées -> sous-page -> page principale des réglages -> accueil. */
     fun closeScreen() = _ui.update {
-        it.copy(screen = if (it.screen == Screen.HIDDEN_APPS) Screen.SETTINGS else Screen.HOME)
+        when {
+            it.screen == Screen.HIDDEN_APPS -> it.copy(screen = Screen.SETTINGS)
+            it.screen == Screen.SETTINGS && it.settingsSection != SettingsSection.MAIN ->
+                it.copy(settingsSection = SettingsSection.MAIN)
+            else -> it.copy(screen = Screen.HOME)
+        }
     }
 
-    fun showAppSheet(app: AppEntry) = _ui.update { it.copy(sheetApp = app) }
+    fun showAppSheet(app: AppEntry) = _ui.update { it.copy(sheetApp = app, appPopup = null) }
+
+    fun showAppPopup(app: AppEntry, anchor: Rect) = _ui.update { it.copy(appPopup = AppPopupRequest(app, anchor)) }
+
+    fun dismissAppPopup() = _ui.update { it.copy(appPopup = null) }
 
     fun dismissAppSheet() = _ui.update { it.copy(sheetApp = null) }
 
@@ -454,7 +487,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         if (!resetOnStop) return
         resetOnStop = false
         _ui.update {
-            it.copy(drawerOpen = false, focusSearch = false, query = "", sheetApp = null, homeMenu = null)
+            it.copy(drawerOpen = false, focusSearch = false, query = "", sheetApp = null, appPopup = null, homeMenu = null)
         }
     }
 
@@ -750,6 +783,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         } else {
             SystemActions.toast(context, "Plus de place sur l'accueil (agrandis la grille dans les paramètres)")
         }
+    }
+
+    /** Passe un widget de l'accueil à la page widgets (même identifiant). */
+    fun moveHomeWidgetToPage(id: Int, heightDp: Int) {
+        prefs.removeHomeWidget(id)
+        prefs.addWidget(id, heightDp.coerceIn(80, 600))
+        _ui.update { it.copy(resizingWidget = null) }
+        showPage(1)
     }
 
     /** Réordonne la page widgets. */

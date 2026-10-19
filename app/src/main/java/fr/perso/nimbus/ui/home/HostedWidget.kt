@@ -22,15 +22,25 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import fr.perso.nimbus.widgets.WidgetHostManager
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+
+/** Zone contre le bord de l'écran où un widget glissé passe à l'autre page. */
+private val EDGE_ZONE = 32.dp
+
+/** Temps de maintien contre le bord avant le changement de page. */
+const val EDGE_HOLD_MS = 400L
 
 /**
  * Affiche le widget [id]. Sa taille est transmise au widget une fois stabilisée
@@ -72,7 +82,8 @@ fun HostedWidget(id: Int, host: WidgetHostManager, modifier: Modifier = Modifier
  * événements qu'en dernier, et seulement s'ils n'ont pas été consommés avant. Rien n'est donc
  * consommé tant que l'appui long n'a pas eu lieu.
  * - appui long sans bouger -> [onMenu] (position du doigt, locale) ;
- * - appui long puis glisser -> [onDrag] (déplacement cumulé) puis [onDragEnd] au lâcher.
+ * - appui long puis glisser -> [onDrag] (déplacement cumulé) puis [onDragEnd] au lâcher ;
+ * - doigt contre le bord gauche / droit de l'écran pendant le glissé -> [onEdge] (-1 / 1, 0 en le quittant).
  * Après l'appui long tout est consommé : le widget reçoit une annulation, pas un clic.
  */
 fun Modifier.widgetGestures(
@@ -80,13 +91,18 @@ fun Modifier.widgetGestures(
     onDrag: (Offset) -> Unit,
     onDragEnd: (Offset) -> Unit,
     onDragCancel: () -> Unit,
+    onEdge: (Int) -> Unit = {},
 ): Modifier = composed {
     val menu by rememberUpdatedState(onMenu)
     val move by rememberUpdatedState(onDrag)
     val end by rememberUpdatedState(onDragEnd)
     val cancel by rememberUpdatedState(onDragCancel)
+    val edgeChanged by rememberUpdatedState(onEdge)
     val haptics = LocalHapticFeedback.current
-    pointerInput(Unit) {
+    val edgePx = with(LocalDensity.current) { EDGE_ZONE.toPx() }
+    // Coordonnées du widget, pour situer le doigt dans la fenêtre.
+    val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    onGloballyPositioned { coords[0] = it }.pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             val slop = viewConfiguration.touchSlop
@@ -107,12 +123,30 @@ fun Modifier.widgetGestures(
             val press = down
             var total = Offset.Zero
             var dragging = false
+            var edge = 0
             val released = drag(press.id) { change ->
                 total += change.positionChange()
                 change.consume()
                 if (!dragging && total.getDistance() > slop) dragging = true
-                if (dragging) move(total)
+                if (dragging) {
+                    move(total)
+                    val c = coords[0]
+                    if (c != null && c.isAttached) {
+                        val x = c.localToWindow(change.position).x
+                        val width = c.findRootCoordinates().size.width
+                        val now = when {
+                            x < edgePx -> -1
+                            x > width - edgePx -> 1
+                            else -> 0
+                        }
+                        if (now != edge) {
+                            edge = now
+                            edgeChanged(now)
+                        }
+                    }
+                }
             }
+            if (edge != 0) edgeChanged(0)
             currentEvent.changes.forEach { it.consume() }
             when {
                 !released -> if (dragging) cancel()
