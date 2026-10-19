@@ -84,7 +84,7 @@ fun SettingsPage(
                         modifier = Modifier.padding(start = 20.dp, end = 24.dp, top = 24.dp, bottom = 20.dp),
                     ) {
                         Icon(
-                            painterResource(R.drawable.ic_launcher_foreground),
+                            painterResource(R.drawable.ic_launcher_monochrome),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(52.dp),
