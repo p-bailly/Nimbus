@@ -110,8 +110,8 @@ export ANDROID_HOME=/chemin/vers/android-sdk
 ```
 
 L'APK est produit dans `app/build/outputs/apk/debug/app-debug.apk`.
-La version release (`./gradlew assembleRelease`) est signée avec la clé de
-debug, ce qui suffit pour un usage personnel.
+En local, la version release (`./gradlew assembleRelease`) est signée avec la clé de
+debug ; les releases publiées sont signées avec la clé du dépôt (voir ci-dessous).
 
 Tests (Robolectric, sur la JVM) :
 
@@ -121,11 +121,44 @@ Tests (Robolectric, sur la JVM) :
 NIMBUS_SLBK=/chemin/Backup.slbk ./gradlew testDebugUnitTest -i
 ```
 
+## Releases
+
+Chaque release GitHub contient l'APK signé (`Nimbus-v1.2.0.apk`), à installer sur le
+téléphone ; les suivantes s'installent par-dessus (mêmes réglages). Publication par
+GitHub Actions (`.github/workflows/release.yml`), au choix :
+
+- pousser un tag : `git tag v1.2.0 && git push origin v1.2.0` ;
+- ou onglet **Actions › Release › Run workflow**, avec le numéro de version.
+
+Le workflow lance les tests, compile `assembleRelease` et publie la release avec des
+notes générées depuis les commits. Il lui faut deux secrets du dépôt
+(Settings › Secrets and variables › Actions) :
+
+| Secret | Contenu |
+|---|---|
+| `NIMBUS_KEYSTORE_BASE64` | keystore PKCS12 (alias `nimbus`) encodé en base64 |
+| `NIMBUS_KEYSTORE_PASSWORD` | son mot de passe |
+
+Toujours la même clé : Android refuse une mise à jour signée avec une autre clé. Une
+nouvelle clé se crée ainsi (à garder hors du dépôt) :
+
+```bash
+keytool -genkeypair -keystore nimbus.jks -storetype PKCS12 -alias nimbus \
+  -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Nimbus"
+base64 -w0 nimbus.jks   # valeur de NIMBUS_KEYSTORE_BASE64
+```
+
 ## Installer et configurer
+
+Installer l'APK de la dernière release, ou depuis un ordinateur :
 
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Un APK signé avec une autre clé (version de debug, ancienne copie) ne s'installe pas
+par-dessus une release : désinstaller d'abord, après une sauvegarde (Paramètres ›
+Sauvegarde › Exporter) à réimporter ensuite.
 
 Puis, dans Nimbus (appui long sur l'accueil › Paramètres Nimbus) :
 

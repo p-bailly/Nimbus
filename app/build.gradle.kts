@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Clé de signature des releases, fournie par la CI (secrets GitHub, voir .github/workflows/release.yml).
+// Sans elle (compilation locale), la release est signée avec la clé de debug.
+val releaseKeystore: String? = System.getenv("NIMBUS_KEYSTORE_FILE")
+
 android {
     namespace = "fr.perso.nimbus"
     compileSdk = 35
@@ -12,15 +16,26 @@ android {
         applicationId = "fr.perso.nimbus"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Numéros donnés par la CI à chaque release ; une mise à jour doit avoir un numéro plus grand.
+        versionCode = System.getenv("NIMBUS_VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("NIMBUS_VERSION_NAME") ?: "1.0"
+    }
+
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("NIMBUS_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("NIMBUS_KEY_ALIAS") ?: "nimbus"
+                keyPassword = System.getenv("NIMBUS_KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Usage perso : on signe la version release avec la clé de debug.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 

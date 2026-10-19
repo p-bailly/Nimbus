@@ -9,3 +9,6 @@
 .externalNativeBuild/
 .cxx/
 /Nimbus.apk
+# Clés de signature : jamais dans le dépôt
+*.jks
+*.keystore
