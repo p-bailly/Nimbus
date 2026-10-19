@@ -42,6 +42,7 @@ import fr.perso.nimbus.R
 import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.AppsState
+import fr.perso.nimbus.ui.HomeMenu
 import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.SettingsSection
 import fr.perso.nimbus.ui.UiState
@@ -72,7 +73,7 @@ fun HomeScreen(
             pageRequest = ui.pageRequest,
             onLongPress = vm::openHomeMenu,
         )
-        if (ui.homeMenu != null) HomeMenuSheet(vm = vm, apps = apps)
+        ui.homeMenu?.let { HomeMenuSheet(menu = it, vm = vm, apps = apps) }
     }
 }
 
@@ -82,7 +83,7 @@ fun HomeScreen(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeMenuSheet(vm: LauncherViewModel, apps: AppsState) {
+private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState) {
     val context = LocalContext.current
     var pickingIcon by remember { mutableStateOf(false) }
 
@@ -112,6 +113,12 @@ private fun HomeMenuSheet(vm: LauncherViewModel, apps: AppsState) {
                     SystemActions.openWallpaperPicker(context)
                 }
                 MenuTile(R.drawable.ms_apps, "Toutes les apps") { vm.openDrawer() }
+                if (menu.page != apps.homePage && menu.page < apps.pageCount) {
+                    MenuTile(R.drawable.ms_home, "Page principale") {
+                        vm.closeHomeMenu()
+                        vm.setMainHomePage(menu.page)
+                    }
+                }
             }
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),

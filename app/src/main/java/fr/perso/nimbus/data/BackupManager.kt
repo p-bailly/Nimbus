@@ -120,6 +120,8 @@ class BackupManager(context: Context, private val prefs: Prefs) {
             customLabels = plan.customLabels.takeIf { homeRead },
             homeIcons = plan.homeIcons,
         )
+        // Accueil remplacé : sa première page redevient la page principale.
+        if (homeRead) prefs.setHomePage(0)
         val iconKeys = plan.customIcons.filter { (key, img) -> CustomIcons.save(appContext, key, img) }.keys
         val widgets = withoutExisting(plan.widgets)
 

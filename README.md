@@ -13,9 +13,11 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   appui long puis glisser pour déplacer une icône, l'icône de la case d'arrivée
   prend la place libérée.
 - Pendant un glisser-déposer (icône, widget, ou app du tiroir), l'élément suit le doigt ;
-  tenu contre le bord gauche ou droit, il passe à la page voisine, et au bord droit de la
-  dernière page une nouvelle page vide se crée. Il se pose au lâcher, sur la page affichée.
-  Une page vidée disparaît (la première reste toujours).
+  tenu contre le bord gauche ou droit, il passe à la page voisine, et au bord gauche de la
+  première page ou au bord droit de la dernière une nouvelle page vide se crée. Il se pose
+  au lâcher, sur la page affichée. Une page vidée disparaît (sauf la page principale).
+- Page principale (maison dans les points) : celle du bouton Accueil et de l'ouverture.
+  Appui long sur le fond d'une autre page › « Page principale » pour la changer.
 - Dock (favoris) de 4 à 6 icônes par rangée.
 - Horloge (appui : alarmes), date (appui : agenda), batterie, barre de recherche :
   chacun peut être masqué.
@@ -30,7 +32,7 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   pages, sinon une nouvelle page.
 - Les widgets de l'ancienne page widgets passent automatiquement sur la grille ; les
   widgets alloués mais affichés nulle part sont libérés au démarrage.
-- Bouton Accueil : referme tout et revient à la première page.
+- Bouton Accueil : referme tout et revient à la page principale.
 
 **Gestes (à la Nova)**
 - Double tap, glisser vers le haut / le bas, glisser à deux doigts vers le haut /
@@ -73,7 +75,9 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 **Paramètres** à la manière de Smart Launcher : page principale avec bandeaux
 (launcher par défaut, accès aux notifications, gestes système), puis Apparence globale
 (avec aperçu), Gestes, Sauvegarde, et les pages Accueil, Applications, Recherche,
-Notifications, Sécurité, À propos. Icônes Material Symbols (Google, licence Apache 2.0).
+Notifications, Sécurité, À propos. Une page ouverte depuis le menu de l'accueil
+(Apparence globale, Page d'accueil, Gestes) ramène à l'accueil avec Retour.
+Icônes Material Symbols (Google, licence Apache 2.0).
 
 **Confidentialité** : apps masquées dans un écran protégé par code PIN
 (4 à 8 chiffres, stocké haché en SHA-256).

@@ -75,12 +75,14 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import fr.perso.nimbus.R
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.BadgeStyle
 import fr.perso.nimbus.data.Gesture
@@ -110,8 +112,8 @@ private val SIDE_PADDING = 12.dp
 /**
  * Accueil : horloge, date et batterie en haut, pages d'icônes et de widgets (balayer à gauche
  * ou à droite), dock (favoris) et barre de recherche en bas. Un élément glissé et tenu contre le
- * bord des pages fait passer à la page voisine ; au bord droit de la dernière, une page vide
- * s'ajoute. Les pages vidées disparaissent (la première reste toujours).
+ * bord des pages fait passer à la page voisine ; au bord gauche de la première ou au bord droit
+ * de la dernière, une page vide s'ajoute. Les pages vidées disparaissent (sauf la principale).
  */
 @Composable
 fun HomePage(
@@ -135,15 +137,23 @@ fun HomePage(
     val widgetHost = remember { WidgetHostManager.get(context) }
     val drag = LocalHomeDrag.current
 
-    // Pages : celles qui ont du contenu, plus une page vide ajoutée pendant un glissé ([minPages]).
-    val dataPages by rememberUpdatedState(apps.pageCount)
+    // Pages : celles qui ont du contenu, plus pendant un glissé une page vide à droite
+    // ([minPages]) ou à gauche ([leftPage] : les autres pages se décalent d'un cran à l'écran).
     var minPages by remember { mutableIntStateOf(0) }
-    val pagerState = rememberPagerState { maxOf(dataPages, minPages) }
+    var leftPage by remember { mutableStateOf(false) }
+    // Lâcher : la page finale de l'élément (renumérotée si une page s'est ajoutée ou vidée) est
+    // affichée une fois l'accueil recalculé ; les pages vides du glissé disparaissent alors.
+    var landing by remember { mutableStateOf<Landing?>(null) }
+    // La page de gauche fait partie des données dès que l'accueil recalculé arrive.
+    val offset = if (leftPage && landing.let { it == null || it.before === apps }) 1 else 0
+    val pageOffset by rememberUpdatedState(offset)
+    val dataPages by rememberUpdatedState(apps.pageCount)
+    val pagerState = rememberPagerState(initialPage = apps.homePage) { maxOf(dataPages, minPages) + pageOffset }
     val iconsByPage = remember(apps.home) { apps.home.groupBy { it.page } }
     val widgetsByPage = remember(apps.homeWidgets) { apps.homeWidgets.groupBy { it.page } }
 
     LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { page ->
+        snapshotFlow { pagerState.currentPage - pageOffset }.collect { page ->
             vm.onHomePageShown(page)
             vm.setResizingWidget(null)
         }
@@ -152,17 +162,15 @@ fun HomePage(
         if (pageRequest.id == 0L) return@LaunchedEffect
         // Page qui vient d'être créée : on attend qu'elle existe.
         withTimeoutOrNull(1000) { snapshotFlow { pagerState.pageCount }.first { it > pageRequest.page } }
-        pagerState.animateScrollToPage(pageRequest.page)
+        pagerState.animateScrollToPage(pageRequest.page + pageOffset)
     }
 
-    // Lâcher : la page finale de l'élément (renumérotée si une page s'est vidée) est affichée
-    // une fois l'accueil recalculé ; la page vide ajoutée pendant le glissé disparaît alors.
-    var landing by remember { mutableStateOf<Landing?>(null) }
     SideEffect {
         drag.gridColumns = settings.homeColumns
         drag.gridRows = settings.homeRows
         drag.onDrop = { item, area ->
-            val page = pagerState.currentPage
+            // -1 : la page vide ajoutée à gauche.
+            val page = pagerState.currentPage - offset
             val cell = area?.let { HomeCell(page, it.x, it.y) }
             val landingPage = when (item) {
                 is DragItem.App -> when {
@@ -179,11 +187,12 @@ fun HomePage(
         }
     }
     val dragging = drag.item != null
-    LaunchedEffect(dragging, apps, landing) {
+    LaunchedEffect(dragging, apps) {
         if (dragging) return@LaunchedEffect
         val target = landing
         if (target == null) {
             minPages = 0
+            leftPage = false
             return@LaunchedEffect
         }
         // Accueil pas encore recalculé : on l'attend (l'effet repart dès qu'il arrive), sans
@@ -191,21 +200,33 @@ fun HomePage(
         if (apps === target.before) delay(500)
         landing = null
         minPages = 0
+        leftPage = false
+        snapshotFlow { pageOffset }.first { it == 0 }
         if (pagerState.currentPage != target.page) pagerState.scrollToPage(target.page)
     }
 
-    // Doigt tenu contre un bord pendant un glissé : page voisine, ou nouvelle page à droite de
-    // la dernière (une seule page vide à la fois).
+    // Doigt tenu contre un bord pendant un glissé : page voisine, ou nouvelle page vide à
+    // gauche de la première ou à droite de la dernière (une de chaque côté au plus).
     val edgePx = with(density) { EDGE_ZONE.toPx() }
     val edge by remember { derivedStateOf { drag.edge(edgePx) } }
     LaunchedEffect(edge) {
         if (edge == 0) return@LaunchedEffect
         while (true) {
             delay(EDGE_HOLD_MS)
-            val target = pagerState.currentPage + edge
-            if (target < 0 || target > dataPages) break
-            if (target >= pagerState.pageCount) {
-                minPages = target + 1
+            val current = pagerState.currentPage
+            var target = current + edge
+            if (target < 0) {
+                if (leftPage) break
+                // Les pages gardent leur clé : celle affichée reste à l'écran, un cran plus à
+                // droite, et la page vide apparaît à sa gauche.
+                leftPage = true
+                withTimeoutOrNull(500) { snapshotFlow { pagerState.currentPage }.first { it == current + 1 } }
+                    ?: pagerState.scrollToPage(current + 1)
+                target = 0
+            } else if (target >= pagerState.pageCount) {
+                val dataTarget = target - pageOffset
+                if (dataTarget > dataPages) break
+                minPages = dataTarget + 1
                 snapshotFlow { pagerState.pageCount }.first { it > target }
             }
             haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -281,6 +302,8 @@ fun HomePage(
                 // sa page sort de l'écran, et les widgets ne se recréent pas à chaque défilement.
                 beyondViewportPageCount = maxOf(1, pagerState.pageCount - 1),
                 userScrollEnabled = !dragging,
+                // Clé = numéro de page des données : une page ajoutée à gauche ne recrée pas les autres.
+                key = { it - pageOffset },
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
@@ -290,12 +313,13 @@ fun HomePage(
                         drag.pagerBounds = bounds
                         drag.gridBounds = Rect(bounds.left + side, bounds.top, bounds.right - side, bounds.bottom)
                     },
-            ) { page ->
+            ) { index ->
+                val page = index - offset
                 Box(Modifier.fillMaxSize()) {
                     Box(Modifier.fillMaxSize().then(backgroundGestures))
                     HomeGrid(
                         page = page,
-                        isTarget = page == pagerState.currentPage,
+                        isTarget = index == pagerState.currentPage,
                         icons = iconsByPage[page].orEmpty(),
                         widgets = widgetsByPage[page].orEmpty(),
                         widgetHost = widgetHost,
@@ -324,6 +348,7 @@ fun HomePage(
                 PageIndicator(
                     count = pagerState.pageCount,
                     current = pagerState.currentPage,
+                    main = apps.homePage + offset,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .padding(top = 6.dp),
@@ -387,17 +412,22 @@ private fun Modifier.homeBackground(
     }
 }
 
-/** Points sous les pages : la page affichée est le plus gros. */
+/** Points sous les pages : la page affichée est la plus visible, la page principale est une maison. */
 @Composable
-private fun PageIndicator(count: Int, current: Int, modifier: Modifier = Modifier) {
+private fun PageIndicator(count: Int, current: Int, main: Int, modifier: Modifier = Modifier) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
         repeat(count) { i ->
             val selected = i == current
-            Box(
-                Modifier
-                    .size(if (selected) 8.dp else 6.dp)
-                    .background(Color.White.copy(alpha = if (selected) 0.95f else 0.5f), CircleShape),
-            )
+            val color = Color.White.copy(alpha = if (selected) 0.95f else 0.5f)
+            if (i == main) {
+                Icon(painterResource(R.drawable.ms_home), contentDescription = null, tint = color, modifier = Modifier.size(12.dp))
+            } else {
+                Box(
+                    Modifier
+                        .size(if (selected) 8.dp else 6.dp)
+                        .background(color, CircleShape),
+                )
+            }
         }
     }
 }

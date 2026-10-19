@@ -49,6 +49,10 @@ class Prefs private constructor(context: Context) {
     /** Widgets posés sur la grille de l'accueil (identifiants propres à l'appareil : jamais exportés tels quels). */
     val homeWidgets: StateFlow<List<HomeWidget>> = _homeWidgets.asStateFlow()
 
+    private val _homePage = MutableStateFlow(sp.getInt(KEY_HOME_PAGE, 0))
+    /** Page principale de l'accueil (celle du bouton Accueil) ; décalée quand une page s'ajoute avant elle. */
+    val homePage: StateFlow<Int> = _homePage.asStateFlow()
+
     private val _homeIcons = MutableStateFlow(readHomeIcons())
     /** Icônes de la grille d'accueil. */
     val homeIcons: StateFlow<List<HomeIcon>> = _homeIcons.asStateFlow()
@@ -369,6 +373,12 @@ class Prefs private constructor(context: Context) {
     }
 
     /** Date (ms) de la dernière sauvegarde automatique réussie. */
+    fun setHomePage(page: Int) {
+        val value = page.coerceAtLeast(0)
+        _homePage.value = value
+        sp.edit().putInt(KEY_HOME_PAGE, value).apply()
+    }
+
     var lastAutoBackup: Long
         get() = sp.getLong(KEY_LAST_AUTO_BACKUP, 0L)
         set(value) = sp.edit().putLong(KEY_LAST_AUTO_BACKUP, value).apply()
@@ -425,6 +435,7 @@ class Prefs private constructor(context: Context) {
         _iconSwipeActions.value = readMap(KEY_ICON_SWIPES)
         _gestureApps.value = readGestureApps()
         _homeIcons.value = readHomeIcons()
+        _homePage.value = sp.getInt(KEY_HOME_PAGE, 0)
         return true
     }
 
@@ -478,6 +489,7 @@ class Prefs private constructor(context: Context) {
         private const val BACKUP_VERSION = 1
         private const val KEY_AUTO_BACKUP_DIR = "autoBackupFolder"
         private const val KEY_LAST_AUTO_BACKUP = "lastAutoBackup"
+        private const val KEY_HOME_PAGE = "homePage"
 
         /** Propres à l'appareil ou secrets : jamais exportés ni écrasés par un import. */
         private val NOT_EXPORTED = setOf(KEY_PIN, KEY_WIDGETS, KEY_HOME_WIDGETS, KEY_AUTO_BACKUP_DIR, KEY_LAST_AUTO_BACKUP)

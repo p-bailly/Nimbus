@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
@@ -68,8 +69,8 @@ enum class Screen { HOME, SETTINGS, HIDDEN_APPS }
 /** Pages des paramètres (une page principale et ses sous-pages). */
 enum class SettingsSection { MAIN, APPEARANCE, GESTURES, BACKUP, HOME, DRAWER, SEARCH, NOTIFICATIONS, PRIVACY, ABOUT }
 
-/** Menu ouvert par appui long sur l'accueil, à la position du doigt. */
-data class HomeMenu(val position: Offset)
+/** Menu ouvert par appui long sur l'accueil, à la position du doigt, sur la page [page]. */
+data class HomeMenu(val position: Offset, val page: Int)
 
 /** Demande d'affichage d'une page de l'accueil ; [id] change à chaque demande. */
 data class PageRequest(val page: Int, val id: Long)
@@ -84,6 +85,8 @@ data class UiState(
     val query: String = "",
     val screen: Screen = Screen.HOME,
     val settingsSection: SettingsSection = SettingsSection.MAIN,
+    /** Page par laquelle les paramètres ont été ouverts : Retour depuis celle-ci referme les paramètres. */
+    val settingsRoot: SettingsSection = SettingsSection.MAIN,
     /** App dont la feuille d'actions complète est ouverte (« Plus »). */
     val sheetApp: AppEntry? = null,
     /** Pop-up compact de l'appui long sur une app. */
@@ -132,6 +135,8 @@ data class AppsState(
     val homeWidgets: List<HomeWidget> = emptyList(),
     /** Nombre de pages de l'accueil (au moins 1) : jusqu'à la dernière qui contient quelque chose. */
     val pageCount: Int = 1,
+    /** Page principale (bouton Accueil, ouverture). */
+    val homePage: Int = 0,
     /** Toutes les apps connues (masquées comprises), par clé. */
     val byKey: Map<String, AppEntry> = emptyMap(),
 )
@@ -156,6 +161,7 @@ private data class UserLists(
     val favorites: List<String>,
     val home: List<HomeIcon>,
     val homeWidgets: List<HomeWidget>,
+    val homePage: Int,
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -227,14 +233,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private val homeLayout = combine(prefs.homeIcons, prefs.homeWidgets, prefs.homePage) { icons, widgets, page ->
+        Triple(icons, widgets, page)
+    }
+
     private val userLists = combine(
         prefs.hidden,
         prefs.usage,
         prefs.favorites,
-        prefs.homeIcons,
-        prefs.homeWidgets,
-    ) { hidden, usage, favorites, home, homeWidgets ->
-        UserLists(hidden, usage, favorites, home, homeWidgets)
+        homeLayout,
+    ) { hidden, usage, favorites, (home, homeWidgets, homePage) ->
+        UserLists(hidden, usage, favorites, home, homeWidgets, homePage)
     }
 
     private val appsConfig = settings
@@ -325,6 +334,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             }
         }.launchIn(viewModelScope)
 
+        // Au démarrage, l'accueil s'ouvre sur sa page principale.
+        viewModelScope.launch {
+            val first = apps.first { it.loaded }
+            if (first.homePage > 0) showHomePage(first.homePage)
+        }
+
         migrateWidgetsPage()
         refreshCustomIconKeys()
         refreshSystemStatus()
@@ -370,7 +385,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             home = home,
             homeKeys = lists.home.map { it.key }.toSet(),
             homeWidgets = homeWidgets,
-            pageCount = (home.map { it.page } + homeWidgets.map { it.page }).maxOrNull()?.plus(1) ?: 1,
+            pageCount = (home.map { it.page } + homeWidgets.map { it.page } + lists.homePage).max() + 1,
+            homePage = lists.homePage,
             byKey = byKey,
         )
     }
@@ -445,6 +461,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         it.copy(
             screen = Screen.SETTINGS,
             settingsSection = section,
+            settingsRoot = section,
             drawerOpen = false,
             query = "",
             homeMenu = null,
@@ -457,12 +474,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     /** À n'appeler qu'après vérification du code PIN. */
     fun openHiddenApps() = _ui.update { it.copy(screen = Screen.HIDDEN_APPS) }
 
-    /** Retour d'un cran : apps masquées -> sous-page -> page principale des réglages -> accueil. */
+    /**
+     * Retour d'un cran : apps masquées -> sous-page -> page principale des réglages -> accueil.
+     * Une sous-page ouverte directement (menu de l'accueil) ramène à l'accueil.
+     */
     fun closeScreen() = _ui.update {
         when {
             it.screen == Screen.HIDDEN_APPS -> it.copy(screen = Screen.SETTINGS)
-            it.screen == Screen.SETTINGS && it.settingsSection != SettingsSection.MAIN ->
-                it.copy(settingsSection = SettingsSection.MAIN)
+            it.screen == Screen.SETTINGS && it.settingsSection != it.settingsRoot ->
+                it.copy(settingsSection = it.settingsRoot)
             else -> it.copy(screen = Screen.HOME)
         }
     }
@@ -475,7 +495,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun dismissAppSheet() = _ui.update { it.copy(sheetApp = null) }
 
-    fun openHomeMenu(position: Offset) = _ui.update { it.copy(homeMenu = HomeMenu(position)) }
+    fun openHomeMenu(position: Offset) = _ui.update { it.copy(homeMenu = HomeMenu(position, visiblePage)) }
 
     fun closeHomeMenu() = _ui.update { it.copy(homeMenu = null) }
 
@@ -486,10 +506,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun closeWidgetPicker() = _ui.update { it.copy(widgetPickerOpen = false) }
 
     /** Page de l'accueil affichée (signalée par l'interface) : les ajouts y vont en priorité. */
-    private var homePage = 0
+    private var visiblePage = 0
 
     fun onHomePageShown(page: Int) {
-        homePage = page
+        visiblePage = page.coerceAtLeast(0)
+    }
+
+    /** La page [page] devient la page principale (bouton Accueil). */
+    fun setMainHomePage(page: Int) {
+        prefs.setHomePage(page)
+        SystemActions.toast(context, "Page ${page + 1} définie comme page principale")
     }
 
     fun showHomePage(page: Int) = _ui.update { it.copy(pageRequest = PageRequest(page, it.pageRequest.id + 1)) }
@@ -497,10 +523,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     /** Mode redimensionnement d'un seul widget (poignée), null pour en sortir. */
     fun setResizingWidget(id: Int?) = _ui.update { it.copy(resizingWidget = id, homeMenu = null) }
 
-    /** Bouton Accueil : tout refermer et revenir à la première page. */
+    /** Bouton Accueil : tout refermer et revenir à la page principale. */
     fun goHome() {
         resetOnStop = false
-        _ui.update { UiState(pageRequest = PageRequest(0, it.pageRequest.id + 1)) }
+        _ui.update { UiState(pageRequest = PageRequest(prefs.homePage.value, it.pageRequest.id + 1)) }
     }
 
     fun onLauncherStopped() {
@@ -675,7 +701,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Supprime les pages vides (la première reste toujours) en renumérotant les suivantes.
+     * Supprime les pages vides (la page principale reste toujours) en renumérotant les autres.
      * Retourne la nouvelle numérotation, pour suivre un élément qui vient d'être posé.
      */
     private fun compactPages(): (Int) -> Int {
@@ -685,28 +711,43 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             state.byKey[icon.key]?.let { it.profile != ProfileType.PRIVATE && it.key !in state.hiddenKeys } == true
         val icons = prefs.homeIcons.value
         val widgets = prefs.homeWidgets.value
-        val used = (icons.filter(::shown).map { it.page } + widgets.map { it.page } + 0).toSortedSet()
+        val mainPage = prefs.homePage.value
+        val used = (icons.filter(::shown).map { it.page } + widgets.map { it.page } + mainPage).toSortedSet()
         val remap = used.withIndex().associate { (index, page) -> page to index }
-        val newPage = { page: Int -> remap[page] ?: 0 }
+        val newPage = { page: Int -> remap[page] ?: remap.getValue(mainPage) }
         if (icons.any { newPage(it.page) != it.page }) prefs.setHomeIcons(icons.map { it.copy(page = newPage(it.page)) })
         if (widgets.any { newPage(it.page) != it.page }) prefs.setHomeWidgets(widgets.map { it.copy(page = newPage(it.page)) })
+        if (newPage(mainPage) != mainPage) prefs.setHomePage(newPage(mainPage))
         return newPage
+    }
+
+    /**
+     * Page demandée avant la première ([HomeCell.page] négative : page vide créée à gauche
+     * pendant un glissé) : toutes les pages, la principale comprise, sont décalées d'un cran
+     * pour lui faire place. Retourne la case, ramenée sur la nouvelle première page.
+     */
+    private fun makeRoomBefore(cell: HomeCell): HomeCell {
+        if (cell.page >= 0) return cell
+        prefs.setHomeIcons(prefs.homeIcons.value.map { it.copy(page = it.page + 1) })
+        prefs.setHomeWidgets(prefs.homeWidgets.value.map { it.copy(page = it.page + 1) })
+        prefs.setHomePage(prefs.homePage.value + 1)
+        return cell.copy(page = 0)
     }
 
     /**
      * Ajoute l'app à la première case libre, en commençant par la page [page] (celle affichée par
      * défaut) ; une nouvelle page est créée si tout est plein. Retourne la page de l'icône.
      */
-    fun addToHome(app: AppEntry, page: Int = homePage): Int? {
+    fun addToHome(app: AppEntry, page: Int = visiblePage): Int? {
         val state = apps.value
         if (state.home.any { it.app.key == app.key }) {
             SystemActions.toast(context, "${app.label} est déjà sur l'accueil")
             return null
         }
-        val cell = firstFreeCell(takenCells(state), page, state.pageCount)
+        val cell = if (page < 0) makeRoomBefore(HomeCell(page, 0, 0)) else firstFreeCell(takenCells(state), page, state.pageCount)
         prefs.setHomeIconPositions(mapOf(app.key to cell))
-        SystemActions.toast(context, if (cell.page == page) "${app.label} ajoutée à l'accueil" else "${app.label} ajoutée à l'accueil, page ${cell.page + 1}")
-        if (cell.page != homePage) showHomePage(cell.page)
+        SystemActions.toast(context, if (cell.page == page || page < 0) "${app.label} ajoutée à l'accueil" else "${app.label} ajoutée à l'accueil, page ${cell.page + 1}")
+        if (cell.page != visiblePage) showHomePage(cell.page)
         return cell.page
     }
 
@@ -724,6 +765,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         if (app.profile == ProfileType.PRIVATE) return null
         val state = apps.value
         if (state.home.any { it.app.key == app.key }) return moveHomeIcon(app, cell)
+        if (cell.page < 0) {
+            prefs.setHomeIconPositions(mapOf(app.key to makeRoomBefore(cell)))
+            return 0
+        }
         val taken = takenCells(state)
         if (state.homeWidgets.any { it.page == cell.page && (cell.x to cell.y) in it.cells() }) {
             val free = firstFreeCell(taken, cell.page, state.pageCount)
@@ -747,6 +792,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun moveHomeIcon(app: AppEntry, to: HomeCell): Int? {
         val state = apps.value
         val from = state.home.firstOrNull { it.app.key == app.key } ?: return null
+        if (to.page < 0) {
+            prefs.setHomeIconPositions(mapOf(app.key to makeRoomBefore(to)))
+            return compactPages()(0)
+        }
         if (from.cell == to) return null
         // Pas d'icône sous un widget.
         if (state.homeWidgets.any { it.page == to.page && (to.x to to.y) in it.cells() }) return null
@@ -788,7 +837,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             val w = HomeWidget(id, cell.x, cell.y, sx, sy, cell.page.coerceAtLeast(0))
             if (fits(w, avoidIcons = false)) return place(w)
         }
-        val first = (preferred?.page ?: homePage).coerceIn(0, pageCount)
+        val first = (preferred?.page ?: visiblePage).coerceIn(0, pageCount)
         for (page in (first until pageCount) + (0 until first)) {
             for (y in 0..rows - sy) for (x in 0..columns - sx) {
                 val w = HomeWidget(id, x, y, sx, sy, page)
@@ -820,6 +869,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     /** Déplace un widget de l'accueil vers [to] (coin haut gauche), même page ou non. */
     fun moveHomeWidget(id: Int, to: HomeCell): Int? {
         val widget = apps.value.homeWidgets.firstOrNull { it.id == id } ?: return null
+        if (to.page < 0) {
+            // Nouvelle page vide : aucun widget à chevaucher.
+            val cell = makeRoomBefore(to)
+            prefs.putHomeWidget(widget.copy(page = cell.page, x = cell.x, y = cell.y))
+            return compactPages()(cell.page)
+        }
         return updateHomeWidget(widget.copy(page = to.page, x = to.x, y = to.y))
     }
 
