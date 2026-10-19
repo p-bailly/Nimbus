@@ -13,8 +13,11 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Dock (favoris) de 4 à 6 icônes par rangée.
 - Horloge (appui : alarmes), date (appui : agenda), batterie, barre de recherche :
   chacun peut être masqué.
-- Page widgets : ajout de n'importe quel widget, redimensionnement (boutons ou
-  poignée), suppression, en mode « Modifier ».
+- Widgets sur l'accueil, dans la grille (appui long sur l'accueil › Ajouter un widget
+  ici) : appui long sur un widget pour le déplacer, le redimensionner avec la poignée
+  du coin ou le supprimer. Les icônes qu'il recouvre se décalent vers les cases libres.
+- Page widgets (à droite) : pour les widgets en plus, redimensionnement (boutons ou
+  poignée) et suppression en mode « Modifier ».
 - Bouton Accueil : referme tout et revient à la première page.
 
 **Gestes (à la Nova)**
@@ -67,7 +70,8 @@ Paramètres › Sauvegarde :
   (`.slbk`). Depuis Smart Launcher sont repris la grille d'accueil (positions,
   taille, noms masqués), les catégories du tiroir, les apps masquées, la
   fréquence d'utilisation, les noms et icônes personnalisés, la forme des icônes,
-  les colonnes du tiroir ; les widgets sont proposés à l'ajout un par un.
+  les colonnes du tiroir ; les widgets sont proposés à l'ajout un par un (ceux de la
+  première page Smart Launcher reprennent leur place sur la grille de l'accueil).
   Une app absente du téléphone est ignorée ; une app dont l'activité a changé est
   retrouvée par son paquet.
 - **Sauvegarde automatique** : une fois par jour dans le dossier choisi, les 7

@@ -45,6 +45,10 @@ class Prefs private constructor(context: Context) {
     /** Glissé vers le haut sur une icône du dock : clé d'app -> clé de l'app à ouvrir. */
     val iconSwipeActions: StateFlow<Map<String, String>> = _iconSwipeActions.asStateFlow()
 
+    private val _homeWidgets = MutableStateFlow(readHomeWidgets())
+    /** Widgets posés sur la grille de l'accueil (identifiants propres à l'appareil : jamais exportés tels quels). */
+    val homeWidgets: StateFlow<List<HomeWidget>> = _homeWidgets.asStateFlow()
+
     private val _homeIcons = MutableStateFlow(readHomeIcons())
     /** Icônes de la grille d'accueil. */
     val homeIcons: StateFlow<List<HomeIcon>> = _homeIcons.asStateFlow()
@@ -253,6 +257,31 @@ class Prefs private constructor(context: Context) {
         HomeIcon(line.substring(0, at), x, y)
     }
 
+    // ---------------------------------------------------------------- Widgets de l'accueil
+
+    /** Ajoute ou remplace (même identifiant) un widget de l'accueil. */
+    fun putHomeWidget(widget: HomeWidget) {
+        val list = _homeWidgets.value.filterNot { it.id == widget.id } + widget
+        _homeWidgets.value = list
+        writeHomeWidgets(list)
+    }
+
+    fun removeHomeWidget(id: Int) {
+        val list = _homeWidgets.value.filterNot { it.id == id }
+        _homeWidgets.value = list
+        writeHomeWidgets(list)
+    }
+
+    private fun writeHomeWidgets(list: List<HomeWidget>) =
+        writeList(KEY_HOME_WIDGETS, list.map { "${it.id}@${it.x},${it.y},${it.spanX},${it.spanY}" })
+
+    private fun readHomeWidgets(): List<HomeWidget> = readList(KEY_HOME_WIDGETS).mapNotNull { line ->
+        val id = line.substringBefore('@').toIntOrNull() ?: return@mapNotNull null
+        val v = line.substringAfter('@').split(',').mapNotNull { it.toIntOrNull() }
+        if (v.size != 4) return@mapNotNull null
+        HomeWidget(id, v[0], v[1], v[2].coerceAtLeast(1), v[3].coerceAtLeast(1))
+    }
+
     // ---------------------------------------------------------------- Remplacement en bloc (imports)
 
     /** Remplace les listes fournies (null = inchangée), par exemple lors d'un import Smart Launcher. */
@@ -430,6 +459,7 @@ class Prefs private constructor(context: Context) {
         private const val KEY_ICON_SWIPES = "iconSwipeActions"
         private const val KEY_GESTURE_APPS = "gestureApps"
         private const val KEY_HOME_ICONS = "homeIcons"
+        private const val KEY_HOME_WIDGETS = "homeWidgets"
 
         private const val BACKUP_APP = "nimbus"
         private const val BACKUP_VERSION = 1
@@ -437,7 +467,7 @@ class Prefs private constructor(context: Context) {
         private const val KEY_LAST_AUTO_BACKUP = "lastAutoBackup"
 
         /** Propres à l'appareil ou secrets : jamais exportés ni écrasés par un import. */
-        private val NOT_EXPORTED = setOf(KEY_PIN, KEY_WIDGETS, KEY_AUTO_BACKUP_DIR, KEY_LAST_AUTO_BACKUP)
+        private val NOT_EXPORTED = setOf(KEY_PIN, KEY_WIDGETS, KEY_HOME_WIDGETS, KEY_AUTO_BACKUP_DIR, KEY_LAST_AUTO_BACKUP)
 
         @Volatile
         private var instance: Prefs? = null

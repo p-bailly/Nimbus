@@ -71,6 +71,7 @@ import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.components.AppIcon
 import fr.perso.nimbus.ui.components.WallpaperTextShadow
+import fr.perso.nimbus.widgets.WidgetHostManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
@@ -83,6 +84,7 @@ fun HomePage(
     vm: LauncherViewModel,
     settings: LauncherSettings,
     apps: AppsState,
+    editingWidgetId: Int?,
     onLongPress: (Offset) -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
@@ -95,21 +97,17 @@ fun HomePage(
         .any { settings.actionFor(it) != GestureAction.NONE }
     val badgeDot = settings.badgeStyle == BadgeStyle.DOT
 
+    val context = LocalContext.current
+    val widgetHost = remember { WidgetHostManager.get(context) }
+    val editingWidget by rememberUpdatedState(editingWidgetId)
+
     Box(
         Modifier
             .fillMaxSize()
             // Gestes à deux doigts : observés avant tout le monde, puis consommés pour bloquer le pager.
             .then(if (multiTouchEnabled) Modifier.multiTouchGestures { vm.onGesture(it) } else Modifier)
-            // Sans action de double tap, on ne déclare pas le détecteur : il retarderait l'appui long.
-            .pointerInput(doubleTapEnabled) {
-                detectTapGestures(
-                    onDoubleTap = if (doubleTapEnabled) { _ -> vm.onGesture(Gesture.DOUBLE_TAP) } else null,
-                    onLongPress = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        longPress(it)
-                    },
-                )
-            }
+            // Le glissé vertical ne consomme le toucher qu'une fois le seuil franchi :
+            // un glissé qui part d'une icône ou d'un widget ouvre quand même le tiroir.
             .pointerInput(Unit) {
                 val threshold = 56.dp.toPx()
                 var total = 0f
@@ -127,10 +125,32 @@ fun HomePage(
                     },
                 )
             }
-            .systemBarsPadding()
-            .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
     ) {
-        Column(Modifier.fillMaxSize()) {
+        // Calque de fond : double tap et appui long ne concernent que les zones vides. Posé
+        // sous le contenu, il ne reçoit pas les touchers des icônes ni des widgets (un détecteur
+        // de tap posé sur toute la page consommerait l'appui avant le widget, qui ne réagirait plus).
+        Box(
+            Modifier
+                .fillMaxSize()
+                // Sans action de double tap, on ne déclare pas le détecteur : il retarderait l'appui long.
+                .pointerInput(doubleTapEnabled) {
+                    detectTapGestures(
+                        onTap = { if (editingWidget != null) vm.editHomeWidget(null) },
+                        onDoubleTap = if (doubleTapEnabled) { _ -> vm.onGesture(Gesture.DOUBLE_TAP) } else null,
+                        onLongPress = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            longPress(it)
+                        },
+                    )
+                },
+        )
+
+        Column(
+            Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+                .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
+        ) {
             if (settings.showClock || settings.showBattery) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -148,6 +168,12 @@ fun HomePage(
 
             HomeGrid(
                 icons = apps.home,
+                widgets = apps.homeWidgets,
+                widgetHost = widgetHost,
+                editingWidget = editingWidgetId,
+                onEditWidget = vm::editHomeWidget,
+                onUpdateWidget = vm::updateHomeWidget,
+                onRemoveWidget = vm::removeHomeWidget,
                 columns = settings.homeColumns,
                 rows = settings.homeRows,
                 iconSizeDp = settings.iconSize.dp,
@@ -175,7 +201,7 @@ fun HomePage(
                     swipeActions = swipeActions,
                     vm = vm,
                 )
-            } else if (apps.home.isEmpty() && apps.loaded) {
+            } else if (apps.home.isEmpty() && apps.homeWidgets.isEmpty() && apps.loaded) {
                 WallpaperText(
                     "Appui long sur une app du tiroir › Ajouter à l'accueil",
                     fontSize = 13.sp,

@@ -21,6 +21,7 @@ import fr.perso.nimbus.data.CustomIcons
 import fr.perso.nimbus.data.Gesture
 import fr.perso.nimbus.data.GestureAction
 import fr.perso.nimbus.data.HomeIcon
+import fr.perso.nimbus.data.HomeWidget
 import fr.perso.nimbus.data.IconConfig
 import fr.perso.nimbus.data.IconFactory
 import fr.perso.nimbus.data.ImportResult
@@ -67,6 +68,9 @@ data class HomeMenu(val page: Int, val position: Offset)
 /** Demande de défilement du pager d'accueil ; [id] change à chaque nouvelle demande. */
 data class PageRequest(val page: Int, val id: Long)
 
+/** Destination d'un widget choisi dans le sélecteur. */
+enum class WidgetTarget { HOME, PAGE }
+
 data class UiState(
     val drawerOpen: Boolean = false,
     /** Le champ de recherche du tiroir doit prendre le focus à l'ouverture. */
@@ -77,7 +81,10 @@ data class UiState(
     val sheetApp: AppEntry? = null,
     val homeMenu: HomeMenu? = null,
     val widgetPickerOpen: Boolean = false,
+    val widgetTarget: WidgetTarget = WidgetTarget.HOME,
     val editingWidgets: Boolean = false,
+    /** Widget de l'accueil en cours de déplacement / redimensionnement. */
+    val editingHomeWidget: Int? = null,
     val pageRequest: PageRequest = PageRequest(0, 0),
 )
 
@@ -112,6 +119,8 @@ data class AppsState(
     val frequent: List<AppEntry> = emptyList(),
     val home: List<PlacedIcon> = emptyList(),
     val homeKeys: Set<String> = emptySet(),
+    /** Widgets de la grille d'accueil, ramenés dans les limites de la grille. */
+    val homeWidgets: List<HomeWidget> = emptyList(),
     /** Toutes les apps connues (masquées comprises), par clé. */
     val byKey: Map<String, AppEntry> = emptyMap(),
 )
@@ -135,6 +144,7 @@ private data class UserLists(
     val usage: Map<String, Int>,
     val favorites: List<String>,
     val home: List<HomeIcon>,
+    val homeWidgets: List<HomeWidget>,
 )
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
@@ -207,8 +217,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private val userLists = combine(prefs.hidden, prefs.usage, prefs.favorites, prefs.homeIcons) { hidden, usage, favorites, home ->
-        UserLists(hidden, usage, favorites, home)
+    private val userLists = combine(
+        prefs.hidden,
+        prefs.usage,
+        prefs.favorites,
+        prefs.homeIcons,
+        prefs.homeWidgets,
+    ) { hidden, usage, favorites, home, homeWidgets ->
+        UserLists(hidden, usage, favorites, home, homeWidgets)
     }
 
     private val appsConfig = settings
@@ -321,7 +337,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         } else {
             emptyList()
         }
-        val home = placeHome(lists.home, byKey, ::showable, config.homeColumns, config.homeRows)
+        val homeWidgets = fitWidgets(lists.homeWidgets, config.homeColumns, config.homeRows)
+        val home = placeHome(lists.home, byKey, ::showable, config.homeColumns, config.homeRows, homeWidgets)
         return AppsState(
             loaded = all.isNotEmpty(),
             visible = visible,
@@ -336,6 +353,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             frequent = frequent,
             home = home,
             homeKeys = lists.home.map { it.key }.toSet(),
+            homeWidgets = homeWidgets,
             byKey = byKey,
         )
     }
@@ -351,8 +369,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         showable: (AppEntry) -> Boolean,
         columns: Int,
         rows: Int,
+        widgets: List<HomeWidget>,
     ): List<PlacedIcon> {
-        val taken = HashSet<Pair<Int, Int>>()
+        // Les widgets passent en premier : une icône sous un widget prend la première case libre.
+        val taken = HashSet<Pair<Int, Int>>(widgets.flatMap { it.cells() })
         val placed = ArrayList<PlacedIcon>()
         val overflow = ArrayList<AppEntry>()
         for (icon in icons) {
@@ -369,6 +389,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             overflow.zip(free).forEach { (app, cell) -> placed.add(PlacedIcon(app, cell.first, cell.second)) }
         }
         return placed
+    }
+
+    /** Widgets ramenés dans la grille (après réduction de la grille, par exemple). */
+    private fun fitWidgets(widgets: List<HomeWidget>, columns: Int, rows: Int): List<HomeWidget> = widgets.map {
+        val spanX = it.spanX.coerceIn(1, columns)
+        val spanY = it.spanY.coerceIn(1, rows)
+        it.copy(x = it.x.coerceIn(0, columns - spanX), y = it.y.coerceIn(0, rows - spanY), spanX = spanX, spanY = spanY)
     }
 
     // ---------------------------------------------------------------- Navigation
@@ -403,13 +430,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun closeHomeMenu() = _ui.update { it.copy(homeMenu = null) }
 
-    fun openWidgetPicker() = _ui.update { it.copy(widgetPickerOpen = true, homeMenu = null) }
+    fun openWidgetPicker(target: WidgetTarget) = _ui.update {
+        it.copy(widgetPickerOpen = true, widgetTarget = target, homeMenu = null, editingHomeWidget = null)
+    }
 
     fun closeWidgetPicker() = _ui.update { it.copy(widgetPickerOpen = false) }
 
     fun setEditingWidgets(editing: Boolean) = _ui.update { it.copy(editingWidgets = editing, homeMenu = null) }
 
     fun showPage(page: Int) = _ui.update { it.copy(pageRequest = PageRequest(page, it.pageRequest.id + 1)) }
+
+    fun editHomeWidget(id: Int?) = _ui.update { it.copy(editingHomeWidget = id, homeMenu = null) }
 
     /** Bouton Accueil : tout refermer et revenir à la première page. */
     fun goHome() {
@@ -573,7 +604,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             SystemActions.toast(context, "${app.label} est déjà sur l'accueil")
             return
         }
-        val taken = state.home.map { it.x to it.y }.toSet()
+        val taken = state.home.map { it.x to it.y }.toSet() + state.homeWidgets.flatMap { it.cells() }
         val free = (0 until s.homeRows).firstNotNullOfOrNull { y ->
             (0 until s.homeColumns).firstOrNull { x -> (x to y) !in taken }?.let { x -> x to y }
         }
@@ -597,10 +628,66 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val placed = apps.value.home
         val from = placed.firstOrNull { it.app.key == app.key } ?: return
         if (from.x == x && from.y == y) return
+        // Pas d'icône sous un widget.
+        if (apps.value.homeWidgets.any { (x to y) in it.cells() }) return
         val occupant = placed.firstOrNull { it.x == x && it.y == y }
         val moves = mutableMapOf(app.key to (x to y))
         if (occupant != null) moves[occupant.app.key] = from.x to from.y
         prefs.setHomeIconPositions(moves)
+    }
+
+    // ---------------------------------------------------------------- Widgets de l'accueil
+
+    /**
+     * Pose un widget sur la grille. Ordre de recherche : emplacement demandé (import), puis
+     * zone libre d'icônes, puis zone sans autre widget (les icônes se décalent), en réduisant
+     * la taille si besoin. Retourne false si aucune place.
+     */
+    fun addHomeWidget(id: Int, spanX: Int, spanY: Int, preferred: Pair<Int, Int>? = null): Boolean {
+        val s = settings.value
+        val columns = s.homeColumns
+        val rows = s.homeRows
+        val widgets = apps.value.homeWidgets
+        val icons = apps.value.home.map { it.x to it.y }.toSet()
+        fun fits(w: HomeWidget, avoidIcons: Boolean) =
+            w.x >= 0 && w.y >= 0 && w.x + w.spanX <= columns && w.y + w.spanY <= rows &&
+                widgets.none { it.overlaps(w) } && (!avoidIcons || w.cells().none { it in icons })
+
+        val startX = spanX.coerceIn(1, columns)
+        val startY = spanY.coerceIn(1, rows)
+        preferred?.let { (x, y) ->
+            val w = HomeWidget(id, x, y, startX, startY)
+            if (fits(w, avoidIcons = false)) {
+                prefs.putHomeWidget(w)
+                return true
+            }
+        }
+        for (sy in startY downTo 1) for (sx in startX downTo 1) for (avoidIcons in listOf(true, false)) {
+            for (y in 0..rows - sy) for (x in 0..columns - sx) {
+                val w = HomeWidget(id, x, y, sx, sy)
+                if (fits(w, avoidIcons)) {
+                    prefs.putHomeWidget(w)
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /** Déplace ou redimensionne un widget de l'accueil ; refusé s'il sort de la grille ou chevauche un autre widget. */
+    fun updateHomeWidget(widget: HomeWidget) {
+        val s = settings.value
+        val ok = widget.x >= 0 && widget.y >= 0 && widget.spanX >= 1 && widget.spanY >= 1 &&
+            widget.x + widget.spanX <= s.homeColumns && widget.y + widget.spanY <= s.homeRows &&
+            apps.value.homeWidgets.none { it.id != widget.id && it.overlaps(widget) }
+        if (ok) prefs.putHomeWidget(widget)
+        else SystemActions.toast(context, "Pas de place : un autre widget occupe cette zone")
+    }
+
+    fun removeHomeWidget(id: Int) {
+        prefs.removeHomeWidget(id)
+        WidgetHostManager.get(context).deleteId(id)
+        _ui.update { it.copy(editingHomeWidget = null) }
     }
 
     // ---------------------------------------------------------------- Profil pro et espace privé

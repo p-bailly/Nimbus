@@ -21,6 +21,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.HomeWidget
 import fr.perso.nimbus.data.PendingWidget
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.LauncherHost
@@ -47,6 +48,12 @@ class MainActivity : ComponentActivity(), LauncherHost {
 
     /** Hauteur imposée au widget en cours d'ajout (widgets restaurés après un import). */
     private var pendingWidgetHeightDp: Int? = null
+
+    /** Le widget en cours d'ajout va sur la grille de l'accueil (sinon sur la page widgets). */
+    private var pendingWidgetToHome = false
+
+    /** Emplacement imposé sur l'accueil (widget restauré après un import). */
+    private var pendingWidgetPlacement: HomeWidget? = null
 
     /** Widgets restaurés après un import, ajoutés l'un après l'autre. */
     private val widgetQueue = ArrayDeque<PendingWidget>()
@@ -138,6 +145,12 @@ class MainActivity : ComponentActivity(), LauncherHost {
         // Choix d'icône et widgets en attente survivent à une recréation (passage en mode sombre…).
         outState.putString(KEY_ICON_TARGET, iconTargetKey)
         outState.putInt(KEY_PENDING_HEIGHT, pendingWidgetHeightDp ?: -1)
+        outState.putBoolean(KEY_PENDING_TO_HOME, pendingWidgetToHome)
+        outState.putIntArray(KEY_PENDING_PLACEMENT, pendingWidgetPlacement?.let { intArrayOf(it.x, it.y, it.spanX, it.spanY) })
+        outState.putIntArray(
+            KEY_QUEUE_HOME,
+            widgetQueue.flatMap { w -> w.home?.let { listOf(it.x, it.y, it.spanX, it.spanY) } ?: listOf(-1, -1, -1, -1) }.toIntArray(),
+        )
         outState.putStringArrayList(KEY_QUEUE_PROVIDERS, ArrayList(widgetQueue.map { it.provider }))
         outState.putIntArray(KEY_QUEUE_HEIGHTS, widgetQueue.map { it.heightDp ?: -1 }.toIntArray())
         outState.putFloatArray(KEY_QUEUE_FRACTIONS, widgetQueue.map { it.heightFraction ?: -1f }.toFloatArray())
@@ -146,6 +159,10 @@ class MainActivity : ComponentActivity(), LauncherHost {
     private fun restoreTransientState(state: Bundle) {
         iconTargetKey = state.getString(KEY_ICON_TARGET)
         pendingWidgetHeightDp = state.getInt(KEY_PENDING_HEIGHT, -1).takeIf { it > 0 }
+        pendingWidgetToHome = state.getBoolean(KEY_PENDING_TO_HOME, false)
+        pendingWidgetPlacement = state.getIntArray(KEY_PENDING_PLACEMENT)?.takeIf { it.size == 4 }
+            ?.let { HomeWidget(0, it[0], it[1], it[2], it[3]) }
+        val homes = state.getIntArray(KEY_QUEUE_HOME) ?: IntArray(0)
         val providers = state.getStringArrayList(KEY_QUEUE_PROVIDERS).orEmpty()
         val heights = state.getIntArray(KEY_QUEUE_HEIGHTS) ?: IntArray(0)
         val fractions = state.getFloatArray(KEY_QUEUE_FRACTIONS) ?: FloatArray(0)
@@ -155,6 +172,9 @@ class MainActivity : ComponentActivity(), LauncherHost {
                     provider,
                     heightDp = heights.getOrNull(i)?.takeIf { it > 0 },
                     heightFraction = fractions.getOrNull(i)?.takeIf { it > 0f },
+                    home = homes.getOrNull(i * 4 + 2)?.takeIf { it > 0 }?.let {
+                        HomeWidget(0, homes[i * 4], homes[i * 4 + 1], homes[i * 4 + 2], homes[i * 4 + 3])
+                    },
                 )
             )
         }
@@ -262,7 +282,7 @@ class MainActivity : ComponentActivity(), LauncherHost {
             val metrics = resources.displayMetrics
             pendingWidgetHeightDp = next.heightDp
                 ?: next.heightFraction?.let { (it * metrics.heightPixels / metrics.density).roundToInt() }
-            addWidget(info)
+            startAddWidget(info, toHome = next.home != null, placement = next.home)
             return
         }
     }
@@ -298,9 +318,14 @@ class MainActivity : ComponentActivity(), LauncherHost {
     }
 
     /** Étape 1 : lier le widget à Nimbus (autorisation demandée à l'utilisateur la première fois). */
-    override fun addWidget(info: AppWidgetProviderInfo) {
+    override fun addWidget(info: AppWidgetProviderInfo, toHome: Boolean) = startAddWidget(info, toHome, placement = null)
+
+    /** L'état « en attente » est posé avant la liaison : elle peut aboutir immédiatement (sans dialogue). */
+    private fun startAddWidget(info: AppWidgetProviderInfo, toHome: Boolean, placement: HomeWidget?) {
         val id = widgetHost.allocateId()
         pendingWidgetId = id
+        pendingWidgetToHome = toHome
+        pendingWidgetPlacement = placement
         if (widgetHost.bindIfAllowed(id, info)) {
             configureWidget(id)
             return
@@ -368,21 +393,55 @@ class MainActivity : ComponentActivity(), LauncherHost {
 
     /** Étape 3 : enregistrer le widget sur la page widgets, à sa hauteur minimale déclarée. */
     private fun commitWidget(id: Int, info: AppWidgetProviderInfo) {
-        val density = resources.displayMetrics.density
-        val heightDp = pendingWidgetHeightDp?.coerceIn(60, 600)
-            ?: ((info.minHeight / density).roundToInt() + 16).coerceIn(100, 400)
-        viewModel.addWidget(id, heightDp)
-        pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-        pendingWidgetHeightDp = null
-        viewModel.showPage(PAGE_WIDGETS)
+        val onHome = pendingWidgetToHome && run {
+            val placement = pendingWidgetPlacement
+            val (spanX, spanY) = placement?.let { it.spanX to it.spanY } ?: defaultSpan(info)
+            viewModel.addHomeWidget(id, spanX, spanY, placement?.let { it.x to it.y })
+        }
+        if (pendingWidgetToHome && !onHome) {
+            SystemActions.toast(this, "Plus de place sur l'accueil : widget ajouté à la page widgets")
+        }
+        if (!onHome) {
+            val density = resources.displayMetrics.density
+            val heightDp = pendingWidgetHeightDp?.coerceIn(60, 600)
+                ?: ((info.minHeight / density).roundToInt() + 16).coerceIn(100, 400)
+            viewModel.addWidget(id, heightDp)
+        }
+        clearPendingWidget()
+        viewModel.showPage(if (onHome) 0 else PAGE_WIDGETS)
+        // Sur l'accueil, le widget s'ouvre directement en mode édition pour l'ajuster.
+        if (onHome) viewModel.editHomeWidget(id)
         addNextQueuedWidget()
     }
 
     private fun cancelWidget(id: Int) {
         widgetHost.deleteId(id)
+        clearPendingWidget()
+        addNextQueuedWidget()
+    }
+
+    private fun clearPendingWidget() {
         pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
         pendingWidgetHeightDp = null
-        addNextQueuedWidget()
+        pendingWidgetToHome = false
+        pendingWidgetPlacement = null
+    }
+
+    /**
+     * Taille par défaut en cases de la grille : celle déclarée par le widget (Android 12+),
+     * sinon déduite de sa taille minimale et de la taille approximative d'une case.
+     */
+    private fun defaultSpan(info: AppWidgetProviderInfo): Pair<Int, Int> {
+        val settings = viewModel.settings.value
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && info.targetCellWidth > 0 && info.targetCellHeight > 0) {
+            return info.targetCellWidth.coerceIn(1, settings.homeColumns) to info.targetCellHeight.coerceIn(1, settings.homeRows)
+        }
+        val metrics = resources.displayMetrics
+        val cellW = (metrics.widthPixels / metrics.density - 24f) / settings.homeColumns
+        val cellH = (metrics.heightPixels / metrics.density * 0.7f) / settings.homeRows
+        val spanX = kotlin.math.ceil((info.minWidth / metrics.density) / cellW).toInt()
+        val spanY = kotlin.math.ceil((info.minHeight / metrics.density) / cellH).toInt()
+        return spanX.coerceIn(1, settings.homeColumns) to spanY.coerceIn(1, settings.homeRows)
     }
 
     private companion object {
@@ -392,6 +451,9 @@ class MainActivity : ComponentActivity(), LauncherHost {
         const val KEY_QUEUE_PROVIDERS = "widgetQueueProviders"
         const val KEY_QUEUE_HEIGHTS = "widgetQueueHeights"
         const val KEY_QUEUE_FRACTIONS = "widgetQueueFractions"
+        const val KEY_QUEUE_HOME = "widgetQueueHome"
+        const val KEY_PENDING_TO_HOME = "pendingWidgetToHome"
+        const val KEY_PENDING_PLACEMENT = "pendingWidgetPlacement"
         const val REQUEST_CONFIGURE_WIDGET = 42
         const val MAX_IMPORT_BYTES = 64 * 1024 * 1024
         const val MAX_ICON_BYTES = 10 * 1024 * 1024

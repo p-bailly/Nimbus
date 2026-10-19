@@ -44,6 +44,13 @@ class BackupManager(context: Context, private val prefs: Prefs) {
             val info = host.info(slot.id) ?: continue
             widgets.put(JSONObject().put("provider", info.provider.flattenToString()).put("heightDp", slot.heightDp))
         }
+        for (w in prefs.homeWidgets.value) {
+            val info = host.info(w.id) ?: continue
+            widgets.put(
+                JSONObject().put("provider", info.provider.flattenToString())
+                    .put("home", JSONArray(listOf(w.x, w.y, w.spanX, w.spanY))),
+            )
+        }
         root.put("widgets", widgets)
         root.put("createdAt", System.currentTimeMillis())
         return root.toString(2).toByteArray()
@@ -83,7 +90,10 @@ class BackupManager(context: Context, private val prefs: Prefs) {
             for (i in 0 until array.length()) {
                 val o = array.optJSONObject(i) ?: continue
                 val provider = o.optString("provider").takeIf { it.isNotBlank() } ?: continue
-                widgets.add(PendingWidget(provider, heightDp = o.optInt("heightDp").takeIf { it > 0 }))
+                val home = o.optJSONArray("home")?.takeIf { it.length() == 4 }?.let { a ->
+                    HomeWidget(0, a.optInt(0), a.optInt(1), a.optInt(2).coerceAtLeast(1), a.optInt(3).coerceAtLeast(1))
+                }
+                widgets.add(PendingWidget(provider, heightDp = o.optInt("heightDp").takeIf { it > 0 }, home = home))
             }
         }
         val toAdd = withoutExisting(widgets)
@@ -141,8 +151,8 @@ class BackupManager(context: Context, private val prefs: Prefs) {
     private fun withoutExisting(widgets: List<PendingWidget>): List<PendingWidget> {
         fun normalize(provider: String) = ComponentName.unflattenFromString(provider)?.flattenToString() ?: provider
         val host = WidgetHostManager.get(appContext)
-        val existing = prefs.widgets.value
-            .mapNotNull { host.info(it.id)?.provider?.flattenToString() }
+        val existing = (prefs.widgets.value.map { it.id } + prefs.homeWidgets.value.map { it.id })
+            .mapNotNull { host.info(it)?.provider?.flattenToString() }
             .groupingBy { it }.eachCount().toMutableMap()
         return widgets.filter { w ->
             val key = normalize(w.provider)

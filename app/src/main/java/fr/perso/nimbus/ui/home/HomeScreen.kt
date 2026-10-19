@@ -40,6 +40,7 @@ import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.HomeMenu
 import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.UiState
+import fr.perso.nimbus.ui.WidgetTarget
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -65,14 +66,18 @@ fun HomeScreen(
     LaunchedEffect(ui.pageRequest) {
         if (pagerState.currentPage != ui.pageRequest.page) pagerState.animateScrollToPage(ui.pageRequest.page)
     }
-    // En quittant la page widgets, on sort du mode édition.
+    // En changeant de page, on sort des modes édition.
     LaunchedEffect(pagerState.currentPage) {
         if (pagerState.currentPage != PAGE_WIDGETS && ui.editingWidgets) vm.setEditingWidgets(false)
+        if (pagerState.currentPage != PAGE_HOME && ui.editingHomeWidget != null) vm.editHomeWidget(null)
     }
 
-    BackHandler(enabled = active && (ui.editingWidgets || pagerState.currentPage != PAGE_HOME)) {
-        if (ui.editingWidgets) vm.setEditingWidgets(false)
-        else scope.launch { pagerState.animateScrollToPage(PAGE_HOME) }
+    BackHandler(enabled = active && (ui.editingWidgets || ui.editingHomeWidget != null || pagerState.currentPage != PAGE_HOME)) {
+        when {
+            ui.editingHomeWidget != null -> vm.editHomeWidget(null)
+            ui.editingWidgets -> vm.setEditingWidgets(false)
+            else -> scope.launch { pagerState.animateScrollToPage(PAGE_HOME) }
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -86,6 +91,7 @@ fun HomeScreen(
                     vm = vm,
                     settings = settings,
                     apps = apps,
+                    editingWidgetId = ui.editingHomeWidget,
                     onLongPress = { vm.openHomeMenu(PAGE_HOME, it) },
                 )
                 else -> WidgetsPage(
@@ -133,9 +139,8 @@ private fun HomeMenuPopup(menu: HomeMenu, vm: LauncherViewModel) {
             .size(1.dp),
     ) {
         DropdownMenu(expanded = true, onDismissRequest = vm::closeHomeMenu) {
-            MenuItem("Ajouter un widget", Icons.Default.Add) {
-                vm.showPage(PAGE_WIDGETS)
-                vm.openWidgetPicker()
+            MenuItem(if (menu.page == PAGE_HOME) "Ajouter un widget ici" else "Ajouter un widget", Icons.Default.Add) {
+                vm.openWidgetPicker(if (menu.page == PAGE_HOME) WidgetTarget.HOME else WidgetTarget.PAGE)
             }
             if (menu.page == PAGE_WIDGETS) {
                 MenuItem("Modifier les widgets", Icons.Default.Edit) { vm.setEditingWidgets(true) }

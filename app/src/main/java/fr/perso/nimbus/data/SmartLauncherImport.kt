@@ -49,7 +49,15 @@ data class SlHomeItem(
     val customLabel: Boolean,
 )
 
-data class SlWidget(val provider: String, val userId: Int, val screen: Int, val spanY: Int)
+data class SlWidget(
+    val provider: String,
+    val userId: Int,
+    val screen: Int,
+    val x: Int = 0,
+    val y: Int = 0,
+    val spanX: Int = 1,
+    val spanY: Int = 1,
+)
 
 // ---------------------------------------------------------------- Conversion vers Nimbus
 
@@ -60,6 +68,8 @@ data class PendingWidget(
     val heightDp: Int? = null,
     /** Hauteur en fraction de l'écran (import Smart Launcher). */
     val heightFraction: Float? = null,
+    /** Non null : à poser sur la grille de l'accueil à cet emplacement (identifiant ignoré). */
+    val home: HomeWidget? = null,
 )
 
 /** Résultat de la conversion d'une sauvegarde Smart Launcher en données Nimbus. */
@@ -288,13 +298,17 @@ object SmartLauncherImport {
     }
 
     private fun readWidgets(sql: SQLiteDatabase): List<SlWidget>? = sql.rows(
-        "SELECT w.provider AS provider, w.userId AS userId, h.screen AS screen, h.spanY AS spanY " +
+        "SELECT w.provider AS provider, w.userId AS userId, h.screen AS screen, h.cellX AS cellX, " +
+            "h.cellY AS cellY, h.spanX AS spanX, h.spanY AS spanY " +
             "FROM Widget w JOIN HomeItem h ON h.idWidget = w.id WHERE w.provider IS NOT NULL",
     ) { c ->
         SlWidget(
             provider = c.str("provider") ?: return@rows null,
             userId = c.int("userId"),
             screen = c.int("screen"),
+            x = c.double("cellX").toInt(),
+            y = c.double("cellY").toInt(),
+            spanX = c.double("spanX").toInt().coerceAtLeast(1),
             spanY = c.double("spanY").toInt().coerceAtLeast(1),
         )
     }
@@ -415,7 +429,19 @@ object SmartLauncherImport {
             usage = if (backup.drawer != null) usage else null,
             customLabels = customLabels,
             customIcons = customIcons,
-            widgets = backup.widgets.map { PendingWidget(it.provider, heightFraction = it.spanY.toFloat() / rows) },
+            // Page 1 de Smart Launcher -> grille de l'accueil ; autres pages -> page widgets.
+            widgets = backup.widgets.map { w ->
+                if (w.screen == 0) {
+                    val spanX = w.spanX.coerceIn(1, columns)
+                    val spanY = w.spanY.coerceIn(1, rows)
+                    PendingWidget(
+                        w.provider,
+                        home = HomeWidget(0, w.x.coerceIn(0, columns - spanX), w.y.coerceIn(0, rows - spanY), spanX, spanY),
+                    )
+                } else {
+                    PendingWidget(w.provider, heightFraction = w.spanY.toFloat() / rows)
+                }
+            },
             unresolved = unresolved,
             duplicates = duplicates,
         )

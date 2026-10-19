@@ -189,5 +189,13 @@ data class LauncherSettings(
 /** Une icône posée sur la grille de l'accueil, en colonne [x] et ligne [y]. */
 data class HomeIcon(val key: String, val x: Int, val y: Int)
 
+/** Un widget posé sur la grille de l'accueil : case en haut à gauche ([x], [y]) et taille en cases. */
+data class HomeWidget(val id: Int, val x: Int, val y: Int, val spanX: Int, val spanY: Int) {
+    fun cells(): List<Pair<Int, Int>> = (y until y + spanY).flatMap { row -> (x until x + spanX).map { it to row } }
+
+    fun overlaps(other: HomeWidget): Boolean =
+        x < other.x + other.spanX && other.x < x + spanX && y < other.y + other.spanY && other.y < y + spanY
+}
+
 /** Un widget posé sur la page widgets. */
 data class WidgetSlot(val id: Int, val heightDp: Int)
