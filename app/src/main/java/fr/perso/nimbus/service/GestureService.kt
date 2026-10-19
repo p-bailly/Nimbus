@@ -5,8 +5,9 @@ import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
 
 /**
- * Service d'accessibilité minimal : il ne lit rien à l'écran, il sert
- * uniquement à verrouiller l'écran et à ouvrir le volet de notifications.
+ * Service d'accessibilité minimal : il ne lit rien à l'écran, il sert uniquement
+ * aux actions globales des gestes (verrouillage, notifications, réglages rapides,
+ * applis récentes, capture d'écran, menu Marche/Arrêt).
  */
 class GestureService : AccessibilityService() {
 
@@ -40,5 +41,9 @@ class GestureService : AccessibilityService() {
 
         fun openNotifications(): Boolean =
             instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS) ?: false
+
+        /** Une constante AccessibilityService.GLOBAL_ACTION_* ; false si le service est désactivé. */
+        fun performGlobal(action: Int): Boolean =
+            instance?.performGlobalAction(action) ?: false
     }
 }

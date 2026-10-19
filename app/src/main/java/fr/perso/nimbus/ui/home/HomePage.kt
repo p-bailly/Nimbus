@@ -8,6 +8,8 @@ import android.os.BatteryManager
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -48,6 +51,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -58,9 +62,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.BadgeStyle
+import fr.perso.nimbus.data.Gesture
 import fr.perso.nimbus.data.GestureAction
 import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.service.SystemActions
+import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.components.AppIcon
 import fr.perso.nimbus.ui.components.WallpaperTextShadow
@@ -70,29 +77,33 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private const val DOCK_COLUMNS = 5
-
-/** Page principale : horloge, date, batterie, favoris et barre de recherche. */
+/** Page principale : horloge, date, batterie, grille d'icônes, dock (favoris) et barre de recherche. */
 @Composable
 fun HomePage(
     vm: LauncherViewModel,
     settings: LauncherSettings,
-    favorites: List<AppEntry>,
+    apps: AppsState,
     onLongPress: (Offset) -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
     val badges by vm.badges.collectAsStateWithLifecycle()
+    val swipeActions by vm.iconSwipeActions.collectAsStateWithLifecycle()
     val current by rememberUpdatedState(settings)
     val longPress by rememberUpdatedState(onLongPress)
     val doubleTapEnabled = settings.doubleTapAction != GestureAction.NONE
+    val multiTouchEnabled = listOf(Gesture.TWO_FINGER_UP, Gesture.TWO_FINGER_DOWN, Gesture.PINCH_IN, Gesture.PINCH_OUT)
+        .any { settings.actionFor(it) != GestureAction.NONE }
+    val badgeDot = settings.badgeStyle == BadgeStyle.DOT
 
     Box(
         Modifier
             .fillMaxSize()
+            // Gestes à deux doigts : observés avant tout le monde, puis consommés pour bloquer le pager.
+            .then(if (multiTouchEnabled) Modifier.multiTouchGestures { vm.onGesture(it) } else Modifier)
             // Sans action de double tap, on ne déclare pas le détecteur : il retarderait l'appui long.
             .pointerInput(doubleTapEnabled) {
                 detectTapGestures(
-                    onDoubleTap = if (doubleTapEnabled) { _ -> vm.onGesture(current.doubleTapAction) } else null,
+                    onDoubleTap = if (doubleTapEnabled) { _ -> vm.onGesture(Gesture.DOUBLE_TAP) } else null,
                     onLongPress = {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         longPress(it)
@@ -106,8 +117,8 @@ fun HomePage(
                     onDragStart = { total = 0f },
                     onDragEnd = {
                         when {
-                            total < -threshold -> vm.onGesture(current.swipeUpAction)
-                            total > threshold -> vm.onGesture(current.swipeDownAction)
+                            total < -threshold -> vm.onGesture(Gesture.SWIPE_UP)
+                            total > threshold -> vm.onGesture(Gesture.SWIPE_DOWN)
                         }
                     },
                     onVerticalDrag = { change, dragAmount ->
@@ -117,60 +128,156 @@ fun HomePage(
                 )
             }
             .systemBarsPadding()
-            .padding(horizontal = 20.dp),
+            .padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 48.dp),
-        ) {
-            if (settings.showClock) ClockAndDate()
-            if (settings.showBattery) {
-                Spacer(Modifier.height(10.dp))
-                BatteryIndicator()
+        Column(Modifier.fillMaxSize()) {
+            if (settings.showClock || settings.showBattery) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 32.dp, bottom = 8.dp),
+                ) {
+                    if (settings.showClock) ClockAndDate()
+                    if (settings.showBattery) {
+                        Spacer(Modifier.height(10.dp))
+                        BatteryIndicator()
+                    }
+                }
+            }
+
+            HomeGrid(
+                icons = apps.home,
+                columns = settings.homeColumns,
+                rows = settings.homeRows,
+                iconSizeDp = settings.iconSize.dp,
+                showLabels = settings.homeShowLabels,
+                badges = badges,
+                badgeDot = badgeDot,
+                hasSwipeAction = { it.key in swipeActions },
+                onOpen = vm::launch,
+                onActions = vm::showAppSheet,
+                onMove = vm::moveHomeIcon,
+                onSwipeUp = { app -> vm.swipeTarget(app)?.let(vm::launch) },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
+
+            if (apps.favorites.isNotEmpty()) {
+                Dock(
+                    favorites = apps.favorites,
+                    columns = settings.dockColumns,
+                    iconSizeDp = settings.iconSize.dp,
+                    showLabels = settings.showLabels,
+                    badges = badges,
+                    badgeDot = badgeDot,
+                    swipeActions = swipeActions,
+                    vm = vm,
+                )
+            } else if (apps.home.isEmpty() && apps.loaded) {
+                WallpaperText(
+                    "Appui long sur une app du tiroir › Ajouter à l'accueil",
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 16.dp),
+                )
+            }
+            if (settings.showSearchBar) {
+                IconButton(onClick = { vm.openDrawer() }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Toutes les apps", tint = Color.White)
+                }
+                SearchBar(onClick = { vm.openDrawer(focusSearch = true) })
             }
         }
+    }
+}
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(bottom = 24.dp),
-        ) {
-            if (favorites.isEmpty()) {
-                WallpaperText(
-                    "Appui long sur une app du tiroir › Ajouter aux favoris",
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(bottom = 16.dp),
-                )
-            } else {
-                for (row in favorites.chunked(DOCK_COLUMNS)) {
-                    Row(Modifier.fillMaxWidth()) {
-                        for (i in 0 until DOCK_COLUMNS) {
-                            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                                row.getOrNull(i)?.let { app ->
-                                    AppIcon(
-                                        app = app,
-                                        iconSizeDp = settings.iconSize.dp,
-                                        showLabel = settings.showLabels,
-                                        badgeCount = badges[app.packageName] ?: 0,
-                                        onClick = { vm.launch(app) },
-                                        onLongClick = { vm.showAppSheet(app) },
-                                        onWallpaper = true,
-                                    )
-                                }
-                            }
+/** Dock : favoris sur une ou plusieurs rangées. */
+@Composable
+private fun Dock(
+    favorites: List<AppEntry>,
+    columns: Int,
+    iconSizeDp: Int,
+    showLabels: Boolean,
+    badges: Map<String, Int>,
+    badgeDot: Boolean,
+    swipeActions: Map<String, String>,
+    vm: LauncherViewModel,
+) {
+    Column(Modifier.padding(top = 8.dp)) {
+        for (row in favorites.chunked(columns)) {
+            Row(Modifier.fillMaxWidth()) {
+                for (i in 0 until columns) {
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        row.getOrNull(i)?.let { app ->
+                            AppIcon(
+                                app = app,
+                                iconSizeDp = iconSizeDp,
+                                showLabel = showLabels,
+                                badgeCount = badges[app.packageName] ?: 0,
+                                badgeDot = badgeDot,
+                                onClick = { vm.launch(app) },
+                                onLongClick = { vm.showAppSheet(app) },
+                                onWallpaper = true,
+                                onSwipeUp = if (app.key in swipeActions) {
+                                    { vm.swipeTarget(app)?.let(vm::launch) }
+                                } else {
+                                    null
+                                },
+                            )
                         }
                     }
                 }
             }
-            IconButton(onClick = { vm.openDrawer() }) {
-                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Toutes les apps", tint = Color.White)
+        }
+    }
+}
+
+/**
+ * Gestes à deux doigts (Nova) : glisser vers le haut / le bas, pincer, écarter.
+ * Observés dès la passe Initial ; dès que deux doigts sont posés, les événements sont
+ * consommés pour que le pager et le glissé à un doigt ne réagissent pas.
+ */
+private fun Modifier.multiTouchGestures(onGesture: (Gesture) -> Unit): Modifier = composed {
+    val callback by rememberUpdatedState(onGesture)
+    pointerInput(Unit) {
+        val distance = 64.dp.toPx()
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            var multi = false
+            var startCentroid = Offset.Zero
+            var startSpan = 0f
+            var lastCentroid = Offset.Zero
+            var lastSpan = 0f
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val pressed = event.changes.filter { it.pressed }
+                if (pressed.isEmpty()) break
+                if (pressed.size >= 2) {
+                    val centroid = pressed.fold(Offset.Zero) { acc, c -> acc + c.position } / pressed.size.toFloat()
+                    val span = pressed.map { (it.position - centroid).getDistance() }.average().toFloat()
+                    if (!multi) {
+                        multi = true
+                        startCentroid = centroid
+                        startSpan = span
+                    }
+                    lastCentroid = centroid
+                    lastSpan = span
+                }
+                if (multi) event.changes.forEach { it.consume() }
             }
-            SearchBar(onClick = { vm.openDrawer(focusSearch = true) })
-            Spacer(Modifier.height(12.dp))
+            if (multi && startSpan > 0f) {
+                val zoom = lastSpan / startSpan
+                val dy = lastCentroid.y - startCentroid.y
+                when {
+                    zoom < 0.7f -> callback(Gesture.PINCH_IN)
+                    zoom > 1.4f -> callback(Gesture.PINCH_OUT)
+                    dy < -distance -> callback(Gesture.TWO_FINGER_UP)
+                    dy > distance -> callback(Gesture.TWO_FINGER_DOWN)
+                }
+            }
         }
     }
 }

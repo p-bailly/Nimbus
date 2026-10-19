@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
     <!-- Désinstaller une app depuis l'appui long -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- Espace privé (Android 15+) : visible pour le launcher par défaut qui déclare cette permission -->
+    <uses-permission android:name="android.permission.ACCESS_HIDDEN_PROFILES" />
     <!-- Un launcher doit voir toutes les apps, packs d'icônes et widgets -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"

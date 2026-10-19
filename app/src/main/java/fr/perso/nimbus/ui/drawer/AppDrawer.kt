@@ -1,5 +1,25 @@
 package fr.perso.nimbus.ui.drawer
 
+import android.os.Build
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
+import fr.perso.nimbus.data.BadgeStyle
+import fr.perso.nimbus.data.ProfileState
+import fr.perso.nimbus.data.SortMode
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -211,6 +231,7 @@ fun AppDrawer(
                 SearchResultsGrid(
                     query = ui.query,
                     results = results,
+                    apps = apps,
                     settings = settings,
                     badges = badges,
                     contactsBlocked = settings.searchContacts && !status.contactsPermission,
@@ -329,19 +350,200 @@ private fun CategoryPager(
             val list = remember(apps.visible, category) {
                 if (category == null) apps.visible else apps.visible.filter { it.category == category }
             }
-            AppGrid(columns = settings.drawerColumns) {
-                appItems(list, settings, badges, vm)
+            AppPage(
+                list = list,
+                // « Fréquentes » et l'espace privé n'apparaissent que dans l'onglet « Toutes ».
+                frequent = if (category == null) apps.frequent else emptyList(),
+                privateSpace = if (category == null) apps.privateSpace else null,
+                privateApps = if (category == null) apps.privateApps else emptyList(),
+                settings = settings,
+                badges = badges,
+                vm = vm,
+            )
+        }
+    }
+}
+
+/** Une page du tiroir : ligne « Fréquentes », grille, espace privé, et défilement rapide A–Z. */
+@Composable
+private fun AppPage(
+    list: List<AppEntry>,
+    frequent: List<AppEntry>,
+    privateSpace: ProfileState?,
+    privateApps: List<AppEntry>,
+    settings: LauncherSettings,
+    badges: Map<String, Int>,
+    vm: LauncherViewModel,
+) {
+    val gridState = rememberLazyGridState()
+    val scope = rememberCoroutineScope()
+    val headerItems = if (frequent.isNotEmpty()) frequent.size + 2 else 0
+    // Lettre -> index de la première app : seulement en tri alphabétique et pour une liste assez longue.
+    val letters = remember(list, settings.sortMode) {
+        if (settings.sortMode != SortMode.ALPHA || list.size < 20) emptyMap()
+        else {
+            val map = LinkedHashMap<Char, Int>()
+            list.forEachIndexed { i, app -> map.putIfAbsent(sectionLetter(app.label), i) }
+            map
+        }
+    }
+    val showPrivate = privateSpace != null &&
+        !(privateSpace.quiet && (settings.hidePrivateSpaceWhenLocked || privateSpace.hiddenWhenLocked))
+
+    // Déverrouillage demandé depuis le tiroir : on fait défiler jusqu'à l'espace privé.
+    var scrollToPrivate by remember { mutableStateOf(false) }
+    LaunchedEffect(privateApps.isNotEmpty(), scrollToPrivate) {
+        if (scrollToPrivate && privateApps.isNotEmpty()) {
+            gridState.animateScrollToItem(headerItems + list.size)
+            scrollToPrivate = false
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        AppGrid(columns = settings.drawerColumns, state = gridState, endPadding = if (letters.isEmpty()) 8.dp else 28.dp) {
+            if (frequent.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }, key = "frequent-title") { SectionHeader("Fréquentes") }
+                appItems(frequent, settings, badges, vm, keyPrefix = "frequent:")
+                item(span = { GridItemSpan(maxLineSpan) }, key = "frequent-divider") {
+                    HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                }
+            }
+            appItems(list, settings, badges, vm)
+            if (showPrivate) {
+                item(span = { GridItemSpan(maxLineSpan) }, key = "private-header") {
+                    PrivateSpaceHeader(
+                        state = privateSpace!!,
+                        onToggleLock = {
+                            if (privateSpace.quiet) scrollToPrivate = true
+                            vm.setProfileQuiet(privateSpace, !privateSpace.quiet)
+                        },
+                        onInstall = { vm.installInProfile(privateSpace) },
+                        onSettings = vm::openPrivateSpaceSettings,
+                    )
+                }
+                if (!privateSpace!!.quiet) appItems(privateApps, settings, badges, vm)
+            }
+        }
+        if (letters.isNotEmpty()) {
+            FastScroller(
+                letters = letters.keys.toList(),
+                onLetter = { letter ->
+                    letters[letter]?.let { index -> scope.launch { gridState.scrollToItem(headerItems + index) } }
+                },
+            )
+        }
+    }
+}
+
+/** Initiale de rangement : lettre sans accent, ou « # » pour les chiffres et symboles. */
+private fun sectionLetter(label: String): Char {
+    val c = SearchMatcher.normalize(label).firstOrNull()?.uppercaseChar() ?: return '#'
+    return if (c in 'A'..'Z') c else '#'
+}
+
+/** Barre de lettres sur le bord droit : toucher ou glisser fait défiler la grille. */
+@Composable
+private fun FastScroller(letters: List<Char>, onLetter: (Char) -> Unit) {
+    val haptics = LocalHapticFeedback.current
+    var active by remember { mutableStateOf<Char?>(null) }
+    val select by rememberUpdatedState(onLetter)
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight(0.8f)
+                .width(28.dp)
+                .pointerInput(letters) {
+                    fun pick(y: Float) {
+                        val index = (y / size.height * letters.size).toInt().coerceIn(0, letters.lastIndex)
+                        val letter = letters[index]
+                        if (letter != active) {
+                            active = letter
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            select(letter)
+                        }
+                    }
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        down.consume()
+                        pick(down.position.y)
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull() ?: break
+                            change.consume()
+                            if (!change.pressed) break
+                            pick(change.position.y)
+                        }
+                        active = null
+                    }
+                },
+        ) {
+            for (letter in letters) {
+                Text(
+                    letter.toString(),
+                    fontSize = 11.sp,
+                    color = if (letter == active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        active?.let { letter ->
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(80.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+            ) {
+                Text(letter.toString(), fontSize = 40.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
         }
     }
 }
 
+/** En-tête de l'espace privé : verrouiller / déverrouiller, installer des apps, réglages. */
 @Composable
-private fun AppGrid(columns: Int, content: LazyGridScope.() -> Unit) {
+private fun PrivateSpaceHeader(
+    state: ProfileState,
+    onToggleLock: () -> Unit,
+    onInstall: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp)) {
+            Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(12.dp))
+            Text("Espace privé", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            if (!state.quiet) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                    IconButton(onClick = onInstall) { Icon(Icons.Default.Add, contentDescription = "Installer des apps") }
+                }
+                IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, contentDescription = "Réglages de l'espace privé") }
+            }
+            FilledTonalButton(onClick = onToggleLock) { Text(if (state.quiet) "Déverrouiller" else "Verrouiller") }
+        }
+    }
+}
+
+@Composable
+private fun AppGrid(
+    columns: Int,
+    state: LazyGridState = rememberLazyGridState(),
+    endPadding: Dp = 8.dp,
+    content: LazyGridScope.() -> Unit,
+) {
     val navBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     LazyVerticalGrid(
         columns = GridCells.Fixed(columns.coerceIn(3, 7)),
-        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = navBar + 16.dp),
+        state = state,
+        contentPadding = PaddingValues(start = 8.dp, end = endPadding, top = 8.dp, bottom = navBar + 16.dp),
         modifier = Modifier.fillMaxSize(),
         content = content,
     )
@@ -352,13 +554,15 @@ private fun LazyGridScope.appItems(
     settings: LauncherSettings,
     badges: Map<String, Int>,
     vm: LauncherViewModel,
+    keyPrefix: String = "",
 ) {
-    items(list, key = { it.key }) { app ->
+    items(list, key = { keyPrefix + it.key }) { app ->
         AppIcon(
             app = app,
             iconSizeDp = settings.iconSize.dp,
             showLabel = settings.showLabels,
             badgeCount = badges[app.packageName] ?: 0,
+            badgeDot = settings.badgeStyle == BadgeStyle.DOT,
             onClick = { vm.launch(app) },
             onLongClick = { vm.showAppSheet(app) },
             modifier = Modifier.fillMaxWidth(),
@@ -366,11 +570,15 @@ private fun LazyGridScope.appItems(
     }
 }
 
-/** Résultats : apps (insensible aux accents), contacts, puis recherche web. */
+/** Mots qui font apparaître l'espace privé dans la recherche (utile s'il est masqué quand verrouillé). */
+private val PRIVATE_SPACE_WORDS = listOf("espace prive", "prive", "private space", "private")
+
+/** Résultats : apps (insensible aux accents), espace privé, contacts, puis recherche web. */
 @Composable
 private fun SearchResultsGrid(
     query: String,
     results: SearchResults,
+    apps: AppsState,
     settings: LauncherSettings,
     badges: Map<String, Int>,
     contactsBlocked: Boolean,
@@ -378,6 +586,10 @@ private fun SearchResultsGrid(
     onRequestContacts: () -> Unit,
 ) {
     val fullSpan: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
+    val normalized = SearchMatcher.normalize(query)
+    val privateSpace = apps.privateSpace
+    val showPrivateEntry = privateSpace != null && normalized.length >= 3 &&
+        PRIVATE_SPACE_WORDS.any { it.startsWith(normalized) }
     AppGrid(columns = settings.drawerColumns) {
         if (results.apps.isEmpty()) {
             item(span = fullSpan) {
@@ -389,6 +601,17 @@ private fun SearchResultsGrid(
             }
         } else {
             appItems(results.apps, settings, badges, vm)
+        }
+
+        if (showPrivateEntry) {
+            item(span = fullSpan, key = "private-search") {
+                PrivateSpaceHeader(
+                    state = privateSpace!!,
+                    onToggleLock = { vm.setProfileQuiet(privateSpace, !privateSpace.quiet) },
+                    onInstall = { vm.installInProfile(privateSpace) },
+                    onSettings = vm::openPrivateSpaceSettings,
+                )
+            }
         }
 
         if (results.contacts.isNotEmpty()) {
@@ -410,7 +633,7 @@ private fun SearchResultsGrid(
             Column {
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 ResultRow(
-                    text = "Rechercher « ${query.trim()} » sur le web",
+                    text = "Rechercher « ${query.trim()} » sur ${settings.webSearchEngine.let { if (it.urlTemplate == null) "le web" else it.label }}",
                     onClick = { vm.webSearch(query) },
                     leading = { Icon(Icons.Default.Search, contentDescription = null) },
                 )

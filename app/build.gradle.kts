@@ -36,6 +36,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        // Tests JVM avec Robolectric : vraie base SQLite et vrai parseur XML d'Android.
+        unitTests.isIncludeAndroidResources = false
+    }
 }
 
 dependencies {
@@ -53,4 +58,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
 }

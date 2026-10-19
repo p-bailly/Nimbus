@@ -85,7 +85,7 @@ fun HomeScreen(
                 PAGE_HOME -> HomePage(
                     vm = vm,
                     settings = settings,
-                    favorites = apps.favorites,
+                    apps = apps,
                     onLongPress = { vm.openHomeMenu(PAGE_HOME, it) },
                 )
                 else -> WidgetsPage(

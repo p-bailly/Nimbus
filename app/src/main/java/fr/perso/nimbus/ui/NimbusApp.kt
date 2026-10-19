@@ -10,11 +10,21 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.ui.components.AppActionSheet
 import fr.perso.nimbus.ui.components.WidgetPicker
@@ -32,7 +42,7 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val wallpaperColor by vm.wallpaperColor.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
-    val overrides by vm.categoryOverrides.collectAsStateWithLifecycle()
+    val importResult by vm.importResult.collectAsStateWithLifecycle()
 
     val dark = isDarkTheme(settings.themeMode, isSystemInDarkTheme())
     val onWallpaper = !ui.drawerOpen && ui.screen == Screen.HOME
@@ -44,6 +54,14 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     BackHandler {}
 
     NimbusTheme(mode = settings.themeMode, wallpaperColor = wallpaperColor) {
+        // Couleurs des icônes à thème, à la manière du Pixel : fond pastel / motif accentué.
+        val scheme = MaterialTheme.colorScheme
+        val themedBackground = if (dark) scheme.surfaceContainerHighest else scheme.primaryContainer
+        val themedForeground = scheme.primary
+        LaunchedEffect(themedBackground, themedForeground) {
+            vm.setThemedIconColors(themedBackground.toArgb(), themedForeground.toArgb())
+        }
+
         Box(Modifier.fillMaxSize()) {
             HomeScreen(vm = vm, ui = ui, settings = settings, apps = apps, active = onWallpaper)
 
@@ -72,18 +90,36 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
             }
 
             ui.sheetApp?.let { app ->
-                AppActionSheet(
-                    app = app,
-                    isFavorite = app.key in apps.favoriteKeys,
-                    isHidden = app.key in apps.hiddenKeys,
-                    categoryOverride = overrides[app.key],
-                    onDismiss = vm::dismissAppSheet,
-                    onShortcut = vm::startShortcut,
-                    onToggleFavorite = { vm.toggleFavorite(app) },
-                    onSetCategory = { vm.setCategory(app, it) },
-                    onToggleHidden = { vm.setHidden(app, app.key !in apps.hiddenKeys) },
-                    onAppInfo = { vm.appInfo(app) },
-                    onUninstall = { vm.uninstall(app) },
+                // L'app de la feuille est rafraîchie (nom, icône) si elle change pendant l'affichage.
+                AppActionSheet(app = apps.byKey[app.key] ?: app, apps = apps, vm = vm, host = host)
+            }
+
+            importResult?.let { result ->
+                AlertDialog(
+                    onDismissRequest = vm::dismissImportResult,
+                    title = { Text(result.title) },
+                    text = {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            for (line in result.details) {
+                                Text("• $line", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 3.dp))
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        if (result.widgets.isNotEmpty()) {
+                            TextButton(onClick = {
+                                vm.dismissImportResult()
+                                host.addWidgets(result.widgets)
+                            }) { Text("Rajouter les widgets") }
+                        } else {
+                            TextButton(onClick = vm::dismissImportResult) { Text("OK") }
+                        }
+                    },
+                    dismissButton = if (result.widgets.isNotEmpty()) {
+                        { TextButton(onClick = vm::dismissImportResult) { Text("Plus tard") } }
+                    } else {
+                        null
+                    },
                 )
             }
 

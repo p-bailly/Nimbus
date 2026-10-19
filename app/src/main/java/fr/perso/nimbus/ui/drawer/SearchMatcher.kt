@@ -19,6 +19,8 @@ object SearchMatcher {
         val compact: String,
         val words: List<String>,
         val initials: String,
+        /** Nom d'origine normalisé d'une app renommée. */
+        val alias: String? = null,
     )
 
     fun normalize(text: String): String {
@@ -29,15 +31,18 @@ object SearchMatcher {
         return Normalizer.normalize(lower, Normalizer.Form.NFD).replace(marks, "").trim()
     }
 
-    fun index(apps: List<AppEntry>): List<Entry> = apps.map { app ->
+    /** [aliases] : clé d'app -> nom d'origine, pour retrouver une app renommée par son ancien nom. */
+    fun index(apps: List<AppEntry>, aliases: Map<String, String> = emptyMap()): List<Entry> = apps.map { app ->
         val label = normalize(app.label)
-        val words = label.split(separators).filter { it.isNotEmpty() }
+        val alias = aliases[app.key]?.let(::normalize)
+        val words = (label.split(separators) + alias?.split(separators).orEmpty()).filter { it.isNotEmpty() }
         Entry(
             app = app,
             label = label,
-            compact = words.joinToString(""),
+            compact = label.split(separators).joinToString(""),
             words = words,
-            initials = words.joinToString("") { it.take(1) },
+            initials = label.split(separators).filter { it.isNotEmpty() }.joinToString("") { it.take(1) },
+            alias = alias,
         )
     }
 
@@ -51,9 +56,10 @@ object SearchMatcher {
         val qCompact = q.split(separators).joinToString("")
         return index.mapNotNull { e ->
             val score = when {
-                e.label.startsWith(q) -> 0
+                e.label.startsWith(q) || e.alias?.startsWith(q) == true -> 0
                 e.words.any { it.startsWith(q) } -> 1
-                e.label.contains(q) || (qCompact.isNotEmpty() && e.compact.contains(qCompact)) -> 2
+                e.label.contains(q) || e.alias?.contains(q) == true ||
+                    (qCompact.isNotEmpty() && e.compact.contains(qCompact)) -> 2
                 q.length >= 2 && e.initials.startsWith(q) -> 3
                 else -> return@mapNotNull null
             }

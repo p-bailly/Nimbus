@@ -12,7 +12,9 @@ import android.graphics.Rect
 import android.graphics.Shader
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
+import android.os.Build
 import android.os.UserHandle
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -30,9 +32,17 @@ data class IconConfig(
     val iconPack: String?,
     val wrapLegacy: Boolean,
     val sizePx: Int,
+    /** Icônes à thème (Android 13+) : calque monochrome teinté [themeForeground] sur [themeBackground]. */
+    val themed: Boolean = false,
+    val themeBackground: Int = 0,
+    val themeForeground: Int = 0,
 )
 
-/** Fabrique les icônes : pack d'icônes, formes personnalisées, badge profil pro. */
+/**
+ * Fabrique les icônes. Ordre de priorité : icône personnalisée, pack d'icônes,
+ * icône à thème, fond du pack, puis icône d'origine découpée à la forme choisie.
+ * Badge du profil pro / espace privé ajouté à la fin.
+ */
 class IconFactory(context: Context) {
 
     private val appContext = context.applicationContext
@@ -44,6 +54,10 @@ class IconFactory(context: Context) {
 
     fun invalidate(packageName: String) {
         cache.keys.removeAll { it.startsWith("$packageName/") }
+    }
+
+    fun invalidateKey(key: String) {
+        cache.remove(key)
     }
 
     fun create(
@@ -73,9 +87,13 @@ class IconFactory(context: Context) {
         }
         val raw: Drawable = loaded ?: pm.defaultActivityIcon
 
-        val packIcon = pack?.getIcon(info.componentName)
+        val custom = CustomIcons.load(appContext, key)
+        val packIcon = if (custom == null) pack?.getIcon(info.componentName) else null
+        val themed = if (custom == null && packIcon == null && config.themed) themedIcon(raw, config) else null
         var bitmap: Bitmap = when {
+            custom != null -> Bitmap.createScaledBitmap(custom, size, size, true)
             packIcon != null -> drawableToBitmap(packIcon, size)
+            themed != null -> shaped(themed, config, size)
             pack != null && pack.hasFallback ->
                 pack.applyFallback(raw, key, size) ?: shaped(raw, config, size)
             else -> shaped(raw, config, size)
@@ -86,6 +104,14 @@ class IconFactory(context: Context) {
             bitmap = drawableToBitmap(badged, size)
         }
         return bitmap
+    }
+
+    /** Calque monochrome de l'icône adaptative (Android 13+), ou null si l'app n'en fournit pas. */
+    private fun themedIcon(raw: Drawable, config: IconConfig): Drawable? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || raw !is AdaptiveIconDrawable) return null
+        val mono = raw.monochrome?.mutate() ?: return null
+        mono.setTint(config.themeForeground)
+        return AdaptiveIconDrawable(ColorDrawable(config.themeBackground), mono)
     }
 
     private fun shaped(drawable: Drawable, config: IconConfig, size: Int): Bitmap {

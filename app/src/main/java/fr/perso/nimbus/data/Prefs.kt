@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONObject
 import java.security.MessageDigest
 
 /**
@@ -36,6 +37,26 @@ class Prefs private constructor(context: Context) {
     private val _widgets = MutableStateFlow(readWidgets())
     val widgets: StateFlow<List<WidgetSlot>> = _widgets.asStateFlow()
 
+    private val _customLabels = MutableStateFlow(readMap(KEY_LABELS))
+    /** Noms personnalisés : clé d'app -> nom affiché. */
+    val customLabels: StateFlow<Map<String, String>> = _customLabels.asStateFlow()
+
+    private val _iconSwipeActions = MutableStateFlow(readMap(KEY_ICON_SWIPES))
+    /** Glissé vers le haut sur une icône du dock : clé d'app -> clé de l'app à ouvrir. */
+    val iconSwipeActions: StateFlow<Map<String, String>> = _iconSwipeActions.asStateFlow()
+
+    private val _homeIcons = MutableStateFlow(readHomeIcons())
+    /** Icônes de la grille d'accueil. */
+    val homeIcons: StateFlow<List<HomeIcon>> = _homeIcons.asStateFlow()
+
+    private val _autoBackupFolder = MutableStateFlow(sp.getString(KEY_AUTO_BACKUP_DIR, null))
+    /** Dossier (URI d'arborescence SAF) des sauvegardes automatiques, null si désactivées. */
+    val autoBackupFolder: StateFlow<String?> = _autoBackupFolder.asStateFlow()
+
+    private val _gestureApps = MutableStateFlow(readGestureApps())
+    /** App ouverte par un geste réglé sur « Ouvrir une app ». */
+    val gestureApps: StateFlow<Map<Gesture, String>> = _gestureApps.asStateFlow()
+
     // ---------------------------------------------------------------- Réglages
 
     fun updateSettings(transform: (LauncherSettings) -> LauncherSettings) {
@@ -58,6 +79,20 @@ class Prefs private constructor(context: Context) {
         e.putString("doubleTapAction", s.doubleTapAction.name)
         e.putString("swipeUpAction", s.swipeUpAction.name)
         e.putString("swipeDownAction", s.swipeDownAction.name)
+        e.putString("twoFingerSwipeUpAction", s.twoFingerSwipeUpAction.name)
+        e.putString("twoFingerSwipeDownAction", s.twoFingerSwipeDownAction.name)
+        e.putString("pinchInAction", s.pinchInAction.name)
+        e.putString("pinchOutAction", s.pinchOutAction.name)
+        e.putBoolean("themedIcons", s.themedIcons)
+        e.putString("badgeStyle", s.badgeStyle.name)
+        e.putInt("dockColumns", s.dockColumns)
+        e.putBoolean("showFrequentApps", s.showFrequentApps)
+        e.putString("webSearchEngine", s.webSearchEngine.name)
+        e.putBoolean("hidePrivateSpaceWhenLocked", s.hidePrivateSpaceWhenLocked)
+        e.putInt("homeColumns", s.homeColumns)
+        e.putInt("homeRows", s.homeRows)
+        e.putBoolean("homeShowLabels", s.homeShowLabels)
+        e.putBoolean("showSearchBar", s.showSearchBar)
         e.apply()
     }
 
@@ -80,6 +115,20 @@ class Prefs private constructor(context: Context) {
             doubleTapAction = enumPref("doubleTapAction", d.doubleTapAction),
             swipeUpAction = enumPref("swipeUpAction", d.swipeUpAction),
             swipeDownAction = enumPref("swipeDownAction", d.swipeDownAction),
+            twoFingerSwipeUpAction = enumPref("twoFingerSwipeUpAction", d.twoFingerSwipeUpAction),
+            twoFingerSwipeDownAction = enumPref("twoFingerSwipeDownAction", d.twoFingerSwipeDownAction),
+            pinchInAction = enumPref("pinchInAction", d.pinchInAction),
+            pinchOutAction = enumPref("pinchOutAction", d.pinchOutAction),
+            themedIcons = sp.getBoolean("themedIcons", d.themedIcons),
+            badgeStyle = enumPref("badgeStyle", d.badgeStyle),
+            dockColumns = sp.getInt("dockColumns", d.dockColumns),
+            showFrequentApps = sp.getBoolean("showFrequentApps", d.showFrequentApps),
+            webSearchEngine = enumPref("webSearchEngine", d.webSearchEngine),
+            hidePrivateSpaceWhenLocked = sp.getBoolean("hidePrivateSpaceWhenLocked", d.hidePrivateSpaceWhenLocked),
+            homeColumns = sp.getInt("homeColumns", d.homeColumns),
+            homeRows = sp.getInt("homeRows", d.homeRows),
+            homeShowLabels = sp.getBoolean("homeShowLabels", d.homeShowLabels),
+            showSearchBar = sp.getBoolean("showSearchBar", d.showSearchBar),
         )
     }
 
@@ -173,6 +222,184 @@ class Prefs private constructor(context: Context) {
     private fun writeWidgets(list: List<WidgetSlot>) =
         writeList(KEY_WIDGETS, list.map { "${it.id}:${it.heightDp}" })
 
+    // ---------------------------------------------------------------- Grille d'accueil
+
+    /** Ajoute l'icône dans la première case libre ; false si elle y est déjà ou si la grille est pleine. */
+    fun addHomeIcon(key: String, columns: Int, rows: Int): Boolean {
+        val list = _homeIcons.value
+        if (list.any { it.key == key }) return false
+        val taken = list.map { it.x to it.y }.toSet()
+        for (y in 0 until rows) for (x in 0 until columns) {
+            if ((x to y) !in taken) {
+                setHomeIcons(list + HomeIcon(key, x, y))
+                return true
+            }
+        }
+        return false
+    }
+
+    /** Déplace une icône ; si la case est occupée, les deux icônes s'échangent. */
+    fun moveHomeIcon(key: String, x: Int, y: Int) {
+        val list = _homeIcons.value
+        val moving = list.firstOrNull { it.key == key } ?: return
+        setHomeIcons(list.map {
+            when {
+                it.key == key -> it.copy(x = x, y = y)
+                it.x == x && it.y == y -> it.copy(x = moving.x, y = moving.y)
+                else -> it
+            }
+        })
+    }
+
+    fun removeHomeIcon(key: String) = setHomeIcons(_homeIcons.value.filterNot { it.key == key })
+
+    fun setHomeIcons(list: List<HomeIcon>) {
+        _homeIcons.value = list
+        writeList(KEY_HOME_ICONS, list.map { "${it.key}@${it.x},${it.y}" })
+    }
+
+    private fun readHomeIcons(): List<HomeIcon> = readList(KEY_HOME_ICONS).mapNotNull { line ->
+        val at = line.lastIndexOf('@')
+        if (at <= 0) return@mapNotNull null
+        val pos = line.substring(at + 1).split(',')
+        val x = pos.getOrNull(0)?.toIntOrNull() ?: return@mapNotNull null
+        val y = pos.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
+        HomeIcon(line.substring(0, at), x, y)
+    }
+
+    // ---------------------------------------------------------------- Remplacement en bloc (imports)
+
+    /** Remplace les listes fournies (null = inchangée), par exemple lors d'un import Smart Launcher. */
+    fun replaceAll(
+        favorites: List<String>? = null,
+        hidden: Set<String>? = null,
+        categoryOverrides: Map<String, AppCategory>? = null,
+        usage: Map<String, Int>? = null,
+        customLabels: Map<String, String>? = null,
+        homeIcons: List<HomeIcon>? = null,
+    ) {
+        favorites?.let {
+            _favorites.value = it
+            writeList(KEY_FAVORITES, it)
+        }
+        hidden?.let {
+            _hidden.value = it
+            writeList(KEY_HIDDEN, it.toList())
+        }
+        categoryOverrides?.let {
+            _categoryOverrides.value = it
+            writeList(KEY_CATEGORIES, it.map { (k, v) -> "$k=${v.name}" })
+        }
+        usage?.let {
+            val e = usageSp.edit().clear()
+            for ((k, v) in it) e.putInt(k, v)
+            e.apply()
+            _usage.value = it
+        }
+        customLabels?.let {
+            _customLabels.value = it
+            writeMap(KEY_LABELS, it)
+        }
+        homeIcons?.let { setHomeIcons(it) }
+    }
+
+    // ---------------------------------------------------------------- Noms, glissés sur icônes, apps des gestes
+
+    /** [label] null ou vide : retour au nom d'origine. */
+    fun setCustomLabel(key: String, label: String?) {
+        val clean = label?.replace('\n', ' ')?.trim()
+        val map = _customLabels.value.toMutableMap()
+        if (clean.isNullOrEmpty()) map.remove(key) else map[key] = clean
+        _customLabels.value = map
+        writeMap(KEY_LABELS, map)
+    }
+
+    fun setIconSwipeAction(key: String, targetKey: String?) {
+        val map = _iconSwipeActions.value.toMutableMap()
+        if (targetKey == null) map.remove(key) else map[key] = targetKey
+        _iconSwipeActions.value = map
+        writeMap(KEY_ICON_SWIPES, map)
+    }
+
+    fun setGestureApp(gesture: Gesture, appKey: String?) {
+        val map = _gestureApps.value.toMutableMap()
+        if (appKey == null) map.remove(gesture) else map[gesture] = appKey
+        _gestureApps.value = map
+        writeMap(KEY_GESTURE_APPS, map.mapKeys { it.key.name })
+    }
+
+    private fun readGestureApps(): Map<Gesture, String> =
+        readMap(KEY_GESTURE_APPS).mapNotNull { (name, app) ->
+            Gesture.entries.firstOrNull { it.name == name }?.let { it to app }
+        }.toMap()
+
+    // ---------------------------------------------------------------- Sauvegarde
+
+    fun setAutoBackupFolder(uri: String?) {
+        _autoBackupFolder.value = uri
+        sp.edit().putString(KEY_AUTO_BACKUP_DIR, uri).apply()
+    }
+
+    /** Date (ms) de la dernière sauvegarde automatique réussie. */
+    var lastAutoBackup: Long
+        get() = sp.getLong(KEY_LAST_AUTO_BACKUP, 0L)
+        set(value) = sp.edit().putLong(KEY_LAST_AUTO_BACKUP, value).apply()
+
+    /**
+     * Exporte réglages, favoris, apps masquées, catégories, noms, gestes et usage en JSON.
+     * Le code PIN et les widgets (identifiants propres à l'appareil) ne sont pas exportés.
+     */
+    fun exportJson(): JSONObject {
+        val strings = JSONObject()
+        val booleans = JSONObject()
+        val ints = JSONObject()
+        for ((key, value) in sp.all) {
+            if (key in NOT_EXPORTED) continue
+            when (value) {
+                is String -> strings.put(key, value)
+                is Boolean -> booleans.put(key, value)
+                is Int -> ints.put(key, value)
+            }
+        }
+        val usage = JSONObject()
+        for ((key, count) in _usage.value) usage.put(key, count)
+        return JSONObject()
+            .put("app", BACKUP_APP)
+            .put("version", BACKUP_VERSION)
+            .put("strings", strings)
+            .put("booleans", booleans)
+            .put("ints", ints)
+            .put("usage", usage)
+    }
+
+    /** Remplace les données exportables par celles de la sauvegarde. Retourne false si elle n'est pas reconnue. */
+    fun importJson(root: JSONObject): Boolean {
+        if (root.optString("app") != BACKUP_APP) return false
+
+        val e = sp.edit()
+        for (key in sp.all.keys) if (key !in NOT_EXPORTED) e.remove(key)
+        root.optJSONObject("strings")?.let { o -> o.keys().forEach { k -> if (k !in NOT_EXPORTED) e.putString(k, o.getString(k)) } }
+        root.optJSONObject("booleans")?.let { o -> o.keys().forEach { k -> if (k !in NOT_EXPORTED) e.putBoolean(k, o.getBoolean(k)) } }
+        root.optJSONObject("ints")?.let { o -> o.keys().forEach { k -> if (k !in NOT_EXPORTED) e.putInt(k, o.getInt(k)) } }
+        // apply() met la mémoire à jour tout de suite : les relectures ci-dessous voient déjà l'import.
+        e.apply()
+
+        val u = usageSp.edit().clear()
+        root.optJSONObject("usage")?.let { o -> o.keys().forEach { k -> u.putInt(k, o.optInt(k)) } }
+        u.apply()
+
+        _settings.value = readSettings()
+        _favorites.value = readList(KEY_FAVORITES)
+        _hidden.value = readList(KEY_HIDDEN).toSet()
+        _categoryOverrides.value = readOverrides()
+        _usage.value = readUsage()
+        _customLabels.value = readMap(KEY_LABELS)
+        _iconSwipeActions.value = readMap(KEY_ICON_SWIPES)
+        _gestureApps.value = readGestureApps()
+        _homeIcons.value = readHomeIcons()
+        return true
+    }
+
     // ---------------------------------------------------------------- Code PIN
 
     fun hasPin(): Boolean = sp.getString(KEY_PIN, null) != null
@@ -197,12 +424,34 @@ class Prefs private constructor(context: Context) {
         sp.edit().putString(key, list.joinToString("\n")).apply()
     }
 
+    /** Lignes « clé=valeur » ; la clé ne contient jamais de « = » (paquet/classe#profil). */
+    private fun readMap(key: String): Map<String, String> =
+        readList(key).mapNotNull { line ->
+            val idx = line.indexOf('=')
+            if (idx <= 0) null else line.substring(0, idx) to line.substring(idx + 1)
+        }.toMap()
+
+    private fun writeMap(key: String, map: Map<String, String>) =
+        writeList(key, map.map { (k, v) -> "$k=$v" })
+
     companion object {
         private const val KEY_FAVORITES = "favorites"
         private const val KEY_HIDDEN = "hidden"
         private const val KEY_CATEGORIES = "categoryOverrides"
         private const val KEY_WIDGETS = "widgets"
         private const val KEY_PIN = "pinHash"
+        private const val KEY_LABELS = "customLabels"
+        private const val KEY_ICON_SWIPES = "iconSwipeActions"
+        private const val KEY_GESTURE_APPS = "gestureApps"
+        private const val KEY_HOME_ICONS = "homeIcons"
+
+        private const val BACKUP_APP = "nimbus"
+        private const val BACKUP_VERSION = 1
+        private const val KEY_AUTO_BACKUP_DIR = "autoBackupFolder"
+        private const val KEY_LAST_AUTO_BACKUP = "lastAutoBackup"
+
+        /** Propres à l'appareil ou secrets : jamais exportés ni écrasés par un import. */
+        private val NOT_EXPORTED = setOf(KEY_PIN, KEY_WIDGETS, KEY_AUTO_BACKUP_DIR, KEY_LAST_AUTO_BACKUP)
 
         @Volatile
         private var instance: Prefs? = null

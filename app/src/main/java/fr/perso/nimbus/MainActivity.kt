@@ -5,8 +5,10 @@ import android.app.role.RoleManager
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -14,14 +16,25 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.lifecycle.lifecycleScope
+import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.PendingWidget
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.LauncherHost
 import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.NimbusApp
 import fr.perso.nimbus.ui.home.PAGE_WIDGETS
 import fr.perso.nimbus.widgets.WidgetHostManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity(), LauncherHost {
@@ -31,6 +44,63 @@ class MainActivity : ComponentActivity(), LauncherHost {
 
     /** Widget en cours d'ajout (entre l'autorisation, la configuration et l'enregistrement). */
     private var pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+
+    /** Hauteur imposée au widget en cours d'ajout (widgets restaurés après un import). */
+    private var pendingWidgetHeightDp: Int? = null
+
+    /** Widgets restaurés après un import, ajoutés l'un après l'autre. */
+    private val widgetQueue = ArrayDeque<PendingWidget>()
+
+    /** App dont on choisit l'icône dans la galerie. */
+    private var iconTarget: AppEntry? = null
+
+    private val exportFile = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                try {
+                    contentResolver.openOutputStream(uri)?.use { it.write(viewModel.exportBackup()) } != null
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            SystemActions.toast(this@MainActivity, if (ok) "Configuration exportée" else "Échec de l'export")
+        }
+    }
+
+    private val importFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val bytes = withContext(Dispatchers.IO) { readUri(uri, MAX_IMPORT_BYTES) }
+            if (bytes == null) SystemActions.toast(this@MainActivity, "Fichier illisible ou trop gros")
+            else viewModel.importBackup(bytes)
+        }
+    }
+
+    private val backupFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+            viewModel.setAutoBackupFolder(uri.toString())
+            SystemActions.toast(this, "Sauvegarde automatique quotidienne activée")
+        } catch (e: SecurityException) {
+            SystemActions.toast(this, "Dossier inutilisable")
+        }
+    }
+
+    private val iconImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val app = iconTarget
+        iconTarget = null
+        if (uri == null || app == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val bytes = withContext(Dispatchers.IO) { readUri(uri, MAX_ICON_BYTES) }
+            if (bytes == null) SystemActions.toast(this@MainActivity, "Image illisible")
+            else viewModel.setCustomIcon(app, bytes)
+        }
+    }
 
     private val bindWidget = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val id = pendingWidgetId
@@ -99,6 +169,78 @@ class MainActivity : ComponentActivity(), LauncherHost {
             SystemBarStyle.dark(Color.TRANSPARENT)
         }
         enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+    }
+
+    override fun exportBackup() {
+        val date = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
+        try {
+            exportFile.launch("Nimbus-$date.json")
+        } catch (e: ActivityNotFoundException) {
+            SystemActions.toast(this, "Aucun gestionnaire de fichiers")
+        }
+    }
+
+    override fun importBackup() {
+        try {
+            // Les .slbk n'ont pas de type MIME connu : on accepte tout.
+            importFile.launch(arrayOf("*/*"))
+        } catch (e: ActivityNotFoundException) {
+            SystemActions.toast(this, "Aucun gestionnaire de fichiers")
+        }
+    }
+
+    override fun chooseAutoBackupFolder() {
+        try {
+            backupFolder.launch(null)
+        } catch (e: ActivityNotFoundException) {
+            SystemActions.toast(this, "Aucun gestionnaire de fichiers")
+        }
+    }
+
+    override fun pickCustomIcon(app: AppEntry) {
+        iconTarget = app
+        iconImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
+    private fun readUri(uri: Uri, maxBytes: Int): ByteArray? = try {
+        contentResolver.openInputStream(uri)?.use { input ->
+            val out = ByteArrayOutputStream()
+            val buffer = ByteArray(64 * 1024)
+            var total = 0
+            while (true) {
+                val n = input.read(buffer)
+                if (n < 0) break
+                total += n
+                if (total > maxBytes) return null
+                out.write(buffer, 0, n)
+            }
+            out.toByteArray()
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    override fun addWidgets(widgets: List<PendingWidget>) {
+        widgetQueue.addAll(widgets)
+        if (pendingWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) addNextQueuedWidget()
+    }
+
+    /** Ajoute le prochain widget restauré dont le fournisseur est installé. */
+    private fun addNextQueuedWidget() {
+        while (widgetQueue.isNotEmpty()) {
+            val next = widgetQueue.removeFirst()
+            val component = ComponentName.unflattenFromString(next.provider) ?: continue
+            val info = widgetHost.providers().firstOrNull { it.provider == component }
+            if (info == null) {
+                SystemActions.toast(this, "Widget introuvable : ${component.packageName}")
+                continue
+            }
+            val metrics = resources.displayMetrics
+            pendingWidgetHeightDp = next.heightDp
+                ?: next.heightFraction?.let { (it * metrics.heightPixels / metrics.density).roundToInt() }
+            addWidget(info)
+            return
+        }
     }
 
     override fun requestContactsPermission() {
@@ -203,19 +345,26 @@ class MainActivity : ComponentActivity(), LauncherHost {
     /** Étape 3 : enregistrer le widget sur la page widgets, à sa hauteur minimale déclarée. */
     private fun commitWidget(id: Int, info: AppWidgetProviderInfo) {
         val density = resources.displayMetrics.density
-        val heightDp = (info.minHeight / density).roundToInt() + 16
-        viewModel.addWidget(id, heightDp.coerceIn(100, 400))
+        val heightDp = pendingWidgetHeightDp?.coerceIn(60, 600)
+            ?: ((info.minHeight / density).roundToInt() + 16).coerceIn(100, 400)
+        viewModel.addWidget(id, heightDp)
         pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        pendingWidgetHeightDp = null
         viewModel.showPage(PAGE_WIDGETS)
+        addNextQueuedWidget()
     }
 
     private fun cancelWidget(id: Int) {
         widgetHost.deleteId(id)
         pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        pendingWidgetHeightDp = null
+        addNextQueuedWidget()
     }
 
     private companion object {
         const val KEY_PENDING_WIDGET = "pendingWidgetId"
         const val REQUEST_CONFIGURE_WIDGET = 42
+        const val MAX_IMPORT_BYTES = 64 * 1024 * 1024
+        const val MAX_ICON_BYTES = 10 * 1024 * 1024
     }
 }

@@ -18,8 +18,29 @@ enum class AppCategory(val label: String) {
     NEWS("Actualités & Lecture"),
     HEALTH("Santé & Sport"),
     TOOLS("Outils"),
+    /** Jamais attribuée automatiquement : choix manuel ou import Smart Launcher (« Paramètres »). */
+    SYSTEM("Système"),
     OTHER("Autres"),
 }
+
+/** Profil Android auquel appartient une app. */
+enum class ProfileType {
+    MAIN,
+    /** Profil professionnel (ou autre profil secondaire). */
+    WORK,
+    /** Espace privé (Android 15+). */
+    PRIVATE,
+}
+
+/** État d'un profil secondaire : profil pro ou espace privé. */
+data class ProfileState(
+    val user: UserHandle,
+    val type: ProfileType,
+    /** Profil pro en pause, ou espace privé verrouillé. */
+    val quiet: Boolean,
+    /** Espace privé : réglage système « masquer quand il est verrouillé » (Android 16+). */
+    val hiddenWhenLocked: Boolean = false,
+)
 
 /** Une entrée lançable du tiroir (une activité d'une app, pour un profil utilisateur). */
 data class AppEntry(
@@ -33,6 +54,9 @@ data class AppEntry(
     val autoCategory: AppCategory,
     val category: AppCategory = autoCategory,
     val isWorkProfile: Boolean = false,
+    val profile: ProfileType = if (isWorkProfile) ProfileType.WORK else ProfileType.MAIN,
+    /** App d'un profil pro en pause : affichée grisée, la lancer propose de réactiver le profil. */
+    val isPaused: Boolean = false,
 )
 
 enum class ThemeMode(val label: String) {
@@ -69,6 +93,40 @@ enum class GestureAction(val label: String) {
     SEARCH("Ouvrir la recherche"),
     DRAWER("Ouvrir le tiroir d'apps"),
     SETTINGS("Paramètres Nimbus"),
+    QUICK_SETTINGS("Réglages rapides"),
+    RECENTS("Applis récentes"),
+    SCREENSHOT("Capture d'écran"),
+    POWER_MENU("Menu Marche/Arrêt"),
+    ASSISTANT("Assistant"),
+    WIDGETS("Page des widgets"),
+    APP("Ouvrir une app…"),
+}
+
+/** Gestes reconnus sur l'accueil. */
+enum class Gesture(val label: String) {
+    DOUBLE_TAP("Double tap"),
+    SWIPE_UP("Glisser vers le haut"),
+    SWIPE_DOWN("Glisser vers le bas"),
+    TWO_FINGER_UP("Glisser à deux doigts vers le haut"),
+    TWO_FINGER_DOWN("Glisser à deux doigts vers le bas"),
+    PINCH_IN("Pincer"),
+    PINCH_OUT("Écarter deux doigts"),
+}
+
+enum class BadgeStyle(val label: String) {
+    COUNT("Nombre de notifications"),
+    DOT("Simple point"),
+}
+
+/** Moteur de la recherche web ; [urlTemplate] null = appli de recherche du téléphone. */
+enum class SearchEngine(val label: String, val urlTemplate: String?) {
+    SYSTEM("Appli de recherche du téléphone", null),
+    GOOGLE("Google", "https://www.google.com/search?q=%s"),
+    DUCKDUCKGO("DuckDuckGo", "https://duckduckgo.com/?q=%s"),
+    QWANT("Qwant", "https://www.qwant.com/?q=%s"),
+    ECOSIA("Ecosia", "https://www.ecosia.org/search?q=%s"),
+    BRAVE("Brave Search", "https://search.brave.com/search?q=%s"),
+    STARTPAGE("Startpage", "https://www.startpage.com/do/search?query=%s"),
 }
 
 data class LauncherSettings(
@@ -88,7 +146,48 @@ data class LauncherSettings(
     val doubleTapAction: GestureAction = GestureAction.LOCK,
     val swipeUpAction: GestureAction = GestureAction.DRAWER,
     val swipeDownAction: GestureAction = GestureAction.NOTIFICATIONS,
-)
+    val twoFingerSwipeUpAction: GestureAction = GestureAction.NONE,
+    val twoFingerSwipeDownAction: GestureAction = GestureAction.NONE,
+    val pinchInAction: GestureAction = GestureAction.NONE,
+    val pinchOutAction: GestureAction = GestureAction.NONE,
+    /** Icônes monochromes aux couleurs du thème (Android 13+). */
+    val themedIcons: Boolean = false,
+    val badgeStyle: BadgeStyle = BadgeStyle.COUNT,
+    val dockColumns: Int = 5,
+    /** Grille d'icônes de l'accueil (placement libre, comme Nova / Smart Launcher). */
+    val homeColumns: Int = 5,
+    val homeRows: Int = 6,
+    val homeShowLabels: Boolean = true,
+    val showSearchBar: Boolean = true,
+    /** Ligne des apps les plus utilisées en haut du tiroir. */
+    val showFrequentApps: Boolean = true,
+    val webSearchEngine: SearchEngine = SearchEngine.SYSTEM,
+    /** Ne pas afficher l'espace privé verrouillé dans le tiroir (accès par la recherche). */
+    val hidePrivateSpaceWhenLocked: Boolean = false,
+) {
+    fun actionFor(gesture: Gesture): GestureAction = when (gesture) {
+        Gesture.DOUBLE_TAP -> doubleTapAction
+        Gesture.SWIPE_UP -> swipeUpAction
+        Gesture.SWIPE_DOWN -> swipeDownAction
+        Gesture.TWO_FINGER_UP -> twoFingerSwipeUpAction
+        Gesture.TWO_FINGER_DOWN -> twoFingerSwipeDownAction
+        Gesture.PINCH_IN -> pinchInAction
+        Gesture.PINCH_OUT -> pinchOutAction
+    }
+
+    fun withAction(gesture: Gesture, action: GestureAction): LauncherSettings = when (gesture) {
+        Gesture.DOUBLE_TAP -> copy(doubleTapAction = action)
+        Gesture.SWIPE_UP -> copy(swipeUpAction = action)
+        Gesture.SWIPE_DOWN -> copy(swipeDownAction = action)
+        Gesture.TWO_FINGER_UP -> copy(twoFingerSwipeUpAction = action)
+        Gesture.TWO_FINGER_DOWN -> copy(twoFingerSwipeDownAction = action)
+        Gesture.PINCH_IN -> copy(pinchInAction = action)
+        Gesture.PINCH_OUT -> copy(pinchOutAction = action)
+    }
+}
+
+/** Une icône posée sur la grille de l'accueil, en colonne [x] et ligne [y]. */
+data class HomeIcon(val key: String, val x: Int, val y: Int)
 
 /** Un widget posé sur la page widgets. */
 data class WidgetSlot(val id: Int, val heightDp: Int)

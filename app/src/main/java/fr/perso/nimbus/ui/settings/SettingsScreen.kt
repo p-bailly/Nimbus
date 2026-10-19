@@ -1,6 +1,8 @@
 package fr.perso.nimbus.ui.settings
 
+import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,28 +44,49 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import fr.perso.nimbus.data.BadgeStyle
+import fr.perso.nimbus.data.Gesture
 import fr.perso.nimbus.data.GestureAction
 import fr.perso.nimbus.data.IconPack
 import fr.perso.nimbus.data.IconPackInfo
 import fr.perso.nimbus.data.IconShape
 import fr.perso.nimbus.data.IconSize
 import fr.perso.nimbus.data.LauncherSettings
+import fr.perso.nimbus.data.SearchEngine
 import fr.perso.nimbus.data.SortMode
 import fr.perso.nimbus.data.ThemeMode
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.LauncherHost
 import fr.perso.nimbus.ui.LauncherViewModel
+import fr.perso.nimbus.ui.components.AppPickerDialog
 import fr.perso.nimbus.ui.components.ChoiceDialog
 import fr.perso.nimbus.ui.components.PinDialog
 import fr.perso.nimbus.ui.components.PinMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.text.DateFormat
+import java.util.Date
 
 /** Dialogues ouverts depuis les réglages. */
-private enum class SettingsDialog {
-    THEME, SHAPE, ICON_PACK, ICON_SIZE, COLUMNS, SORT,
-    DOUBLE_TAP, SWIPE_UP, SWIPE_DOWN,
-    PIN_UNLOCK, PIN_CREATE, PIN_CHANGE_OLD, PIN_CHANGE_NEW,
+private sealed interface SettingsDialog {
+    data object Theme : SettingsDialog
+    data object Shape : SettingsDialog
+    data object IconPackChoice : SettingsDialog
+    data object Size : SettingsDialog
+    data object DrawerColumns : SettingsDialog
+    data object Sort : SettingsDialog
+    data object HomeColumns : SettingsDialog
+    data object HomeRows : SettingsDialog
+    data object DockColumns : SettingsDialog
+    data object Badge : SettingsDialog
+    data object Engine : SettingsDialog
+    data class GestureChoice(val gesture: Gesture) : SettingsDialog
+    data class GestureApp(val gesture: Gesture) : SettingsDialog
+    data object ConfirmImport : SettingsDialog
+    data object PinUnlock : SettingsDialog
+    data object PinCreate : SettingsDialog
+    data object PinChangeOld : SettingsDialog
+    data object PinChangeNew : SettingsDialog
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +96,8 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val status by vm.status.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
+    val gestureApps by vm.gestureApps.collectAsStateWithLifecycle()
+    val backupFolder by vm.autoBackupFolder.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
 
     val iconPacks by produceState<List<IconPackInfo>?>(null) {
@@ -109,53 +136,28 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
             }
 
             section("Apparence")
-            item {
-                ClickRow("Thème", settings.themeMode.label) { dialog = SettingsDialog.THEME }
-            }
+            item { ClickRow("Thème", settings.themeMode.label) { dialog = SettingsDialog.Theme } }
             item {
                 ClickRow("Fond d'écran", "Choisir une image ou un fond animé") {
                     SystemActions.openWallpaperPicker(context)
                 }
             }
 
-            section("Icônes")
-            item { ClickRow("Forme", settings.iconShape.label) { dialog = SettingsDialog.SHAPE } }
-            item {
-                val packLabel = settings.iconPack?.let { pkg ->
-                    iconPacks?.firstOrNull { it.packageName == pkg }?.label ?: pkg
-                } ?: "Aucun (icônes d'origine)"
-                ClickRow("Pack d'icônes", packLabel) { dialog = SettingsDialog.ICON_PACK }
-            }
-            item {
-                SwitchRow(
-                    title = "Uniformiser les anciennes icônes",
-                    subtitle = "Pose les icônes non adaptatives sur un fond de la forme choisie",
-                    checked = settings.wrapLegacyIcons,
-                    onCheckedChange = { checked -> update { it.copy(wrapLegacyIcons = checked) } },
-                )
-            }
-            item { ClickRow("Taille", settings.iconSize.label) { dialog = SettingsDialog.ICON_SIZE } }
-
-            section("Tiroir d'applications")
-            item { ClickRow("Colonnes", "${settings.drawerColumns}") { dialog = SettingsDialog.COLUMNS } }
-            item {
-                SwitchRow(
-                    title = "Afficher le nom des apps",
-                    checked = settings.showLabels,
-                    onCheckedChange = { checked -> update { it.copy(showLabels = checked) } },
-                )
-            }
-            item { ClickRow("Tri", settings.sortMode.label) { dialog = SettingsDialog.SORT } }
-            item {
-                SwitchRow(
-                    title = "Catégories automatiques",
-                    subtitle = "Range les apps dans des onglets ; appui long sur une app pour la déplacer",
-                    checked = settings.autoCategories,
-                    onCheckedChange = { checked -> update { it.copy(autoCategories = checked) } },
-                )
-            }
-
             section("Écran d'accueil")
+            item {
+                ClickRow("Colonnes de la grille", "${settings.homeColumns} · appui long sur une icône puis glisser pour la déplacer") {
+                    dialog = SettingsDialog.HomeColumns
+                }
+            }
+            item { ClickRow("Lignes de la grille", "${settings.homeRows}") { dialog = SettingsDialog.HomeRows } }
+            item {
+                SwitchRow(
+                    title = "Noms sous les icônes de l'accueil",
+                    checked = settings.homeShowLabels,
+                    onCheckedChange = { checked -> update { it.copy(homeShowLabels = checked) } },
+                )
+            }
+            item { ClickRow("Icônes par rangée du dock", "${settings.dockColumns}") { dialog = SettingsDialog.DockColumns } }
             item {
                 SwitchRow(
                     title = "Horloge et date",
@@ -170,12 +172,76 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
                     onCheckedChange = { checked -> update { it.copy(showBattery = checked) } },
                 )
             }
+            item {
+                SwitchRow(
+                    title = "Barre de recherche",
+                    subtitle = "En bas de l'accueil",
+                    checked = settings.showSearchBar,
+                    onCheckedChange = { checked -> update { it.copy(showSearchBar = checked) } },
+                )
+            }
+
+            section("Icônes")
+            item { ClickRow("Forme", settings.iconShape.label) { dialog = SettingsDialog.Shape } }
+            item {
+                val packLabel = settings.iconPack?.let { pkg ->
+                    iconPacks?.firstOrNull { it.packageName == pkg }?.label ?: pkg
+                } ?: "Aucun (icônes d'origine)"
+                ClickRow("Pack d'icônes", packLabel) { dialog = SettingsDialog.IconPackChoice }
+            }
+            item {
+                val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                SwitchRow(
+                    title = "Icônes à thème",
+                    subtitle = if (supported) "Icônes monochromes aux couleurs du thème, comme sur Pixel"
+                    else "Nécessite Android 13",
+                    checked = settings.themedIcons && supported,
+                    enabled = supported,
+                    onCheckedChange = { checked -> update { it.copy(themedIcons = checked) } },
+                )
+            }
+            item {
+                SwitchRow(
+                    title = "Uniformiser les anciennes icônes",
+                    subtitle = "Pose les icônes non adaptatives sur un fond de la forme choisie",
+                    checked = settings.wrapLegacyIcons,
+                    onCheckedChange = { checked -> update { it.copy(wrapLegacyIcons = checked) } },
+                )
+            }
+            item { ClickRow("Taille", settings.iconSize.label) { dialog = SettingsDialog.Size } }
+
+            section("Tiroir d'applications")
+            item { ClickRow("Colonnes", "${settings.drawerColumns}") { dialog = SettingsDialog.DrawerColumns } }
+            item {
+                SwitchRow(
+                    title = "Afficher le nom des apps",
+                    checked = settings.showLabels,
+                    onCheckedChange = { checked -> update { it.copy(showLabels = checked) } },
+                )
+            }
+            item { ClickRow("Tri", settings.sortMode.label) { dialog = SettingsDialog.Sort } }
+            item {
+                SwitchRow(
+                    title = "Apps fréquentes en haut du tiroir",
+                    subtitle = "En tri alphabétique",
+                    checked = settings.showFrequentApps,
+                    onCheckedChange = { checked -> update { it.copy(showFrequentApps = checked) } },
+                )
+            }
+            item {
+                SwitchRow(
+                    title = "Catégories automatiques",
+                    subtitle = "Range les apps dans des onglets ; appui long sur une app pour la déplacer",
+                    checked = settings.autoCategories,
+                    onCheckedChange = { checked -> update { it.copy(autoCategories = checked) } },
+                )
+            }
 
             section("Notifications")
             item {
                 SwitchRow(
                     title = "Pastilles de notification",
-                    subtitle = if (status.notificationAccess) "Nombre de notifications sur les icônes"
+                    subtitle = if (status.notificationAccess) "Sur les icônes des apps qui ont des notifications"
                     else "Nécessite l'accès aux notifications",
                     checked = settings.badgesEnabled,
                     onCheckedChange = { checked ->
@@ -184,6 +250,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
                     },
                 )
             }
+            item { ClickRow("Style des pastilles", settings.badgeStyle.label) { dialog = SettingsDialog.Badge } }
             if (settings.badgesEnabled && !status.notificationAccess) {
                 item {
                     ClickRow("Autoriser l'accès aux notifications", "Activer « Pastilles de notification Nimbus »") {
@@ -193,6 +260,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
             }
 
             section("Recherche")
+            item { ClickRow("Moteur de recherche web", settings.webSearchEngine.label) { dialog = SettingsDialog.Engine } }
             item {
                 SwitchRow(
                     title = "Rechercher dans les contacts",
@@ -210,15 +278,58 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
             }
 
             section("Gestes")
-            item { ClickRow("Double tap", settings.doubleTapAction.label) { dialog = SettingsDialog.DOUBLE_TAP } }
-            item { ClickRow("Glisser vers le haut", settings.swipeUpAction.label) { dialog = SettingsDialog.SWIPE_UP } }
-            item { ClickRow("Glisser vers le bas", settings.swipeDownAction.label) { dialog = SettingsDialog.SWIPE_DOWN } }
+            for (gesture in Gesture.entries) {
+                item(key = "gesture:${gesture.name}") {
+                    val action = settings.actionFor(gesture)
+                    val subtitle = if (action == GestureAction.APP) {
+                        "Ouvrir " + (gestureApps[gesture]?.let { apps.byKey[it]?.label } ?: "… (aucune app choisie)")
+                    } else {
+                        action.label
+                    }
+                    ClickRow(gesture.label, subtitle) { dialog = SettingsDialog.GestureChoice(gesture) }
+                }
+            }
             item {
                 ClickRow(
                     "Service « Gestes Nimbus »",
                     if (status.gestureService) "Activé"
-                    else "Désactivé : nécessaire pour verrouiller l'écran (réglages d'accessibilité)",
+                    else "Désactivé : nécessaire pour verrouiller, capture d'écran, applis récentes… (accessibilité)",
                 ) { SystemActions.openAccessibilitySettings(context) }
+            }
+
+            val work = apps.workProfile
+            val private = apps.privateSpace
+            if (work != null || private != null) {
+                section("Profils")
+                if (work != null) {
+                    item {
+                        SwitchRow(
+                            title = "Apps professionnelles",
+                            subtitle = if (work.quiet) "En pause : notifications et apps pro désactivées" else "Actives",
+                            checked = !work.quiet,
+                            onCheckedChange = { active -> vm.setProfileQuiet(work, !active) },
+                        )
+                    }
+                }
+                if (private != null) {
+                    item {
+                        ClickRow(
+                            "Espace privé",
+                            if (private.quiet) "Verrouillé · toucher pour déverrouiller" else "Déverrouillé · toucher pour verrouiller",
+                        ) { vm.setProfileQuiet(private, !private.quiet) }
+                    }
+                    item {
+                        SwitchRow(
+                            title = "Masquer l'espace privé verrouillé",
+                            subtitle = "Il reste accessible en tapant « espace privé » dans la recherche" +
+                                if (private.hiddenWhenLocked) " (déjà masqué par le réglage système)" else "",
+                            checked = settings.hidePrivateSpaceWhenLocked || private.hiddenWhenLocked,
+                            enabled = !private.hiddenWhenLocked,
+                            onCheckedChange = { checked -> update { it.copy(hidePrivateSpaceWhenLocked = checked) } },
+                        )
+                    }
+                    item { ClickRow("Réglages de l'espace privé", null, onClick = vm::openPrivateSpaceSettings) }
+                }
             }
 
             section("Confidentialité")
@@ -228,10 +339,36 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
                     "Apps masquées",
                     (if (count == 0) "Aucune app masquée" else "$count app${if (count > 1) "s" else ""} masquée${if (count > 1) "s" else ""}") +
                         " · protégé par code PIN",
-                ) { dialog = if (status.hasPin) SettingsDialog.PIN_UNLOCK else SettingsDialog.PIN_CREATE }
+                ) { dialog = if (status.hasPin) SettingsDialog.PinUnlock else SettingsDialog.PinCreate }
             }
             if (status.hasPin) {
-                item { ClickRow("Modifier le code PIN", null) { dialog = SettingsDialog.PIN_CHANGE_OLD } }
+                item { ClickRow("Modifier le code PIN", null) { dialog = SettingsDialog.PinChangeOld } }
+            }
+
+            section("Sauvegarde")
+            item {
+                ClickRow("Exporter la configuration", "Réglages, accueil, dock, catégories, noms, icônes, gestes (fichier .json)") {
+                    host.exportBackup()
+                }
+            }
+            item {
+                ClickRow("Importer une configuration", "Sauvegarde Nimbus (.json) ou Smart Launcher (.slbk)") {
+                    dialog = SettingsDialog.ConfirmImport
+                }
+            }
+            item {
+                val folder = backupFolder
+                val subtitle = if (folder == null) {
+                    "Désactivée · choisir un dossier"
+                } else {
+                    val last = vm.lastAutoBackup
+                    "Chaque jour dans « ${folderName(folder)} » (7 dernières gardées)" +
+                        if (last > 0) " · dernière : ${DateFormat.getDateInstance(DateFormat.SHORT).format(Date(last))}" else ""
+                }
+                ClickRow("Sauvegarde automatique", subtitle, onClick = host::chooseAutoBackupFolder)
+            }
+            if (backupFolder != null) {
+                item { ClickRow("Désactiver la sauvegarde automatique", null) { vm.setAutoBackupFolder(null) } }
             }
 
             section("À propos")
@@ -243,8 +380,8 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
         }
     }
 
-    when (dialog) {
-        SettingsDialog.THEME -> ChoiceDialog(
+    when (val d = dialog) {
+        SettingsDialog.Theme -> ChoiceDialog(
             title = "Thème",
             options = ThemeMode.entries,
             selected = settings.themeMode,
@@ -253,7 +390,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
             onSelect = { mode -> update { it.copy(themeMode = mode) }; dialog = null },
             onDismiss = { dialog = null },
         )
-        SettingsDialog.SHAPE -> ChoiceDialog(
+        SettingsDialog.Shape -> ChoiceDialog(
             title = "Forme des icônes",
             options = IconShape.entries,
             selected = settings.iconShape,
@@ -261,7 +398,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
             onSelect = { shape -> update { it.copy(iconShape = shape) }; dialog = null },
             onDismiss = { dialog = null },
         )
-        SettingsDialog.ICON_PACK -> {
+        SettingsDialog.IconPackChoice -> {
             val packs = iconPacks.orEmpty()
             ChoiceDialog(
                 title = "Pack d'icônes",
@@ -273,7 +410,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
                 footer = if (packs.isEmpty()) "Aucun pack installé. Nimbus accepte les packs au format ADW / Nova du Play Store." else null,
             )
         }
-        SettingsDialog.ICON_SIZE -> ChoiceDialog(
+        SettingsDialog.Size -> ChoiceDialog(
             title = "Taille des icônes",
             options = IconSize.entries,
             selected = settings.iconSize,
@@ -281,7 +418,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
             onSelect = { size -> update { it.copy(iconSize = size) }; dialog = null },
             onDismiss = { dialog = null },
         )
-        SettingsDialog.COLUMNS -> ChoiceDialog(
+        SettingsDialog.DrawerColumns -> ChoiceDialog(
             title = "Colonnes du tiroir",
             options = (3..6).toList(),
             selected = settings.drawerColumns,
@@ -289,7 +426,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
             onSelect = { n -> update { it.copy(drawerColumns = n) }; dialog = null },
             onDismiss = { dialog = null },
         )
-        SettingsDialog.SORT -> ChoiceDialog(
+        SettingsDialog.Sort -> ChoiceDialog(
             title = "Tri des apps",
             options = SortMode.entries,
             selected = settings.sortMode,
@@ -297,37 +434,96 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
             onSelect = { mode -> update { it.copy(sortMode = mode) }; dialog = null },
             onDismiss = { dialog = null },
         )
-        SettingsDialog.DOUBLE_TAP, SettingsDialog.SWIPE_UP, SettingsDialog.SWIPE_DOWN -> {
-            val which = dialog
-            val (title, current) = when (which) {
-                SettingsDialog.DOUBLE_TAP -> "Double tap" to settings.doubleTapAction
-                SettingsDialog.SWIPE_UP -> "Glisser vers le haut" to settings.swipeUpAction
-                else -> "Glisser vers le bas" to settings.swipeDownAction
-            }
-            ChoiceDialog(
-                title = title,
-                options = GestureAction.entries,
-                selected = current,
-                label = { it.label },
-                footer = if (!status.gestureService) "Le verrouillage nécessite le service d'accessibilité « Gestes Nimbus »." else null,
-                onSelect = { action ->
-                    update {
-                        when (which) {
-                            SettingsDialog.DOUBLE_TAP -> it.copy(doubleTapAction = action)
-                            SettingsDialog.SWIPE_UP -> it.copy(swipeUpAction = action)
-                            else -> it.copy(swipeDownAction = action)
-                        }
-                    }
+        SettingsDialog.HomeColumns -> ChoiceDialog(
+            title = "Colonnes de la grille d'accueil",
+            options = (3..8).toList(),
+            selected = settings.homeColumns,
+            label = { "$it colonnes" },
+            onSelect = { n -> update { it.copy(homeColumns = n) }; dialog = null },
+            onDismiss = { dialog = null },
+        )
+        SettingsDialog.HomeRows -> ChoiceDialog(
+            title = "Lignes de la grille d'accueil",
+            options = (3..14).toList(),
+            selected = settings.homeRows,
+            label = { "$it lignes" },
+            onSelect = { n -> update { it.copy(homeRows = n) }; dialog = null },
+            onDismiss = { dialog = null },
+        )
+        SettingsDialog.DockColumns -> ChoiceDialog(
+            title = "Icônes par rangée du dock",
+            options = (4..6).toList(),
+            selected = settings.dockColumns,
+            label = { "$it icônes" },
+            onSelect = { n -> update { it.copy(dockColumns = n) }; dialog = null },
+            onDismiss = { dialog = null },
+        )
+        SettingsDialog.Badge -> ChoiceDialog(
+            title = "Style des pastilles",
+            options = BadgeStyle.entries,
+            selected = settings.badgeStyle,
+            label = { it.label },
+            onSelect = { style -> update { it.copy(badgeStyle = style) }; dialog = null },
+            onDismiss = { dialog = null },
+        )
+        SettingsDialog.Engine -> ChoiceDialog(
+            title = "Moteur de recherche web",
+            options = SearchEngine.entries,
+            selected = settings.webSearchEngine,
+            label = { it.label },
+            onSelect = { engine -> update { it.copy(webSearchEngine = engine) }; dialog = null },
+            onDismiss = { dialog = null },
+        )
+        is SettingsDialog.GestureChoice -> ChoiceDialog(
+            title = d.gesture.label,
+            options = GestureAction.entries,
+            selected = settings.actionFor(d.gesture),
+            label = { it.label },
+            footer = if (!status.gestureService) {
+                "Verrouillage, capture d'écran, applis récentes et menu Marche/Arrêt nécessitent le service d'accessibilité « Gestes Nimbus »."
+            } else {
+                null
+            },
+            onSelect = { action ->
+                update { it.withAction(d.gesture, action) }
+                dialog = if (action == GestureAction.APP) SettingsDialog.GestureApp(d.gesture) else null
+                val needsService = action in setOf(
+                    GestureAction.LOCK, GestureAction.RECENTS, GestureAction.SCREENSHOT, GestureAction.POWER_MENU,
+                )
+                if (needsService && !status.gestureService) {
+                    SystemActions.toast(context, "Active « Gestes Nimbus » pour cette action")
+                    SystemActions.openAccessibilitySettings(context)
+                }
+            },
+            onDismiss = { dialog = null },
+        )
+        is SettingsDialog.GestureApp -> AppPickerDialog(
+            title = "${d.gesture.label} : ouvrir…",
+            apps = apps.visible,
+            onPick = { app ->
+                vm.setGestureApp(d.gesture, app)
+                dialog = null
+            },
+            onDismiss = { dialog = null },
+        )
+        SettingsDialog.ConfirmImport -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text("Importer une configuration") },
+            text = {
+                Text(
+                    "L'import remplace l'accueil, le dock, les catégories, les apps masquées, les noms et les réglages " +
+                        "par ceux du fichier. Exporte d'abord ta configuration actuelle si tu veux pouvoir y revenir.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
                     dialog = null
-                    if (action == GestureAction.LOCK && !status.gestureService) {
-                        SystemActions.toast(context, "Active « Gestes Nimbus » pour verrouiller l'écran")
-                        SystemActions.openAccessibilitySettings(context)
-                    }
-                },
-                onDismiss = { dialog = null },
-            )
-        }
-        SettingsDialog.PIN_UNLOCK -> PinDialog(
+                    host.importBackup()
+                }) { Text("Choisir le fichier") }
+            },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text("Annuler") } },
+        )
+        SettingsDialog.PinUnlock -> PinDialog(
             title = "Apps masquées",
             mode = PinMode.VERIFY,
             verify = vm::checkPin,
@@ -337,7 +533,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
             },
             onDismiss = { dialog = null },
         )
-        SettingsDialog.PIN_CREATE -> PinDialog(
+        SettingsDialog.PinCreate -> PinDialog(
             title = "Protéger les apps masquées",
             mode = PinMode.CREATE,
             onSuccess = { pin ->
@@ -347,14 +543,14 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
             },
             onDismiss = { dialog = null },
         )
-        SettingsDialog.PIN_CHANGE_OLD -> PinDialog(
+        SettingsDialog.PinChangeOld -> PinDialog(
             title = "Code actuel",
             mode = PinMode.VERIFY,
             verify = vm::checkPin,
-            onSuccess = { dialog = SettingsDialog.PIN_CHANGE_NEW },
+            onSuccess = { dialog = SettingsDialog.PinChangeNew },
             onDismiss = { dialog = null },
         )
-        SettingsDialog.PIN_CHANGE_NEW -> PinDialog(
+        SettingsDialog.PinChangeNew -> PinDialog(
             title = "Nouveau code",
             mode = PinMode.CREATE,
             onSuccess = { pin ->
@@ -366,6 +562,13 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost) {
         )
         null -> Unit
     }
+}
+
+/** Nom lisible d'un dossier SAF (« primary:Download/Nimbus » -> « Download/Nimbus »). */
+private fun folderName(treeUri: String): String = try {
+    DocumentsContract.getTreeDocumentId(Uri.parse(treeUri)).substringAfter(':').ifEmpty { "stockage" }
+} catch (e: Exception) {
+    "dossier choisi"
 }
 
 @Composable
@@ -386,7 +589,7 @@ private fun DefaultLauncherCard(onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 Text(
-                    "Nécessaire pour le bouton Accueil et les raccourcis d'apps",
+                    "Nécessaire pour le bouton Accueil, les raccourcis d'apps et l'espace privé",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
@@ -431,13 +634,15 @@ private fun SwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     subtitle: String? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .padding(horizontal = 24.dp, vertical = 12.dp)
+            .alpha(if (enabled) 1f else 0.5f),
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
@@ -447,6 +652,6 @@ private fun SwitchRow(
             }
         }
         Spacer(Modifier.width(16.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
