@@ -3,9 +3,13 @@ package fr.perso.nimbus.data
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.util.Base64
 import java.io.File
+import java.nio.ByteBuffer
+import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Icônes personnalisées choisies par l'utilisateur (galerie ou import Smart Launcher),
@@ -38,17 +42,42 @@ object CustomIcons {
      */
     fun save(context: Context, key: String, bytes: ByteArray): Boolean {
         if (bytes.isEmpty() || bytes.size > MAX_BYTES) return false
-        val src = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return false
-        val side = min(src.width, src.height)
-        val square = Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
-        val out = if (side > MAX_SIZE) Bitmap.createScaledBitmap(square, MAX_SIZE, MAX_SIZE, true) else square
-        val target = file(context, key)
-        target.parentFile?.mkdirs()
         return try {
+            val src = decodeSmall(bytes) ?: return false
+            val side = min(src.width, src.height)
+            val square = Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
+            val out = if (side > MAX_SIZE) Bitmap.createScaledBitmap(square, MAX_SIZE, MAX_SIZE, true) else square
+            val target = file(context, key)
+            target.parentFile?.mkdirs()
             target.outputStream().use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
         } catch (e: Exception) {
             false
+        } catch (e: OutOfMemoryError) {
+            false
         }
+    }
+
+    /**
+     * Décode directement à taille réduite (petit côté ~2 × 256 px) : une photo de 50 Mpx
+     * pèserait sinon 200 Mo en mémoire.
+     */
+    private fun decodeSmall(bytes: ByteArray): Bitmap? = try {
+        ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, info, _ ->
+            val shortSide = min(info.size.width, info.size.height)
+            val scale = min(1f, MAX_SIZE * 2f / max(1, shortSide))
+            decoder.setTargetSize(
+                max(1, (info.size.width * scale).roundToInt()),
+                max(1, (info.size.height * scale).roundToInt()),
+            )
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+        }
+    } catch (e: Exception) {
+        // Format inconnu d'ImageDecoder : repli avec sous-échantillonnage.
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        var sample = 1
+        while (min(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MAX_SIZE * 2) sample *= 2
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
     }
 
     fun remove(context: Context, key: String) {

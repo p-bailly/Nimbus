@@ -73,7 +73,7 @@ class SmartLauncherImportTest {
         assertEquals(IconShape.SQUIRCLE, plan.iconShape)
         assertFalse(plan.dockVisible)
 
-        val home = plan.homeIcons.associateBy { it.key }
+        val home = plan.homeIcons!!.associateBy { it.key }
         // Doublon : la première icône dans l'ordre de lecture (ligne 0) est gardée.
         assertEquals(HomeIcon("com.whatsapp/com.whatsapp.Main#0", 0, 0), home["com.whatsapp/com.whatsapp.Main#0"])
         assertNotNull(home["com.google.android.apps.messaging/com.google.android.apps.messaging.ui.ConversationListActivity#0"])
@@ -81,10 +81,10 @@ class SmartLauncherImportTest {
         assertEquals(1, plan.duplicates)
         assertTrue("com.absente" in plan.unresolved)
 
-        assertEquals(AppCategory.COMMUNICATION, plan.categoryOverrides["com.whatsapp/com.whatsapp.Main#0"])
-        assertEquals(AppCategory.SYSTEM, plan.categoryOverrides["com.android.settings/com.android.settings.Settings#0"])
+        assertEquals(AppCategory.COMMUNICATION, plan.categoryOverrides!!["com.whatsapp/com.whatsapp.Main#0"])
+        assertEquals(AppCategory.SYSTEM, plan.categoryOverrides!!["com.android.settings/com.android.settings.Settings#0"])
         assertEquals(setOf("com.google.android.apps.weather/com.google.android.apps.weather.home.HomeActivity#0"), plan.hidden)
-        assertEquals(44, plan.usage["com.whatsapp/com.whatsapp.Main#0"])
+        assertEquals(44, plan.usage!!["com.whatsapp/com.whatsapp.Main#0"])
         assertEquals("Ouaf", plan.customLabels["com.whatsapp/com.whatsapp.Main#0"])
         assertTrue(plan.customIcons.containsKey("com.whatsapp/com.whatsapp.Main#0"))
         assertEquals(listOf("com.google.android.apps.photos/com.google.android.apps.photos.widget.WidgetProvider"), plan.widgets.map { it.provider })
@@ -104,19 +104,30 @@ class SmartLauncherImportTest {
         assertNotNull(backup)
         backup!!
         // On simule un téléphone qui a exactement les apps du tiroir Smart Launcher.
-        val installed = backup.drawer.filter { it.active }.map { "${it.packageName}/${it.activityName}#${it.userId}" }
+        val installed = backup.drawer.orEmpty().filter { it.active }.map { "${it.packageName}/${it.activityName}#${it.userId}" }
         val plan = SmartLauncherImport.plan(backup, installed)
         println("Grille ${plan.homeColumns}×${plan.homeRows}, libellés accueil=${plan.homeShowLabels}, dock=${plan.dockVisible}")
         println("Forme=${plan.iconShape}, pack=${plan.iconPack}, thème=${plan.themedIcons}, colonnes tiroir=${plan.drawerColumns}")
-        println("Accueil : ${plan.homeIcons.size} icônes, ${plan.duplicates} doublons, absentes=${plan.unresolved}")
-        plan.homeIcons.sortedWith(compareBy({ it.y }, { it.x })).forEach { println("  (${it.x},${it.y}) ${it.key}") }
-        println("Catégories : ${plan.categoryOverrides.values.groupingBy { it }.eachCount()}")
+        println("Accueil : ${plan.homeIcons?.size} icônes, ${plan.duplicates} doublons, absentes=${plan.unresolved}")
+        plan.homeIcons.orEmpty().sortedWith(compareBy({ it.y }, { it.x })).forEach { println("  (${it.x},${it.y}) ${it.key}") }
+        println("Catégories : ${plan.categoryOverrides?.values?.groupingBy { it }?.eachCount()}")
         println("Masquées : ${plan.hidden}")
-        println("Usage (top 5) : ${plan.usage.entries.sortedByDescending { it.value }.take(5)}")
+        println("Usage (top 5) : ${plan.usage?.entries?.sortedByDescending { it.value }?.take(5)}")
         println("Icônes perso : ${plan.customIcons.mapValues { it.value.size }}")
         println("Widgets : ${plan.widgets}")
-        assertTrue(plan.homeIcons.isNotEmpty())
-        assertTrue(plan.categoryOverrides.isNotEmpty())
+        assertTrue(plan.homeIcons!!.isNotEmpty())
+        assertTrue(plan.categoryOverrides!!.isNotEmpty())
+    }
+
+    @Test
+    fun missingDrawerTable_leavesDrawerDataUnchanged() {
+        // Sauvegarde sans table DrawerItem : le plan ne doit rien remplacer côté tiroir.
+        val backup = SlBackup(emptyMap(), drawer = null, home = emptyList(), widgets = emptyList(), customIcons = emptyMap())
+        val plan = SmartLauncherImport.plan(backup, emptyList())
+        assertEquals(null, plan.categoryOverrides)
+        assertEquals(null, plan.hidden)
+        assertEquals(null, plan.usage)
+        assertEquals(emptyList<HomeIcon>(), plan.homeIcons)
     }
 
     // ---------------------------------------------------------------- Sauvegarde factice

@@ -1,5 +1,6 @@
 package fr.perso.nimbus.data
 
+import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
@@ -85,12 +86,13 @@ class BackupManager(context: Context, private val prefs: Prefs) {
                 widgets.add(PendingWidget(provider, heightDp = o.optInt("heightDp").takeIf { it > 0 }))
             }
         }
+        val toAdd = withoutExisting(widgets)
         val details = buildList {
             add("Réglages, accueil, favoris, catégories, apps masquées et gestes restaurés")
             if (icons > 0) add(plural(icons, "icône personnalisée", "icônes personnalisées"))
-            if (widgets.isNotEmpty()) add(plural(widgets.size, "widget à rajouter", "widgets à rajouter"))
+            if (toAdd.isNotEmpty()) add(plural(toAdd.size, "widget à rajouter", "widgets à rajouter"))
         }
-        return ImportResult(true, "Sauvegarde Nimbus restaurée", details, widgets, iconKeys)
+        return ImportResult(true, "Sauvegarde Nimbus restaurée", details, toAdd, iconKeys)
     }
 
     private fun importSmartLauncher(bytes: ByteArray, availableKeys: Collection<String>): ImportResult {
@@ -98,35 +100,60 @@ class BackupManager(context: Context, private val prefs: Prefs) {
             ?: return ImportResult(false, "Sauvegarde illisible", listOf("Ce fichier .slbk ne contient pas de données Smart Launcher lisibles."))
         val plan = SmartLauncherImport.plan(backup, availableKeys)
 
+        val homeRead = plan.homeIcons != null
         prefs.updateSettings(plan::applyTo)
         prefs.replaceAll(
-            favorites = if (plan.dockVisible) null else emptyList(),
+            favorites = if (homeRead && !plan.dockVisible) emptyList() else null,
             hidden = plan.hidden,
             categoryOverrides = plan.categoryOverrides,
             usage = plan.usage,
-            customLabels = plan.customLabels,
+            customLabels = plan.customLabels.takeIf { homeRead },
             homeIcons = plan.homeIcons,
         )
         val iconKeys = plan.customIcons.filter { (key, img) -> CustomIcons.save(appContext, key, img) }.keys
+        val widgets = withoutExisting(plan.widgets)
 
         val details = buildList {
-            add("${plural(plan.homeIcons.size, "icône", "icônes")} sur l'accueil (grille ${plan.homeColumns} × ${plan.homeRows})")
-            if (plan.categoryOverrides.isNotEmpty()) {
-                val categories = plan.categoryOverrides.values.toSet().joinToString(", ") { it.label }
-                add("${plural(plan.categoryOverrides.size, "app classée", "apps classées")} : $categories")
+            val home = plan.homeIcons
+            if (home != null) add("${plural(home.size, "icône", "icônes")} sur l'accueil (grille ${plan.homeColumns} × ${plan.homeRows})")
+            else add("Accueil illisible dans cette sauvegarde : celui de Nimbus est conservé")
+            val overrides = plan.categoryOverrides
+            if (overrides == null) add("Tiroir illisible dans cette sauvegarde : catégories et apps masquées conservées")
+            else if (overrides.isNotEmpty()) {
+                val categories = overrides.values.toSet().joinToString(", ") { it.label }
+                add("${plural(overrides.size, "app classée", "apps classées")} : $categories")
             }
-            if (plan.hidden.isNotEmpty()) add(plural(plan.hidden.size, "app masquée", "apps masquées"))
+            plan.hidden?.takeIf { it.isNotEmpty() }?.let { add(plural(it.size, "app masquée", "apps masquées")) }
             if (iconKeys.isNotEmpty()) add(plural(iconKeys.size, "icône personnalisée", "icônes personnalisées"))
-            if (plan.usage.isNotEmpty()) add("Fréquence d'utilisation reprise pour ${plural(plan.usage.size, "app", "apps")}")
+            plan.usage?.takeIf { it.isNotEmpty() }?.let { add("Fréquence d'utilisation reprise pour ${plural(it.size, "app", "apps")}") }
             if (plan.duplicates > 0) add(plural(plan.duplicates, "icône en double ignorée", "icônes en double ignorées"))
             if (plan.unresolved.isNotEmpty()) {
                 val names = plan.unresolved.take(4).joinToString(", ") + if (plan.unresolved.size > 4) "…" else ""
                 add("${plural(plan.unresolved.size, "app absente", "apps absentes")} de ce téléphone : $names")
             }
-            if (plan.widgets.isNotEmpty()) add(plural(plan.widgets.size, "widget à rajouter", "widgets à rajouter"))
+            if (widgets.isNotEmpty()) add(plural(widgets.size, "widget à rajouter", "widgets à rajouter"))
             add("Horloge, batterie et barre de recherche masquées comme dans Smart Launcher (réactivables dans les paramètres)")
         }
-        return ImportResult(true, "Configuration Smart Launcher importée", details, plan.widgets, iconKeys)
+        return ImportResult(true, "Configuration Smart Launcher importée", details, widgets, iconKeys)
+    }
+
+    /** Retire les widgets déjà présents sur la page widgets (import sur le même téléphone). */
+    private fun withoutExisting(widgets: List<PendingWidget>): List<PendingWidget> {
+        fun normalize(provider: String) = ComponentName.unflattenFromString(provider)?.flattenToString() ?: provider
+        val host = WidgetHostManager.get(appContext)
+        val existing = prefs.widgets.value
+            .mapNotNull { host.info(it.id)?.provider?.flattenToString() }
+            .groupingBy { it }.eachCount().toMutableMap()
+        return widgets.filter { w ->
+            val key = normalize(w.provider)
+            val count = existing[key] ?: 0
+            if (count > 0) {
+                existing[key] = count - 1
+                false
+            } else {
+                true
+            }
+        }
     }
 
     // ---------------------------------------------------------------- Sauvegarde automatique

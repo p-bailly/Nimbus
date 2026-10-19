@@ -89,9 +89,10 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                 HiddenAppsScreen(vm = vm, apps = apps, settings = settings)
             }
 
-            ui.sheetApp?.let { app ->
-                // L'app de la feuille est rafraîchie (nom, icône) si elle change pendant l'affichage.
-                AppActionSheet(app = apps.byKey[app.key] ?: app, apps = apps, vm = vm, host = host)
+            // L'app de la feuille est rafraîchie (nom, icône) ; si elle a disparu (espace privé
+            // verrouillé, désinstallation), la feuille n'est plus affichée.
+            ui.sheetApp?.let { apps.byKey[it.key] }?.let { app ->
+                AppActionSheet(app = app, apps = apps, vm = vm, host = host)
             }
 
             importResult?.let { result ->

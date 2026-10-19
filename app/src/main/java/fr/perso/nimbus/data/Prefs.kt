@@ -104,7 +104,7 @@ class Prefs private constructor(context: Context) {
             iconPack = sp.getString("iconPack", d.iconPack),
             wrapLegacyIcons = sp.getBoolean("wrapLegacyIcons", d.wrapLegacyIcons),
             iconSize = enumPref("iconSize", d.iconSize),
-            drawerColumns = sp.getInt("drawerColumns", d.drawerColumns),
+            drawerColumns = sp.getInt("drawerColumns", d.drawerColumns).coerceIn(3, 7),
             showLabels = sp.getBoolean("showLabels", d.showLabels),
             sortMode = enumPref("sortMode", d.sortMode),
             autoCategories = sp.getBoolean("autoCategories", d.autoCategories),
@@ -121,12 +121,13 @@ class Prefs private constructor(context: Context) {
             pinchOutAction = enumPref("pinchOutAction", d.pinchOutAction),
             themedIcons = sp.getBoolean("themedIcons", d.themedIcons),
             badgeStyle = enumPref("badgeStyle", d.badgeStyle),
-            dockColumns = sp.getInt("dockColumns", d.dockColumns),
+            dockColumns = sp.getInt("dockColumns", d.dockColumns).coerceIn(3, 7),
             showFrequentApps = sp.getBoolean("showFrequentApps", d.showFrequentApps),
             webSearchEngine = enumPref("webSearchEngine", d.webSearchEngine),
             hidePrivateSpaceWhenLocked = sp.getBoolean("hidePrivateSpaceWhenLocked", d.hidePrivateSpaceWhenLocked),
-            homeColumns = sp.getInt("homeColumns", d.homeColumns),
-            homeRows = sp.getInt("homeRows", d.homeRows),
+            // Bornées : un fichier importé modifié à la main ne doit pas casser l'accueil.
+            homeColumns = sp.getInt("homeColumns", d.homeColumns).coerceIn(3, 8),
+            homeRows = sp.getInt("homeRows", d.homeRows).coerceIn(3, 14),
             homeShowLabels = sp.getBoolean("homeShowLabels", d.homeShowLabels),
             showSearchBar = sp.getBoolean("showSearchBar", d.showSearchBar),
         )
@@ -224,31 +225,16 @@ class Prefs private constructor(context: Context) {
 
     // ---------------------------------------------------------------- Grille d'accueil
 
-    /** Ajoute l'icône dans la première case libre ; false si elle y est déjà ou si la grille est pleine. */
-    fun addHomeIcon(key: String, columns: Int, rows: Int): Boolean {
+    /**
+     * Place ces icônes aux cases indiquées (ajout si absentes). Les cases sont calculées par
+     * l'appelant à partir de la grille affichée (icônes visibles, grille éventuellement réduite).
+     */
+    fun setHomeIconPositions(positions: Map<String, Pair<Int, Int>>) {
         val list = _homeIcons.value
-        if (list.any { it.key == key }) return false
-        val taken = list.map { it.x to it.y }.toSet()
-        for (y in 0 until rows) for (x in 0 until columns) {
-            if ((x to y) !in taken) {
-                setHomeIcons(list + HomeIcon(key, x, y))
-                return true
-            }
-        }
-        return false
-    }
-
-    /** Déplace une icône ; si la case est occupée, les deux icônes s'échangent. */
-    fun moveHomeIcon(key: String, x: Int, y: Int) {
-        val list = _homeIcons.value
-        val moving = list.firstOrNull { it.key == key } ?: return
-        setHomeIcons(list.map {
-            when {
-                it.key == key -> it.copy(x = x, y = y)
-                it.x == x && it.y == y -> it.copy(x = moving.x, y = moving.y)
-                else -> it
-            }
-        })
+        val updated = list.map { icon -> positions[icon.key]?.let { (x, y) -> icon.copy(x = x, y = y) } ?: icon }
+        val added = positions.filterKeys { key -> list.none { it.key == key } }
+            .map { (key, cell) -> HomeIcon(key, cell.first, cell.second) }
+        setHomeIcons(updated + added)
     }
 
     fun removeHomeIcon(key: String) = setHomeIcons(_homeIcons.value.filterNot { it.key == key })

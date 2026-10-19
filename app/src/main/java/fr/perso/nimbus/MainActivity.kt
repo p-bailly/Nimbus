@@ -51,8 +51,8 @@ class MainActivity : ComponentActivity(), LauncherHost {
     /** Widgets restaurés après un import, ajoutés l'un après l'autre. */
     private val widgetQueue = ArrayDeque<PendingWidget>()
 
-    /** App dont on choisit l'icône dans la galerie. */
-    private var iconTarget: AppEntry? = null
+    /** Clé de l'app dont on choisit l'icône dans la galerie. */
+    private var iconTargetKey: String? = null
 
     private val exportFile = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri == null) return@registerForActivityResult
@@ -92,8 +92,8 @@ class MainActivity : ComponentActivity(), LauncherHost {
     }
 
     private val iconImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        val app = iconTarget
-        iconTarget = null
+        val app = iconTargetKey?.let { viewModel.apps.value.byKey[it] }
+        iconTargetKey = null
         if (uri == null || app == null) return@registerForActivityResult
         lifecycleScope.launch {
             val bytes = withContext(Dispatchers.IO) { readUri(uri, MAX_ICON_BYTES) }
@@ -128,12 +128,36 @@ class MainActivity : ComponentActivity(), LauncherHost {
         setLightSystemBars(false)
         pendingWidgetId = savedInstanceState?.getInt(KEY_PENDING_WIDGET, AppWidgetManager.INVALID_APPWIDGET_ID)
             ?: AppWidgetManager.INVALID_APPWIDGET_ID
+        savedInstanceState?.let { restoreTransientState(it) }
         setContent { NimbusApp(vm = viewModel, host = this) }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putInt(KEY_PENDING_WIDGET, pendingWidgetId)
+        // Choix d'icône et widgets en attente survivent à une recréation (passage en mode sombre…).
+        outState.putString(KEY_ICON_TARGET, iconTargetKey)
+        outState.putInt(KEY_PENDING_HEIGHT, pendingWidgetHeightDp ?: -1)
+        outState.putStringArrayList(KEY_QUEUE_PROVIDERS, ArrayList(widgetQueue.map { it.provider }))
+        outState.putIntArray(KEY_QUEUE_HEIGHTS, widgetQueue.map { it.heightDp ?: -1 }.toIntArray())
+        outState.putFloatArray(KEY_QUEUE_FRACTIONS, widgetQueue.map { it.heightFraction ?: -1f }.toFloatArray())
+    }
+
+    private fun restoreTransientState(state: Bundle) {
+        iconTargetKey = state.getString(KEY_ICON_TARGET)
+        pendingWidgetHeightDp = state.getInt(KEY_PENDING_HEIGHT, -1).takeIf { it > 0 }
+        val providers = state.getStringArrayList(KEY_QUEUE_PROVIDERS).orEmpty()
+        val heights = state.getIntArray(KEY_QUEUE_HEIGHTS) ?: IntArray(0)
+        val fractions = state.getFloatArray(KEY_QUEUE_FRACTIONS) ?: FloatArray(0)
+        providers.forEachIndexed { i, provider ->
+            widgetQueue.add(
+                PendingWidget(
+                    provider,
+                    heightDp = heights.getOrNull(i)?.takeIf { it > 0 },
+                    heightFraction = fractions.getOrNull(i)?.takeIf { it > 0f },
+                )
+            )
+        }
     }
 
     override fun onStart() {
@@ -198,7 +222,7 @@ class MainActivity : ComponentActivity(), LauncherHost {
     }
 
     override fun pickCustomIcon(app: AppEntry) {
-        iconTarget = app
+        iconTargetKey = app.key
         iconImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
@@ -363,6 +387,11 @@ class MainActivity : ComponentActivity(), LauncherHost {
 
     private companion object {
         const val KEY_PENDING_WIDGET = "pendingWidgetId"
+        const val KEY_ICON_TARGET = "iconTargetKey"
+        const val KEY_PENDING_HEIGHT = "pendingWidgetHeightDp"
+        const val KEY_QUEUE_PROVIDERS = "widgetQueueProviders"
+        const val KEY_QUEUE_HEIGHTS = "widgetQueueHeights"
+        const val KEY_QUEUE_FRACTIONS = "widgetQueueFractions"
         const val REQUEST_CONFIGURE_WIDGET = 42
         const val MAX_IMPORT_BYTES = 64 * 1024 * 1024
         const val MAX_ICON_BYTES = 10 * 1024 * 1024

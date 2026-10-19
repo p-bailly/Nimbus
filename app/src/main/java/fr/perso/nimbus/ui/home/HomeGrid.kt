@@ -97,14 +97,6 @@ fun HomeGrid(
                         .offset(cellW * icon.x, cellH * icon.y)
                         .size(cellW, cellH)
                         .zIndex(if (isDragging) 1f else 0f)
-                        .graphicsLayer {
-                            if (isDragging) {
-                                translationX = dragOffset.x
-                                translationY = dragOffset.y
-                                scaleX = 1.12f
-                                scaleY = 1.12f
-                            }
-                        }
                         // Ordre important : le déplacement (dernier) voit les événements en premier.
                         .pointerInput(Unit) { detectTapGestures(onTap = { onOpen(current.app) }) }
                         .then(if (hasSwipeAction(icon.app)) Modifier.swipeUp { onSwipeUp(current.app) } else Modifier)
@@ -138,6 +130,16 @@ fun HomeGrid(
                                     dragOffset = Offset.Zero
                                 },
                             )
+                        }
+                        // Après les gestes : les déplacements mesurés ne doivent pas subir l'agrandissement
+                        // ni la translation de l'icône (sinon elle prendrait du retard sur le doigt).
+                        .graphicsLayer {
+                            if (isDragging) {
+                                translationX = dragOffset.x
+                                translationY = dragOffset.y
+                                scaleX = 1.12f
+                                scaleY = 1.12f
+                            }
                         },
                 ) {
                     AppIconContent(

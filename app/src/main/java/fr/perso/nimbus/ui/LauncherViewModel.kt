@@ -289,6 +289,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             if (_wallpaperColor.value == null) _wallpaperColor.value = color
         }
 
+        // Une app qui disparaît (désinstallée, espace privé verrouillé) ferme sa feuille d'actions.
+        apps.onEach { state ->
+            _ui.update { ui -> if (ui.sheetApp != null && ui.sheetApp.key !in state.byKey) ui.copy(sheetApp = null) else ui }
+        }.launchIn(viewModelScope)
+
         refreshCustomIconKeys()
         refreshSystemStatus()
     }
@@ -465,7 +470,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             SystemActions.setQuietMode(context, app.user, false)
             return
         }
-        prefs.incrementUsage(app.key)
+        // L'usage des apps de l'espace privé n'est pas enregistré : il finirait dans les sauvegardes.
+        if (app.profile != ProfileType.PRIVATE) prefs.incrementUsage(app.key)
         SystemActions.launch(context, app)
         resetOnStop = true
     }
@@ -559,21 +565,43 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     // ---------------------------------------------------------------- Grille d'accueil
 
+    /** Ajoute l'app dans la première case libre de la grille affichée. */
     fun addToHome(app: AppEntry) {
         val s = settings.value
-        when {
-            app.key in apps.value.homeKeys -> SystemActions.toast(context, "${app.label} est déjà sur l'accueil")
-            prefs.addHomeIcon(app.key, s.homeColumns, s.homeRows) -> {
-                SystemActions.toast(context, "${app.label} ajoutée à l'accueil")
-                showPage(0)
-            }
-            else -> SystemActions.toast(context, "Plus de place sur l'accueil (agrandis la grille dans les paramètres)")
+        val state = apps.value
+        if (state.home.any { it.app.key == app.key }) {
+            SystemActions.toast(context, "${app.label} est déjà sur l'accueil")
+            return
         }
+        val taken = state.home.map { it.x to it.y }.toSet()
+        val free = (0 until s.homeRows).firstNotNullOfOrNull { y ->
+            (0 until s.homeColumns).firstOrNull { x -> (x to y) !in taken }?.let { x -> x to y }
+        }
+        if (free == null) {
+            SystemActions.toast(context, "Plus de place sur l'accueil (agrandis la grille dans les paramètres)")
+            return
+        }
+        prefs.setHomeIconPositions(mapOf(app.key to free))
+        SystemActions.toast(context, "${app.label} ajoutée à l'accueil")
+        showPage(0)
     }
 
     fun removeFromHome(app: AppEntry) = prefs.removeHomeIcon(app.key)
 
-    fun moveHomeIcon(app: AppEntry, x: Int, y: Int) = prefs.moveHomeIcon(app.key, x, y)
+    /**
+     * Déplace une icône vers la case (x, y). L'icône affichée dans cette case prend la case
+     * qu'occupait l'icône déplacée. Tout est calculé sur la grille affichée, pas sur les
+     * positions enregistrées (qui peuvent être hors d'une grille réduite).
+     */
+    fun moveHomeIcon(app: AppEntry, x: Int, y: Int) {
+        val placed = apps.value.home
+        val from = placed.firstOrNull { it.app.key == app.key } ?: return
+        if (from.x == x && from.y == y) return
+        val occupant = placed.firstOrNull { it.x == x && it.y == y }
+        val moves = mutableMapOf(app.key to (x to y))
+        if (occupant != null) moves[occupant.app.key] = from.x to from.y
+        prefs.setHomeIconPositions(moves)
+    }
 
     // ---------------------------------------------------------------- Profil pro et espace privé
 

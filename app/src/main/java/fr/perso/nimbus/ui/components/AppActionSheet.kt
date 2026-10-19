@@ -178,16 +178,17 @@ fun AppActionSheet(
                     )
                 }
             }
-            SheetRow(label = "Renommer", icon = Icons.Filled.Edit, onClick = { dialog = SheetDialog.RENAME })
-            SheetRow(
-                label = "Changer l'icône (galerie)",
-                icon = Icons.Filled.Face,
-                onClick = { closeThen { host.pickCustomIcon(app) } },
-            )
-            if (app.key in customIcons) {
-                SheetRow(label = "Icône d'origine", icon = Icons.Filled.Refresh, onClick = { closeThen { vm.resetCustomIcon(app) } })
-            }
+            // Rien de ce qui concerne l'espace privé n'est enregistré (cela finirait dans les sauvegardes).
             if (!isPrivate) {
+                SheetRow(label = "Renommer", icon = Icons.Filled.Edit, onClick = { dialog = SheetDialog.RENAME })
+                SheetRow(
+                    label = "Changer l'icône (galerie)",
+                    icon = Icons.Filled.Face,
+                    onClick = { closeThen { host.pickCustomIcon(app) } },
+                )
+                if (app.key in customIcons) {
+                    SheetRow(label = "Icône d'origine", icon = Icons.Filled.Refresh, onClick = { closeThen { vm.resetCustomIcon(app) } })
+                }
                 SheetRow(
                     label = "Catégorie : ${app.category.label}",
                     icon = Icons.AutoMirrored.Filled.List,

@@ -4,7 +4,10 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +35,7 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -88,20 +92,30 @@ fun AppIcon(
     }
 }
 
-/** Détecte un glissé vers le haut ; les glissés vers le bas restent pour l'écran (geste de page). */
+/**
+ * Détecte un glissé vers le haut. Un glissé vers le bas n'est jamais réclamé (ni consommé) :
+ * il reste disponible pour le geste de page (ouvrir les notifications…).
+ */
 fun Modifier.swipeUp(onSwipeUp: () -> Unit): Modifier = composed {
     val action by rememberUpdatedState(onSwipeUp)
     pointerInput(Unit) {
         val threshold = SWIPE_DISTANCE.toPx()
-        var total = 0f
-        detectVerticalDragGestures(
-            onDragStart = { total = 0f },
-            onDragEnd = { if (total < -threshold) action() },
-            onVerticalDrag = { change, dragAmount ->
-                total += dragAmount
-                if (total < 0f) change.consume()
-            },
-        )
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var total = 0f
+            // Sans consommation dans le rappel, la détection continue (puis s'annule si un autre la prend).
+            val start = awaitVerticalTouchSlopOrCancellation(down.id) { change, overSlop ->
+                if (overSlop < 0f) {
+                    change.consume()
+                    total = overSlop
+                }
+            } ?: return@awaitEachGesture
+            val completed = verticalDrag(start.id) { change ->
+                total += change.positionChange().y
+                change.consume()
+            }
+            if (completed && total < -threshold) action()
+        }
     }
 }
 

@@ -18,8 +18,9 @@ import java.util.zip.ZipInputStream
 data class SlBackup(
     /** shared_prefs/ginlemon.flower*.xml */
     val prefs: Map<String, Any>,
-    val drawer: List<SlDrawerItem>,
-    val home: List<SlHomeItem>,
+    /** null si la table n'a pas pu être lue (autre version de Smart Launcher) : rien n'est alors remplacé. */
+    val drawer: List<SlDrawerItem>?,
+    val home: List<SlHomeItem>?,
     val widgets: List<SlWidget>,
     /** Icônes personnalisées de l'accueil : identifiant du « Launchable » -> image. */
     val customIcons: Map<Long, ByteArray>,
@@ -74,10 +75,12 @@ data class SlImportPlan(
     val themedIcons: Boolean?,
     /** Smart Launcher n'affichait pas de dock : les favoris Nimbus sont vidés. */
     val dockVisible: Boolean,
-    val homeIcons: List<HomeIcon>,
-    val categoryOverrides: Map<String, AppCategory>,
-    val hidden: Set<String>,
-    val usage: Map<String, Int>,
+    /** null = accueil illisible dans la sauvegarde : celui de Nimbus est conservé. */
+    val homeIcons: List<HomeIcon>?,
+    /** null = tiroir illisible : catégories, apps masquées et usage de Nimbus conservés. */
+    val categoryOverrides: Map<String, AppCategory>?,
+    val hidden: Set<String>?,
+    val usage: Map<String, Int>?,
     val customLabels: Map<String, String>,
     /** Clé d'app -> image de l'icône personnalisée. */
     val customIcons: Map<String, ByteArray>,
@@ -162,7 +165,10 @@ object SmartLauncherImport {
                 dbFile.path, null,
                 SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.NO_LOCALIZED_COLLATORS,
             ).use { sql ->
-                SlBackup(prefs, readDrawer(sql), readHome(sql), readWidgets(sql), icons)
+                val drawer = readDrawer(sql)
+                val home = readHome(sql)
+                if (drawer == null && home == null) null
+                else SlBackup(prefs, drawer, home, readWidgets(sql).orEmpty(), icons)
             }
         } catch (e: Exception) {
             null
@@ -213,7 +219,8 @@ object SmartLauncherImport {
         return result
     }
 
-    private inline fun <T> SQLiteDatabase.rows(query: String, map: (Cursor) -> T?): List<T> = try {
+    /** Lignes de la requête, ou null si elle échoue (table ou colonne absente). */
+    private inline fun <T> SQLiteDatabase.rows(query: String, map: (Cursor) -> T?): List<T>? = try {
         rawQuery(query, null).use { c ->
             val list = ArrayList<T>()
             while (c.moveToNext()) map(c)?.let { list.add(it) }
@@ -221,7 +228,7 @@ object SmartLauncherImport {
         }
     } catch (e: Exception) {
         // table absente ou schéma d'une autre version de Smart Launcher
-        emptyList()
+        null
     }
 
     private fun Cursor.str(column: String): String? {
@@ -239,7 +246,7 @@ object SmartLauncherImport {
         return if (i < 0 || isNull(i)) 0.0 else getDouble(i)
     }
 
-    private fun readDrawer(sql: SQLiteDatabase): List<SlDrawerItem> = sql.rows(
+    private fun readDrawer(sql: SQLiteDatabase): List<SlDrawerItem>? = sql.rows(
         "SELECT packageName, activityName, userId, categoryId, hidden, active, " +
             "counterDrawerPanel, counterSearchPanel FROM DrawerItem",
     ) { c ->
@@ -255,7 +262,7 @@ object SmartLauncherImport {
     }
 
     /** Icônes de l'accueil (action principale), y compris celles rangées dans un dossier. */
-    private fun readHome(sql: SQLiteDatabase): List<SlHomeItem> = sql.rows(
+    private fun readHome(sql: SQLiteDatabase): List<SlHomeItem>? = sql.rows(
         "SELECT a.idLaunchable AS id, h.screen AS screen, h.cellX AS cellX, h.cellY AS cellY, " +
             "a.intentUri AS intentUri, a.userId AS userId, a.label AS label, a.customLabel AS customLabel, " +
             "a.deepShortcutId AS deepShortcutId, l.idParentFolderLaunchable AS parent " +
@@ -280,7 +287,7 @@ object SmartLauncherImport {
         )
     }
 
-    private fun readWidgets(sql: SQLiteDatabase): List<SlWidget> = sql.rows(
+    private fun readWidgets(sql: SQLiteDatabase): List<SlWidget>? = sql.rows(
         "SELECT w.provider AS provider, w.userId AS userId, h.screen AS screen, h.spanY AS spanY " +
             "FROM Widget w JOIN HomeItem h ON h.idWidget = w.id WHERE w.provider IS NOT NULL",
     ) { c ->
@@ -347,7 +354,7 @@ object SmartLauncherImport {
         val leftovers = ArrayList<String>()
         val customLabels = LinkedHashMap<String, String>()
         val customIcons = LinkedHashMap<String, ByteArray>()
-        val homeItems = backup.home.filter { it.component != null }
+        val homeItems = backup.home.orEmpty().filter { it.component != null }
             .sortedWith(compareBy({ it.screen ?: Int.MAX_VALUE }, { it.y }, { it.x }))
         for (item in homeItems) {
             val key = resolveComponent(item.component!!, item.userId) ?: continue
@@ -376,7 +383,7 @@ object SmartLauncherImport {
         val overrides = LinkedHashMap<String, AppCategory>()
         val hidden = LinkedHashSet<String>()
         val usage = LinkedHashMap<String, Int>()
-        for (item in backup.drawer) {
+        for (item in backup.drawer.orEmpty()) {
             if (!item.active) continue
             val key = resolve(item.packageName, item.activityName, item.userId) ?: continue
             mapCategory(item.categoryId)?.let { overrides[key] = it }
@@ -402,10 +409,10 @@ object SmartLauncherImport {
             iconPack = appearance["icPk"]?.takeIf { it.isNotBlank() },
             themedIcons = appearance["thMd"]?.let { it == "true" },
             dockVisible = dockVisible,
-            homeIcons = homeIcons.values.toList(),
-            categoryOverrides = overrides,
-            hidden = hidden,
-            usage = usage,
+            homeIcons = if (backup.home != null) homeIcons.values.toList() else null,
+            categoryOverrides = if (backup.drawer != null) overrides else null,
+            hidden = if (backup.drawer != null) hidden else null,
+            usage = if (backup.drawer != null) usage else null,
             customLabels = customLabels,
             customIcons = customIcons,
             widgets = backup.widgets.map { PendingWidget(it.provider, heightFraction = it.spanY.toFloat() / rows) },
