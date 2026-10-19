@@ -123,16 +123,14 @@ NIMBUS_SLBK=/chemin/Backup.slbk ./gradlew testDebugUnitTest -i
 
 ## Releases
 
-Chaque release GitHub contient l'APK signé (`Nimbus-v1.2.0.apk`), à installer sur le
-téléphone ; les suivantes s'installent par-dessus (mêmes réglages). Publication par
-GitHub Actions (`.github/workflows/release.yml`), au choix :
+À chaque envoi sur la branche par défaut, GitHub Actions (`.github/workflows/android.yml`)
+lance les tests, compile l'APK signé et le publie dans la release **apk** (toujours la
+même, mise à jour). Lien permanent vers la dernière version :
+https://github.com/p-bailly/Nimbus/releases/latest/download/Nimbus.apk
 
-- pousser un tag : `git tag v1.2.0 && git push origin v1.2.0` ;
-- ou onglet **Actions › Release › Run workflow**, avec le numéro de version.
-
-Le workflow lance les tests, compile `assembleRelease` et publie la release avec des
-notes générées depuis les commits. Il lui faut deux secrets du dépôt
-(Settings › Secrets and variables › Actions) :
+Les versions suivantes s'installent par-dessus (mêmes réglages). Numéro de version : le
+nombre de commits (`1.0.42`). Relancer à la main : onglet **Actions › APK Android › Run
+workflow**. Il faut deux secrets du dépôt (Settings › Secrets and variables › Actions) :
 
 | Secret | Contenu |
 |---|---|

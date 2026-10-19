@@ -4,9 +4,18 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Clé de signature des releases, fournie par la CI (secrets GitHub, voir .github/workflows/release.yml).
+// Clé de signature des releases, fournie par la CI (secrets GitHub, voir .github/workflows/android.yml).
 // Sans elle (compilation locale), la release est signée avec la clé de debug.
 val releaseKeystore: String? = System.getenv("NIMBUS_KEYSTORE_FILE")
+
+// Numéro de version = nombre de commits : le même en local et sur GitHub, et toujours croissant
+// (une mise à jour doit avoir un numéro plus grand que la version installée).
+val commitCount: Int = runCatching {
+    providers.exec {
+        commandLine("git", "rev-list", "--count", "HEAD")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim().toInt()
+}.getOrDefault(1)
 
 android {
     namespace = "fr.perso.nimbus"
@@ -16,9 +25,8 @@ android {
         applicationId = "fr.perso.nimbus"
         minSdk = 28
         targetSdk = 35
-        // Numéros donnés par la CI à chaque release ; une mise à jour doit avoir un numéro plus grand.
-        versionCode = System.getenv("NIMBUS_VERSION_CODE")?.toIntOrNull() ?: 1
-        versionName = System.getenv("NIMBUS_VERSION_NAME") ?: "1.0"
+        versionCode = commitCount
+        versionName = "1.0.$commitCount"
     }
 
     signingConfigs {
