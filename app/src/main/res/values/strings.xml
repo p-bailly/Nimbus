@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nimbus</string>
+    <string name="badge_service_label">Pastilles de notification Nimbus</string>
+    <string name="gesture_service_label">Gestes Nimbus</string>
+    <string name="gesture_service_desc">Permet à Nimbus de verrouiller l\'écran par double tap et d\'ouvrir le volet de notifications par un geste. Aucune donnée n\'est lue ni collectée.</string>
+</resources>
