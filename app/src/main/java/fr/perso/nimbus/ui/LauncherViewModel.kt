@@ -32,7 +32,6 @@ import fr.perso.nimbus.data.Prefs
 import fr.perso.nimbus.data.ProfileState
 import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.data.SortMode
-import fr.perso.nimbus.data.WidgetSlot
 import fr.perso.nimbus.service.BadgeStore
 import fr.perso.nimbus.service.GestureService
 import fr.perso.nimbus.service.SystemActions
@@ -68,17 +67,11 @@ enum class Screen { HOME, SETTINGS, HIDDEN_APPS }
 /** Pages des paramètres (une page principale et ses sous-pages). */
 enum class SettingsSection { MAIN, APPEARANCE, GESTURES, BACKUP, HOME, DRAWER, SEARCH, NOTIFICATIONS, PRIVACY, ABOUT }
 
-/** Menu ouvert par appui long sur l'accueil : page du pager et position du doigt. */
-data class HomeMenu(val page: Int, val position: Offset)
-
-/** Demande de défilement du pager d'accueil ; [id] change à chaque nouvelle demande. */
-data class PageRequest(val page: Int, val id: Long)
+/** Menu ouvert par appui long sur l'accueil, à la position du doigt. */
+data class HomeMenu(val position: Offset)
 
 /** Pop-up d'appui long sur une app, ancré sur son icône (coordonnées de la fenêtre). */
 data class AppPopupRequest(val app: AppEntry, val anchor: Rect)
-
-/** Destination d'un widget choisi dans le sélecteur. */
-enum class WidgetTarget { HOME, PAGE }
 
 data class UiState(
     val drawerOpen: Boolean = false,
@@ -93,10 +86,8 @@ data class UiState(
     val appPopup: AppPopupRequest? = null,
     val homeMenu: HomeMenu? = null,
     val widgetPickerOpen: Boolean = false,
-    val widgetTarget: WidgetTarget = WidgetTarget.HOME,
-    /** Widget (accueil ou page widgets) en cours de redimensionnement, null sinon. */
+    /** Widget de l'accueil en cours de redimensionnement, null sinon. */
     val resizingWidget: Int? = null,
-    val pageRequest: PageRequest = PageRequest(0, 0),
 )
 
 /** État des autorisations et services système, relu à chaque retour au premier plan. */
@@ -167,7 +158,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val wallpaperManager = WallpaperManager.getInstance(application)
 
     val settings: StateFlow<LauncherSettings> = prefs.settings
-    val widgets: StateFlow<List<WidgetSlot>> = prefs.widgets
     val categoryOverrides: StateFlow<Map<String, AppCategory>> = prefs.categoryOverrides
     val customLabels: StateFlow<Map<String, String>> = prefs.customLabels
     val iconSwipeActions: StateFlow<Map<String, String>> = prefs.iconSwipeActions
@@ -326,6 +316,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             }
         }.launchIn(viewModelScope)
 
+        migrateWidgetsPage()
         refreshCustomIconKeys()
         refreshSystemStatus()
     }
@@ -460,26 +451,23 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun dismissAppSheet() = _ui.update { it.copy(sheetApp = null) }
 
-    fun openHomeMenu(page: Int, position: Offset) = _ui.update { it.copy(homeMenu = HomeMenu(page, position)) }
+    fun openHomeMenu(position: Offset) = _ui.update { it.copy(homeMenu = HomeMenu(position)) }
 
     fun closeHomeMenu() = _ui.update { it.copy(homeMenu = null) }
 
-    fun openWidgetPicker(target: WidgetTarget) = _ui.update {
-        it.copy(widgetPickerOpen = true, widgetTarget = target, homeMenu = null, resizingWidget = null)
+    fun openWidgetPicker() = _ui.update {
+        it.copy(widgetPickerOpen = true, homeMenu = null, resizingWidget = null)
     }
 
     fun closeWidgetPicker() = _ui.update { it.copy(widgetPickerOpen = false) }
 
-
-    fun showPage(page: Int) = _ui.update { it.copy(pageRequest = PageRequest(page, it.pageRequest.id + 1)) }
-
     /** Mode redimensionnement d'un seul widget (poignée), null pour en sortir. */
     fun setResizingWidget(id: Int?) = _ui.update { it.copy(resizingWidget = id, homeMenu = null) }
 
-    /** Bouton Accueil : tout refermer et revenir à la première page. */
+    /** Bouton Accueil : tout refermer. */
     fun goHome() {
         resetOnStop = false
-        _ui.update { UiState(pageRequest = PageRequest(0, it.pageRequest.id + 1)) }
+        _ui.value = UiState()
     }
 
     fun onLauncherStopped() {
@@ -508,7 +496,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             GestureAction.SEARCH -> openDrawer(focusSearch = true)
             GestureAction.DRAWER -> openDrawer()
             GestureAction.SETTINGS -> openSettings()
-            GestureAction.WIDGETS -> showPage(1)
+            GestureAction.WIDGETS -> openWidgetPicker()
             GestureAction.APP -> {
                 val app = prefs.gestureApps.value[gesture]?.let { apps.value.byKey[it] }
                 if (app != null) launch(app)
@@ -648,7 +636,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
         prefs.setHomeIconPositions(mapOf(app.key to free))
         SystemActions.toast(context, "${app.label} ajoutée à l'accueil")
-        showPage(0)
     }
 
     fun removeFromHome(app: AppEntry) = prefs.removeHomeIcon(app.key)
@@ -708,13 +695,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      * Pose un widget sur la grille. Ordre de recherche : emplacement demandé (import), puis
      * zone libre d'icônes, puis zone sans autre widget (les icônes se décalent), en réduisant
      * la taille si besoin. Retourne false si aucune place.
+     * Les widgets déjà posés sont lus dans les préférences, à jour immédiatement : plusieurs
+     * ajouts d'affilée (import, migration) ne se superposent pas.
      */
     fun addHomeWidget(id: Int, spanX: Int, spanY: Int, preferred: Pair<Int, Int>? = null): Boolean {
         val s = settings.value
         val columns = s.homeColumns
         val rows = s.homeRows
-        val widgets = apps.value.homeWidgets
-        val icons = apps.value.home.map { it.x to it.y }.toSet()
+        val widgets = fitWidgets(prefs.homeWidgets.value, columns, rows).filter { it.id != id }
+        val icons = if (apps.value.loaded) apps.value.home.map { it.x to it.y }.toSet()
+        else prefs.homeIcons.value.map { it.x to it.y }.toSet()
         fun fits(w: HomeWidget, avoidIcons: Boolean) =
             w.x >= 0 && w.y >= 0 && w.x + w.spanX <= columns && w.y + w.spanY <= rows &&
                 widgets.none { it.overlaps(w) } && (!avoidIcons || w.cells().none { it in icons })
@@ -773,28 +763,53 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         return spanX.coerceIn(1, s.homeColumns) to spanY.coerceIn(1, s.homeRows)
     }
 
-    /** Passe un widget de la page widgets à la grille de l'accueil (même identifiant, rien à reconfigurer). */
-    fun moveWidgetToHome(id: Int) {
-        val info = WidgetHostManager.get(context).info(id)
-        val (spanX, spanY) = info?.let(::defaultWidgetSpan) ?: (2 to 2)
-        if (addHomeWidget(id, spanX, spanY)) {
-            prefs.removeWidget(id)
-            showPage(0)
-        } else {
-            SystemActions.toast(context, "Plus de place sur l'accueil (agrandis la grille dans les paramètres)")
+    /**
+     * L'ancienne page des widgets n'existe plus : ses widgets passent sur la grille de
+     * l'accueil (même identifiant, rien à reconfigurer). Sans aucune place, le widget est supprimé.
+     */
+    private fun migrateWidgetsPage() {
+        val slots = prefs.widgets.value
+        if (slots.isEmpty()) return
+        val host = WidgetHostManager.get(context)
+        var dropped = 0
+        for (slot in slots) {
+            val onHome = prefs.homeWidgets.value.any { it.id == slot.id } || run {
+                val (spanX, spanY) = host.info(slot.id)?.let(::defaultWidgetSpan) ?: (2 to 2)
+                addHomeWidget(slot.id, spanX, spanY)
+            }
+            prefs.removeWidget(slot.id)
+            if (!onHome) {
+                host.deleteId(slot.id)
+                dropped++
+            }
         }
+        if (dropped > 0) SystemActions.toast(context, "Plus de place sur l'accueil : $dropped widget(s) retiré(s)")
     }
 
-    /** Passe un widget de l'accueil à la page widgets (même identifiant). */
-    fun moveHomeWidgetToPage(id: Int, heightDp: Int) {
-        prefs.removeHomeWidget(id)
-        prefs.addWidget(id, heightDp.coerceIn(80, 600))
-        _ui.update { it.copy(resizingWidget = null) }
-        showPage(1)
+    /**
+     * Libère les widgets alloués par Nimbus mais affichés nulle part (ajout interrompu,
+     * ancienne page des widgets…). À n'appeler que sans ajout de widget en cours.
+     */
+    fun deleteOrphanWidgets() {
+        val host = WidgetHostManager.get(context)
+        val used = prefs.homeWidgets.value.map { it.id }.toSet()
+        val allocated = try {
+            host.host.appWidgetIds
+        } catch (e: Exception) {
+            return
+        }
+        allocated.filter { it !in used }.forEach(host::deleteId)
     }
 
-    /** Réordonne la page widgets. */
-    fun moveWidgetToIndex(id: Int, index: Int) = prefs.moveWidget(id, index)
+    /** Nom du widget [id] (celui de son fournisseur), pour la liste des réglages. */
+    fun widgetLabel(id: Int): String {
+        val info = WidgetHostManager.get(context).info(id) ?: return "Widget indisponible"
+        return try {
+            info.loadLabel(context.packageManager)
+        } catch (e: Exception) {
+            null
+        } ?: info.provider.packageName
+    }
 
     // ---------------------------------------------------------------- Profil pro et espace privé
 
@@ -861,19 +876,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private fun autoBackupIfDue() {
         if (prefs.autoBackupFolder.value == null) return
         viewModelScope.launch(Dispatchers.IO) { backup.autoBackupIfDue() }
-    }
-
-    // ---------------------------------------------------------------- Widgets
-
-    fun addWidget(id: Int, heightDp: Int) = prefs.addWidget(id, heightDp)
-
-    fun removeWidget(id: Int) {
-        prefs.removeWidget(id)
-        WidgetHostManager.get(context).deleteId(id)
-    }
-
-    fun resizeWidget(id: Int, deltaDp: Int) {
-        if (deltaDp != 0) prefs.resizeWidget(id, deltaDp)
     }
 
     override fun onCleared() {

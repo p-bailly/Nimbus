@@ -18,17 +18,17 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Widgets sur l'accueil, dans la grille (appui long sur l'accueil › Ajouter un widget).
   Appui long sur un widget : menu (Redimensionner, Supprimer) ; appui long puis glisser :
   déplacer ce widget. Les icônes qu'il recouvre se décalent vers les cases libres.
-- Page widgets (à droite) : pour les widgets en plus. Même appui long (menu avec en plus
-  « Mettre sur l'accueil ») ; appui long puis glisser pour changer leur ordre.
-- Un widget glissé et tenu contre le bord de l'écran passe à l'autre page (accueil ↔
-  page widgets).
-- Bouton Accueil : referme tout et revient à la première page.
+  Paramètres › Page d'accueil › Widgets : liste des widgets, avec « Supprimer ».
+- Accueil sur une seule page. Les widgets de l'ancienne page widgets passent
+  automatiquement sur la grille au premier lancement de cette version ; les widgets
+  alloués mais affichés nulle part sont libérés au démarrage.
+- Bouton Accueil : referme tout.
 
 **Gestes (à la Nova)**
 - Double tap, glisser vers le haut / le bas, glisser à deux doigts vers le haut /
   le bas, pincer, écarter.
 - Actions : verrouiller, notifications, réglages rapides, applis récentes, capture
-  d'écran, menu Marche/Arrêt, assistant, recherche, tiroir, page widgets,
+  d'écran, menu Marche/Arrêt, assistant, recherche, tiroir, ajouter un widget,
   paramètres, ou ouvrir l'app de son choix.
 - Glisser vers le haut sur une icône de l'accueil ou du dock : ouvre une seconde
   app (réglable par icône).
@@ -80,8 +80,8 @@ Paramètres › Sauvegarde :
   (`.slbk`). Depuis Smart Launcher sont repris la grille d'accueil (positions,
   taille, noms masqués), les catégories du tiroir, les apps masquées, la
   fréquence d'utilisation, les noms et icônes personnalisés, la forme des icônes,
-  les colonnes du tiroir ; les widgets sont proposés à l'ajout un par un (ceux de la
-  première page Smart Launcher reprennent leur place sur la grille de l'accueil).
+  les colonnes du tiroir ; les widgets sont proposés à l'ajout un par un et posés sur
+  l'accueil (ceux de la première page Smart Launcher reprennent leur place).
   Une app absente du téléphone est ignorée ; une app dont l'activité a changé est
   retrouvée par son paquet.
 - **Sauvegarde automatique** : une fois par jour dans le dossier choisi, les 7
@@ -147,7 +147,7 @@ app/src/main/java/fr/perso/nimbus/
     ├── NimbusApp.kt         Racine Compose : accueil + couches au-dessus
     ├── LauncherHost.kt      Actions qui passent par l'activité
     ├── theme/Theme.kt       Thèmes Ambiant, Material You, Sombre, Clair
-    ├── home/                Pager d'accueil, grille d'icônes, page widgets
+    ├── home/                Accueil, grille d'icônes et de widgets
     ├── drawer/              Tiroir, recherche sans accents, défilement A–Z
     ├── components/          Icône d'app, feuille d'actions, dialogues (choix, PIN,
     │                        texte, choix d'app), sélecteur de widgets

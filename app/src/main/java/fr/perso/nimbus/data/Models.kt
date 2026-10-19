@@ -98,7 +98,7 @@ enum class GestureAction(val label: String) {
     SCREENSHOT("Capture d'écran"),
     POWER_MENU("Menu Marche/Arrêt"),
     ASSISTANT("Assistant"),
-    WIDGETS("Page des widgets"),
+    WIDGETS("Ajouter un widget"),
     APP("Ouvrir une app…"),
 }
 
@@ -197,5 +197,5 @@ data class HomeWidget(val id: Int, val x: Int, val y: Int, val spanX: Int, val s
         x < other.x + other.spanX && other.x < x + spanX && y < other.y + other.spanY && other.y < y + spanY
 }
 
-/** Un widget posé sur la page widgets. */
+/** Widget de l'ancienne page des widgets (déplacé sur la grille de l'accueil au démarrage). */
 data class WidgetSlot(val id: Int, val heightDp: Int)

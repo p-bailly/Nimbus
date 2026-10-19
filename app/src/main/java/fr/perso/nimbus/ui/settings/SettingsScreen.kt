@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -281,6 +282,41 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                 item {
                     SettingsEntry(R.drawable.ms_search, SettingsColors.Blue, "Barre de recherche", "En bas de l'accueil", checked = settings.showSearchBar) {
                         update { it.copy(showSearchBar = !it.showSearchBar) }
+                    }
+                }
+                settingsSection("Widgets")
+                if (apps.homeWidgets.isEmpty()) {
+                    item(key = "widgets:none") {
+                        Text(
+                            "Aucun widget. Appui long sur le fond de l'accueil › Ajouter un widget.",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+                items(apps.homeWidgets, key = { "widget:${it.id}" }) { widget ->
+                    val label = remember(widget.id) { vm.widgetLabel(widget.id) }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 24.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ms_dashboard_customize),
+                            contentDescription = null,
+                            tint = SettingsColors.Purple,
+                            modifier = Modifier.size(28.dp),
+                        )
+                        Spacer(Modifier.width(24.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(label, fontSize = 18.sp)
+                            Text("${widget.spanX} × ${widget.spanY} cases", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = { vm.removeHomeWidget(widget.id) }) {
+                            Text("Supprimer", color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }

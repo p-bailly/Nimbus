@@ -7,10 +7,10 @@ import fr.perso.nimbus.data.PendingWidget
 /** Actions qui ont besoin de l'activité (résultats d'activité, permissions, fichiers, barres système). */
 interface LauncherHost {
     /**
-     * Lie le widget (en demandant l'autorisation si besoin), puis lance sa configuration.
-     * [toHome] : sur la grille de l'accueil, sinon sur la page widgets.
+     * Lie le widget (en demandant l'autorisation si besoin), lance sa configuration, puis
+     * le pose sur la grille de l'accueil.
      */
-    fun addWidget(info: AppWidgetProviderInfo, toHome: Boolean)
+    fun addWidget(info: AppWidgetProviderInfo)
 
     /** Rajoute des widgets un par un (après un import). */
     fun addWidgets(widgets: List<PendingWidget>)

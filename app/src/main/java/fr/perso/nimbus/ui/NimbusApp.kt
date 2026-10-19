@@ -146,7 +146,7 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                         onDismiss = vm::closeWidgetPicker,
                         onPick = { info ->
                             vm.closeWidgetPicker()
-                            host.addWidget(info, toHome = ui.widgetTarget == WidgetTarget.HOME)
+                            host.addWidget(info)
                         },
                     )
                 }

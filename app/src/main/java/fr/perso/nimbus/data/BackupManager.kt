@@ -147,7 +147,7 @@ class BackupManager(context: Context, private val prefs: Prefs) {
         return ImportResult(true, "Configuration Smart Launcher importée", details, widgets, iconKeys)
     }
 
-    /** Retire les widgets déjà présents sur la page widgets (import sur le même téléphone). */
+    /** Retire les widgets déjà présents sur l'accueil (import sur le même téléphone). */
     private fun withoutExisting(widgets: List<PendingWidget>): List<PendingWidget> {
         fun normalize(provider: String) = ComponentName.unflattenFromString(provider)?.flattenToString() ?: provider
         val host = WidgetHostManager.get(appContext)

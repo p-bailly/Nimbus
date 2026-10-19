@@ -429,7 +429,7 @@ object SmartLauncherImport {
             usage = if (backup.drawer != null) usage else null,
             customLabels = customLabels,
             customIcons = customIcons,
-            // Page 1 de Smart Launcher -> grille de l'accueil ; autres pages -> page widgets.
+            // Page 1 de Smart Launcher -> même place sur l'accueil ; autres pages -> première place libre.
             widgets = backup.widgets.map { w ->
                 if (w.screen == 0) {
                     val spanX = w.spanX.coerceIn(1, columns)

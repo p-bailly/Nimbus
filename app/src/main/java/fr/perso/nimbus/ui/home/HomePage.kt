@@ -104,7 +104,7 @@ fun HomePage(
     Box(
         Modifier
             .fillMaxSize()
-            // Gestes à deux doigts : observés avant tout le monde, puis consommés pour bloquer le pager.
+            // Gestes à deux doigts : observés avant tout le monde, puis consommés.
             .then(if (multiTouchEnabled) Modifier.multiTouchGestures { vm.onGesture(it) } else Modifier)
             // Le glissé vertical ne consomme le toucher qu'une fois le seuil franchi :
             // un glissé qui part d'une icône ou d'un widget ouvre quand même le tiroir.
@@ -174,7 +174,6 @@ fun HomePage(
                 onResizeWidget = vm::setResizingWidget,
                 onUpdateWidget = vm::updateHomeWidget,
                 onRemoveWidget = vm::removeHomeWidget,
-                onMoveWidgetToPage = vm::moveHomeWidgetToPage,
                 columns = settings.homeColumns,
                 rows = settings.homeRows,
                 iconSizeDp = settings.iconSize.dp,
@@ -265,7 +264,7 @@ private fun Dock(
 /**
  * Gestes à deux doigts (Nova) : glisser vers le haut / le bas, pincer, écarter.
  * Observés dès la passe Initial ; dès que deux doigts sont posés, les événements sont
- * consommés pour que le pager et le glissé à un doigt ne réagissent pas.
+ * consommés pour que le glissé à un doigt ne réagisse pas.
  */
 private fun Modifier.multiTouchGestures(onGesture: (Gesture) -> Unit): Modifier = composed {
     val callback by rememberUpdatedState(onGesture)
