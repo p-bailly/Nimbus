@@ -84,7 +84,7 @@ fun HomePage(
     vm: LauncherViewModel,
     settings: LauncherSettings,
     apps: AppsState,
-    editingWidgetId: Int?,
+    resizingWidgetId: Int?,
     onLongPress: (Offset) -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
@@ -99,7 +99,7 @@ fun HomePage(
 
     val context = LocalContext.current
     val widgetHost = remember { WidgetHostManager.get(context) }
-    val editingWidget by rememberUpdatedState(editingWidgetId)
+    val resizingWidget by rememberUpdatedState(resizingWidgetId)
 
     Box(
         Modifier
@@ -135,7 +135,7 @@ fun HomePage(
                 // Sans action de double tap, on ne déclare pas le détecteur : il retarderait l'appui long.
                 .pointerInput(doubleTapEnabled) {
                     detectTapGestures(
-                        onTap = { if (editingWidget != null) vm.editHomeWidget(null) },
+                        onTap = { if (resizingWidget != null) vm.setResizingWidget(null) },
                         onDoubleTap = if (doubleTapEnabled) { _ -> vm.onGesture(Gesture.DOUBLE_TAP) } else null,
                         onLongPress = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -170,8 +170,8 @@ fun HomePage(
                 icons = apps.home,
                 widgets = apps.homeWidgets,
                 widgetHost = widgetHost,
-                editingWidget = editingWidgetId,
-                onEditWidget = vm::editHomeWidget,
+                resizingWidget = resizingWidgetId,
+                onResizeWidget = vm::setResizingWidget,
                 onUpdateWidget = vm::updateHomeWidget,
                 onRemoveWidget = vm::removeHomeWidget,
                 columns = settings.homeColumns,

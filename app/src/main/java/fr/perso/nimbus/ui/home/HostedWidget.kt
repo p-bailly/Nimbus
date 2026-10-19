@@ -4,7 +4,7 @@ import android.widget.FrameLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,8 +18,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -66,24 +68,56 @@ fun HostedWidget(id: Int, host: WidgetHostManager, modifier: Modifier = Modifier
 }
 
 /**
- * Appui long sur un widget sans lui voler ses touchers : un widget (vue Android) ne reçoit
- * les événements qu'en dernier, et seulement s'ils n'ont pas été consommés avant. Rien n'est
- * donc consommé tant que l'appui long n'a pas eu lieu ; ensuite tout l'est, et le widget reçoit
- * une annulation (pas de clic parasite).
+ * Gestes d'un widget, sans lui voler ses touchers : un widget (vue Android) ne reçoit les
+ * événements qu'en dernier, et seulement s'ils n'ont pas été consommés avant. Rien n'est donc
+ * consommé tant que l'appui long n'a pas eu lieu.
+ * - appui long sans bouger -> [onMenu] (position du doigt, locale) ;
+ * - appui long puis glisser -> [onDrag] (déplacement cumulé) puis [onDragEnd] au lâcher.
+ * Après l'appui long tout est consommé : le widget reçoit une annulation, pas un clic.
  */
-fun Modifier.widgetLongPress(onLongPress: () -> Unit): Modifier = composed {
-    val callback by rememberUpdatedState(onLongPress)
+fun Modifier.widgetGestures(
+    onMenu: (Offset) -> Unit,
+    onDrag: (Offset) -> Unit,
+    onDragEnd: (Offset) -> Unit,
+    onDragCancel: () -> Unit,
+): Modifier = composed {
+    val menu by rememberUpdatedState(onMenu)
+    val move by rememberUpdatedState(onDrag)
+    val end by rememberUpdatedState(onDragEnd)
+    val cancel by rememberUpdatedState(onDragCancel)
     val haptics = LocalHapticFeedback.current
     pointerInput(Unit) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
-            awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+            val slop = viewConfiguration.touchSlop
+            // Attente de l'appui long. Le détecteur standard ne s'annule pas quand le doigt
+            // bouge (seulement s'il est consommé, ce que le widget fait après nous) : on le fait
+            // ici, sinon faire défiler lentement un widget liste ouvrirait le menu.
+            val cancelled = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                while (true) {
+                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id }
+                    if (change == null || !change.pressed || change.isConsumed ||
+                        (change.position - down.position).getDistance() > slop
+                    ) break
+                }
+                true
+            }
+            if (cancelled != null) return@awaitEachGesture
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            callback()
-            while (true) {
-                val event = awaitPointerEvent()
-                event.changes.forEach { it.consume() }
-                if (event.changes.none { it.pressed }) break
+            val press = down
+            var total = Offset.Zero
+            var dragging = false
+            val released = drag(press.id) { change ->
+                total += change.positionChange()
+                change.consume()
+                if (!dragging && total.getDistance() > slop) dragging = true
+                if (dragging) move(total)
+            }
+            currentEvent.changes.forEach { it.consume() }
+            when {
+                !released -> if (dragging) cancel()
+                dragging -> end(total)
+                else -> menu(press.position)
             }
         }
     }

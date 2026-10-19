@@ -1,9 +1,11 @@
 package fr.perso.nimbus.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,46 +14,48 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.data.WidgetSlot
 import fr.perso.nimbus.ui.LauncherViewModel
@@ -62,16 +66,17 @@ import kotlin.math.roundToInt
 
 private const val MIN_HEIGHT_DP = 60f
 private const val MAX_HEIGHT_DP = 600f
-private const val RESIZE_STEP_DP = 40
 
 /**
- * Page des widgets : ajout, redimensionnement et suppression (mode édition).
- * Appui long sur un widget : mode édition ; sur une zone vide : menu de l'accueil.
+ * Page des widgets (à droite de l'accueil), pour les widgets en plus de ceux de l'accueil.
+ * Appui long sur un widget : menu (redimensionner, mettre sur l'accueil, supprimer) ;
+ * appui long puis glisser : changer sa place dans la liste. Appui long sur une zone vide :
+ * menu de l'accueil.
  */
 @Composable
 fun WidgetsPage(
     vm: LauncherViewModel,
-    editing: Boolean,
+    resizingWidget: Int?,
     onLongPress: (Offset) -> Unit,
 ) {
     val context = LocalContext.current
@@ -80,9 +85,22 @@ fun WidgetsPage(
     val slots by vm.widgets.collectAsStateWithLifecycle()
     val longPress by rememberUpdatedState(onLongPress)
 
+    // Position (haut, hauteur) de chaque widget, pour savoir où il atterrit quand on le glisse.
+    val bounds = remember { mutableStateMapOf<Int, Pair<Float, Float>>() }
+    var dragging by remember { mutableStateOf<Int?>(null) }
+    var dragDy by remember { mutableFloatStateOf(0f) }
+
+    fun reorder(id: Int, dy: Float) {
+        val (top, height) = bounds[id] ?: return
+        val center = top + height / 2f + dy
+        val index = slots.filter { it.id != id }.count { other ->
+            bounds[other.id]?.let { (t, h) -> t + h / 2f < center } ?: false
+        }
+        vm.moveWidgetToIndex(id, index)
+    }
+
     Box(Modifier.fillMaxSize()) {
-        // Calque de fond : seuls les touchers des zones vides l'atteignent (les widgets et
-        // boutons, posés au-dessus, les gardent pour eux).
+        // Calque de fond : seuls les touchers des zones vides l'atteignent.
         Box(
             Modifier
                 .fillMaxSize()
@@ -110,12 +128,6 @@ fun WidgetsPage(
                     style = TextStyle(color = Color.White, fontSize = 26.sp, shadow = WallpaperTextShadow),
                     modifier = Modifier.weight(1f),
                 )
-                if (slots.isNotEmpty()) {
-                    FilledTonalButton(onClick = { vm.setEditingWidgets(!editing) }) {
-                        Text(if (editing) "Terminer" else "Modifier")
-                    }
-                    Spacer(Modifier.width(8.dp))
-                }
                 FilledTonalIconButton(onClick = { vm.openWidgetPicker(WidgetTarget.PAGE) }) {
                     Icon(Icons.Default.Add, contentDescription = "Ajouter un widget")
                 }
@@ -135,7 +147,7 @@ fun WidgetsPage(
                         style = TextStyle(color = Color.White, fontSize = 18.sp, shadow = WallpaperTextShadow),
                     )
                     Text(
-                        "Les widgets peuvent aussi aller sur l'accueil : appui long sur l'accueil › Ajouter un widget",
+                        "Les widgets peuvent aussi aller sur l'accueil : appui long sur l'accueil › Ajouter un widget ici",
                         style = TextStyle(color = Color.White, fontSize = 13.sp, shadow = WallpaperTextShadow),
                         modifier = Modifier.padding(top = 8.dp),
                     )
@@ -147,6 +159,8 @@ fun WidgetsPage(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier
                         .weight(1f)
+                        // Un toucher n'importe où termine le redimensionnement, sans rien bloquer.
+                        .then(if (resizingWidget != null) Modifier.observeTap { vm.setResizingWidget(null) } else Modifier)
                         .verticalScroll(rememberScrollState())
                         .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 40.dp),
                 ) {
@@ -155,9 +169,25 @@ fun WidgetsPage(
                             WidgetItem(
                                 slot = slot,
                                 host = host,
-                                editing = editing,
-                                onEdit = { vm.setEditingWidgets(true) },
+                                resizing = resizingWidget == slot.id,
+                                dragDy = if (dragging == slot.id) dragDy else 0f,
+                                onPositioned = { top, height -> bounds[slot.id] = top to height },
+                                onDrag = { dy ->
+                                    dragging = slot.id
+                                    dragDy = dy
+                                },
+                                onDragEnd = { dy ->
+                                    reorder(slot.id, dy)
+                                    dragging = null
+                                    dragDy = 0f
+                                },
+                                onDragCancel = {
+                                    dragging = null
+                                    dragDy = 0f
+                                },
+                                onStartResize = { vm.setResizingWidget(slot.id) },
                                 onResize = { vm.resizeWidget(slot.id, it) },
+                                onToHome = { vm.moveWidgetToHome(slot.id) },
                                 onRemove = { vm.removeWidget(slot.id) },
                             )
                         }
@@ -168,61 +198,73 @@ fun WidgetsPage(
     }
 }
 
+/** Observe un toucher bref sans le consommer (les widgets dessous le reçoivent normalement). */
+private fun Modifier.observeTap(onTap: () -> Unit): Modifier = composed {
+    val callback by rememberUpdatedState(onTap)
+    pointerInput(Unit) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false)
+            if (waitForUpOrCancellation() != null) callback()
+        }
+    }
+}
+
 @Composable
 private fun WidgetItem(
     slot: WidgetSlot,
     host: WidgetHostManager,
-    editing: Boolean,
-    onEdit: () -> Unit,
+    resizing: Boolean,
+    dragDy: Float,
+    onPositioned: (Float, Float) -> Unit,
+    onDrag: (Float) -> Unit,
+    onDragEnd: (Float) -> Unit,
+    onDragCancel: () -> Unit,
+    onStartResize: () -> Unit,
     onResize: (Int) -> Unit,
+    onToHome: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val shape = RoundedCornerShape(20.dp)
     // Décalage pendant le glissé de la poignée ; enregistré une seule fois au relâchement.
-    var dragDp by remember { mutableFloatStateOf(0f) }
-    val heightDp = (slot.heightDp + dragDp).coerceIn(MIN_HEIGHT_DP, MAX_HEIGHT_DP)
+    var resizeDp by remember { mutableFloatStateOf(0f) }
+    val heightDp = (slot.heightDp + resizeDp).coerceIn(MIN_HEIGHT_DP, MAX_HEIGHT_DP)
     val resize by rememberUpdatedState(onResize)
+    var menuAt by remember { mutableStateOf<Offset?>(null) }
 
     Box(
         Modifier
             .fillMaxWidth()
             .height(heightDp.dp)
-            .clip(shape)
-            .then(if (editing) Modifier else Modifier.widgetLongPress(onEdit)),
-    ) {
-        HostedWidget(id = slot.id, host = host, modifier = Modifier.fillMaxSize())
-
-        if (editing) {
-            // Calque qui intercepte les touchers : le widget n'est plus utilisable pendant l'édition.
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(Color.Black.copy(alpha = 0.35f))
-                    .border(2.dp, MaterialTheme.colorScheme.primary, shape)
-                    .pointerInput(Unit) { detectTapGestures { } },
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp),
-            ) {
-                FilledTonalIconButton(onClick = { onResize(-RESIZE_STEP_DP) }) {
-                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Réduire")
-                }
-                FilledTonalIconButton(onClick = { onResize(RESIZE_STEP_DP) }) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Agrandir")
-                }
-                FilledIconButton(
-                    onClick = onRemove,
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Supprimer le widget")
-                }
+            .zIndex(if (dragDy != 0f) 1f else 0f)
+            .onGloballyPositioned { coords ->
+                val b = coords.boundsInRoot()
+                onPositioned(b.top, b.height)
             }
+            // Gestes sur la boîte fixe ; seul le contenu suit le doigt.
+            .widgetGestures(
+                onMenu = { menuAt = it },
+                onDrag = { onDrag(it.y) },
+                onDragEnd = { onDragEnd(it.y) },
+                onDragCancel = onDragCancel,
+            ),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    translationY = dragDy
+                    if (dragDy != 0f) {
+                        scaleX = 1.02f
+                        scaleY = 1.02f
+                        alpha = 0.9f
+                    }
+                }
+                .clip(shape),
+        ) {
+            HostedWidget(id = slot.id, host = host, modifier = Modifier.fillMaxSize())
+        }
+
+        if (resizing) {
             // Poignée de redimensionnement en bas du widget.
             Box(
                 contentAlignment = Alignment.Center,
@@ -233,22 +275,46 @@ private fun WidgetItem(
                     .pointerInput(slot.id) {
                         detectVerticalDragGestures(
                             onDragEnd = {
-                                val delta = dragDp.roundToInt()
-                                dragDp = 0f
+                                val delta = resizeDp.roundToInt()
+                                resizeDp = 0f
                                 resize(delta)
                             },
-                            onDragCancel = { dragDp = 0f },
+                            onDragCancel = { resizeDp = 0f },
                             onVerticalDrag = { change, dragAmount ->
                                 change.consume()
-                                dragDp += dragAmount.toDp().value
+                                resizeDp += dragAmount.toDp().value
                             },
                         )
                     },
             ) {
                 Box(
                     Modifier
-                        .size(width = 48.dp, height = 5.dp)
-                        .background(Color.White.copy(alpha = 0.9f), CircleShape),
+                        .size(width = 56.dp, height = 6.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                )
+            }
+        }
+
+        menuAt?.let { pos ->
+            Box(
+                Modifier
+                    .offset { IntOffset(pos.x.roundToInt(), pos.y.roundToInt()) }
+                    .size(1.dp),
+            ) {
+                WidgetMenu(
+                    onDismiss = { menuAt = null },
+                    onResize = {
+                        menuAt = null
+                        onStartResize()
+                    },
+                    onToHome = {
+                        menuAt = null
+                        onToHome()
+                    },
+                    onRemove = {
+                        menuAt = null
+                        onRemove()
+                    },
                 )
             }
         }

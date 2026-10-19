@@ -13,11 +13,13 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Dock (favoris) de 4 à 6 icônes par rangée.
 - Horloge (appui : alarmes), date (appui : agenda), batterie, barre de recherche :
   chacun peut être masqué.
+- Glisser-déposer depuis le tiroir : appui long sur une app puis glisser, le tiroir
+  s'efface et l'app se pose sur la case où on la lâche.
 - Widgets sur l'accueil, dans la grille (appui long sur l'accueil › Ajouter un widget
-  ici) : appui long sur un widget pour le déplacer, le redimensionner avec la poignée
-  du coin ou le supprimer. Les icônes qu'il recouvre se décalent vers les cases libres.
-- Page widgets (à droite) : pour les widgets en plus, redimensionnement (boutons ou
-  poignée) et suppression en mode « Modifier ».
+  ici). Appui long sur un widget : menu (Redimensionner, Supprimer) ; appui long puis
+  glisser : déplacer ce widget. Les icônes qu'il recouvre se décalent vers les cases libres.
+- Page widgets (à droite) : pour les widgets en plus. Même appui long (menu avec en plus
+  « Mettre sur l'accueil ») ; appui long puis glisser pour changer leur ordre.
 - Bouton Accueil : referme tout et revient à la première page.
 
 **Gestes (à la Nova)**

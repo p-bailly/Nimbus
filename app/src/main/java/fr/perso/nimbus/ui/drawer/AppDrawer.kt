@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import fr.perso.nimbus.data.BadgeStyle
 import fr.perso.nimbus.data.ProfileState
+import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.data.SortMode
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animate
@@ -107,7 +108,8 @@ import fr.perso.nimbus.ui.LauncherHost
 import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.SearchResults
 import fr.perso.nimbus.ui.UiState
-import fr.perso.nimbus.ui.components.AppIcon
+import fr.perso.nimbus.ui.LocalAppDrag
+import fr.perso.nimbus.ui.components.DrawerAppIcon
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -188,6 +190,10 @@ fun AppDrawer(
 
     val headerDrag = rememberDraggableState { delta -> offsetY = (offsetY + delta).coerceAtLeast(0f) }
 
+    // Glisser-déposer vers l'accueil : le tiroir s'efface pendant le glissé et jusqu'à sa fermeture.
+    val appDrag = LocalAppDrag.current
+    LaunchedEffect(Unit) { appDrag.drawerHidden = false }
+
     Surface(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
         contentColor = MaterialTheme.colorScheme.onSurface,
@@ -195,7 +201,7 @@ fun AppDrawer(
             .fillMaxSize()
             .graphicsLayer {
                 translationY = offsetY
-                alpha = 1f - (offsetY / (closeDistance * 4f)).coerceIn(0f, 0.5f)
+                alpha = if (appDrag.drawerHidden) 0f else 1f - (offsetY / (closeDistance * 4f)).coerceIn(0f, 0.5f)
             },
     ) {
         Column(
@@ -557,12 +563,14 @@ private fun LazyGridScope.appItems(
     keyPrefix: String = "",
 ) {
     items(list, key = { keyPrefix + it.key }) { app ->
-        AppIcon(
+        DrawerAppIcon(
             app = app,
             iconSizeDp = settings.iconSize.dp,
             showLabel = settings.showLabels,
             badgeCount = badges[app.packageName] ?: 0,
             badgeDot = settings.badgeStyle == BadgeStyle.DOT,
+            // Les apps de l'espace privé ne vont pas sur l'accueil.
+            canDrag = app.profile != ProfileType.PRIVATE,
             onClick = { vm.launch(app) },
             onLongClick = { vm.showAppSheet(app) },
             modifier = Modifier.fillMaxWidth(),

@@ -395,7 +395,7 @@ class MainActivity : ComponentActivity(), LauncherHost {
     private fun commitWidget(id: Int, info: AppWidgetProviderInfo) {
         val onHome = pendingWidgetToHome && run {
             val placement = pendingWidgetPlacement
-            val (spanX, spanY) = placement?.let { it.spanX to it.spanY } ?: defaultSpan(info)
+            val (spanX, spanY) = placement?.let { it.spanX to it.spanY } ?: viewModel.defaultWidgetSpan(info)
             viewModel.addHomeWidget(id, spanX, spanY, placement?.let { it.x to it.y })
         }
         if (pendingWidgetToHome && !onHome) {
@@ -409,8 +409,6 @@ class MainActivity : ComponentActivity(), LauncherHost {
         }
         clearPendingWidget()
         viewModel.showPage(if (onHome) 0 else PAGE_WIDGETS)
-        // Sur l'accueil, le widget s'ouvre directement en mode édition pour l'ajuster.
-        if (onHome) viewModel.editHomeWidget(id)
         addNextQueuedWidget()
     }
 
@@ -425,23 +423,6 @@ class MainActivity : ComponentActivity(), LauncherHost {
         pendingWidgetHeightDp = null
         pendingWidgetToHome = false
         pendingWidgetPlacement = null
-    }
-
-    /**
-     * Taille par défaut en cases de la grille : celle déclarée par le widget (Android 12+),
-     * sinon déduite de sa taille minimale et de la taille approximative d'une case.
-     */
-    private fun defaultSpan(info: AppWidgetProviderInfo): Pair<Int, Int> {
-        val settings = viewModel.settings.value
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && info.targetCellWidth > 0 && info.targetCellHeight > 0) {
-            return info.targetCellWidth.coerceIn(1, settings.homeColumns) to info.targetCellHeight.coerceIn(1, settings.homeRows)
-        }
-        val metrics = resources.displayMetrics
-        val cellW = (metrics.widthPixels / metrics.density - 24f) / settings.homeColumns
-        val cellH = (metrics.heightPixels / metrics.density * 0.7f) / settings.homeRows
-        val spanX = kotlin.math.ceil((info.minWidth / metrics.density) / cellW).toInt()
-        val spanY = kotlin.math.ceil((info.minHeight / metrics.density) / cellH).toInt()
-        return spanX.coerceIn(1, settings.homeColumns) to spanY.coerceIn(1, settings.homeRows)
     }
 
     private companion object {

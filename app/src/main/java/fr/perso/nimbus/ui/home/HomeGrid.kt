@@ -6,9 +6,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -16,15 +14,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -39,13 +38,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.HomeWidget
+import fr.perso.nimbus.ui.LocalAppDrag
 import fr.perso.nimbus.ui.PlacedIcon
 import fr.perso.nimbus.ui.components.AppIconContent
 import fr.perso.nimbus.ui.components.swipeUp
@@ -59,15 +62,16 @@ import kotlin.math.roundToInt
  * Icônes — appui : ouvrir ; appui long sans bouger : actions ; appui long puis glisser :
  * déplacer (l'icône de la case d'arrivée prend la place libérée) ; glisser vers le haut :
  * action de glissé.
- * Widgets — appui long : mode édition (glisser pour déplacer, poignée pour redimensionner).
+ * Widgets — appui long : menu (redimensionner, supprimer) ; appui long puis glisser : déplacer.
+ * Une app glissée depuis le tiroir se lâche sur la case signalée.
  */
 @Composable
 fun HomeGrid(
     icons: List<PlacedIcon>,
     widgets: List<HomeWidget>,
     widgetHost: WidgetHostManager,
-    editingWidget: Int?,
-    onEditWidget: (Int?) -> Unit,
+    resizingWidget: Int?,
+    onResizeWidget: (Int?) -> Unit,
     onUpdateWidget: (HomeWidget) -> Unit,
     onRemoveWidget: (Int) -> Unit,
     columns: Int,
@@ -84,7 +88,13 @@ fun HomeGrid(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHapticFeedback.current
-    BoxWithConstraints(modifier) {
+    val appDrag = LocalAppDrag.current
+    // La grille se déclare au glisser-déposer depuis le tiroir (position et nombre de cases).
+    SideEffect {
+        appDrag.gridColumns = columns
+        appDrag.gridRows = rows
+    }
+    BoxWithConstraints(modifier.onGloballyPositioned { appDrag.gridBounds = it.boundsInRoot() }) {
         val cellW = maxWidth / columns
         val cellH = maxHeight / rows
         val cellWPx = with(LocalDensity.current) { cellW.toPx() }
@@ -102,61 +112,24 @@ fun HomeGrid(
                 HomeWidgetCell(
                     widget = widget,
                     host = widgetHost,
-                    editing = editingWidget == widget.id,
+                    resizing = resizingWidget == widget.id,
                     cellW = cellW,
                     cellH = cellH,
                     cellWPx = cellWPx,
                     cellHPx = cellHPx,
                     columns = columns,
                     rows = rows,
-                    onLongPress = { onEditWidget(widget.id) },
                     onUpdate = onUpdateWidget,
+                    onResize = { onResizeWidget(widget.id) },
+                    onRemove = { onRemoveWidget(widget.id) },
                 )
             }
         }
 
-        // Barre d'édition du widget sélectionné, toujours visible quelle que soit sa taille :
-        // en haut si le widget est dans la moitié basse (pour ne pas cacher sa poignée).
-        val edited = widgets.firstOrNull { it.id == editingWidget }
-        if (edited != null) {
-            val atTop = edited.y + edited.spanY / 2f >= rows / 2f
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .align(if (atTop) Alignment.TopCenter else Alignment.BottomCenter)
-                    .zIndex(3f)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(28.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    "Glisser pour déplacer · coin pour redimensionner",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-                FilledIconButton(
-                    onClick = { onRemoveWidget(edited.id) },
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
-                ) { Icon(Icons.Default.Delete, contentDescription = "Supprimer le widget") }
-                FilledTonalIconButton(onClick = { onEditWidget(null) }) {
-                    Icon(Icons.Default.Check, contentDescription = "Terminé")
-                }
-            }
-        }
+        // Case visée par une app glissée depuis le tiroir.
+        DrawerDropTarget(cellW, cellH)
 
-        target?.let { (x, y) ->
-            Box(
-                Modifier
-                    .offset(cellW * x, cellH * y)
-                    .size(cellW, cellH)
-                    .padding(4.dp)
-                    .border(2.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(16.dp)),
-            )
-        }
+        target?.let { (x, y) -> DropTarget(x, y, 1, 1, cellW, cellH) }
 
         for (icon in icons) {
             key(icon.app.key) {
@@ -235,70 +208,108 @@ fun HomeGrid(
     }
 }
 
-/** Un widget de la grille ; en édition, un calque permet de le déplacer et de le redimensionner. */
+/** Lue dans son propre composable : suivre le doigt ne recompose pas toute la grille. */
+@Composable
+private fun DrawerDropTarget(cellW: Dp, cellH: Dp) {
+    LocalAppDrag.current.hoveredCell()?.let { (x, y) -> DropTarget(x, y, 1, 1, cellW, cellH) }
+}
+
+/** Zone visée par un déplacement : fond translucide, sans contour. */
+@Composable
+private fun DropTarget(x: Int, y: Int, spanX: Int, spanY: Int, cellW: Dp, cellH: Dp) {
+    Box(
+        Modifier
+            .offset(cellW * x, cellH * y)
+            .size(cellW * spanX, cellH * spanY)
+            .zIndex(2.5f)
+            .padding(4.dp)
+            .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(16.dp)),
+    )
+}
+
+/**
+ * Un widget de la grille. Appui long : menu ; appui long puis glisser : déplacement (le
+ * widget suit le doigt, la zone d'arrivée est signalée). En mode redimensionnement, seule
+ * une poignée apparaît dans le coin.
+ */
 @Composable
 private fun HomeWidgetCell(
     widget: HomeWidget,
     host: WidgetHostManager,
-    editing: Boolean,
+    resizing: Boolean,
     cellW: Dp,
     cellH: Dp,
     cellWPx: Float,
     cellHPx: Float,
     columns: Int,
     rows: Int,
-    onLongPress: () -> Unit,
     onUpdate: (HomeWidget) -> Unit,
+    onResize: () -> Unit,
+    onRemove: () -> Unit,
 ) {
     val current by rememberUpdatedState(widget)
     val update by rememberUpdatedState(onUpdate)
-    // Aperçu de la position / taille visée pendant un glissé (null hors glissé).
+    // Position / taille visée pendant un glissé (null hors glissé).
     var preview by remember { mutableStateOf<HomeWidget?>(null) }
+    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    var menuAt by remember { mutableStateOf<Offset?>(null) }
     val shape = RoundedCornerShape(16.dp)
+
+    fun movedBy(total: Offset): HomeWidget {
+        val w = current
+        return w.copy(
+            x = (w.x + (total.x / cellWPx).roundToInt()).coerceIn(0, columns - w.spanX),
+            y = (w.y + (total.y / cellHPx).roundToInt()).coerceIn(0, rows - w.spanY),
+        )
+    }
 
     Box(
         Modifier
             .offset(cellW * widget.x, cellH * widget.y)
             .size(cellW * widget.spanX, cellH * widget.spanY)
             .padding(4.dp)
-            .zIndex(if (editing) 2f else 0f)
-            .clip(shape)
-            .then(if (editing) Modifier else Modifier.widgetLongPress(onLongPress)),
+            .zIndex(if (dragOffset != Offset.Zero || resizing) 2f else 0f)
+            // Les gestes sont sur la boîte fixe ; seul le contenu se déplace avec le doigt.
+            .widgetGestures(
+                onMenu = { menuAt = it },
+                onDrag = { total ->
+                    dragOffset = total
+                    preview = movedBy(total)
+                },
+                onDragEnd = { total ->
+                    val target = movedBy(total)
+                    dragOffset = Offset.Zero
+                    preview = null
+                    if (target != current) update(target)
+                },
+                onDragCancel = {
+                    dragOffset = Offset.Zero
+                    preview = null
+                },
+            ),
     ) {
-        HostedWidget(id = widget.id, host = host, modifier = Modifier.fillMaxSize())
-        if (editing) {
-            // Le calque capte les touchers : glisser n'importe où déplace le widget.
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(Color.Black.copy(alpha = 0.3f))
-                    .border(2.dp, MaterialTheme.colorScheme.primary, shape)
-                    .pointerInput(cellWPx, cellHPx, columns, rows) {
-                        var offset = Offset.Zero
-                        detectDragGestures(
-                            onDragStart = { offset = Offset.Zero },
-                            onDrag = { change, amount ->
-                                change.consume()
-                                offset += amount
-                                val w = current
-                                preview = w.copy(
-                                    x = (w.x + (offset.x / cellWPx).roundToInt()).coerceIn(0, columns - w.spanX),
-                                    y = (w.y + (offset.y / cellHPx).roundToInt()).coerceIn(0, rows - w.spanY),
-                                )
-                            },
-                            onDragEnd = {
-                                preview?.let { if (it != current) update(it) }
-                                preview = null
-                            },
-                            onDragCancel = { preview = null },
-                        )
-                    },
-            )
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    translationX = dragOffset.x
+                    translationY = dragOffset.y
+                    if (dragOffset != Offset.Zero) {
+                        scaleX = 1.03f
+                        scaleY = 1.03f
+                        alpha = 0.9f
+                    }
+                }
+                .clip(shape),
+        ) {
+            HostedWidget(id = widget.id, host = host, modifier = Modifier.fillMaxSize())
+        }
+
+        if (resizing) {
             // Poignée de redimensionnement, coin inférieur droit.
             Box(
                 Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(4.dp)
                     .size(28.dp)
                     .background(MaterialTheme.colorScheme.primary, CircleShape)
                     .border(2.dp, Color.White, CircleShape)
@@ -324,16 +335,56 @@ private fun HomeWidgetCell(
                     },
             )
         }
+
+        menuAt?.let { pos ->
+            Box(
+                Modifier
+                    .offset { IntOffset(pos.x.roundToInt(), pos.y.roundToInt()) }
+                    .size(1.dp),
+            ) {
+                WidgetMenu(
+                    onDismiss = { menuAt = null },
+                    onResize = {
+                        menuAt = null
+                        onResize()
+                    },
+                    onRemove = {
+                        menuAt = null
+                        onRemove()
+                    },
+                )
+            }
+        }
     }
 
-    preview?.let { p ->
-        Box(
-            Modifier
-                .offset(cellW * p.x, cellH * p.y)
-                .size(cellW * p.spanX, cellH * p.spanY)
-                .zIndex(2.5f)
-                .padding(4.dp)
-                .border(2.dp, Color.White.copy(alpha = 0.9f), shape),
+    preview?.let { p -> DropTarget(p.x, p.y, p.spanX, p.spanY, cellW, cellH) }
+}
+
+/** Menu d'un widget (appui long). [onToHome] : seulement pour les widgets de la page widgets. */
+@Composable
+fun WidgetMenu(
+    onDismiss: () -> Unit,
+    onResize: () -> Unit,
+    onRemove: () -> Unit,
+    onToHome: (() -> Unit)? = null,
+) {
+    DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
+        DropdownMenuItem(
+            text = { Text("Redimensionner") },
+            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+            onClick = onResize,
+        )
+        if (onToHome != null) {
+            DropdownMenuItem(
+                text = { Text("Mettre sur l'accueil") },
+                leadingIcon = { Icon(Icons.Default.Home, contentDescription = null) },
+                onClick = onToHome,
+            )
+        }
+        DropdownMenuItem(
+            text = { Text("Supprimer", color = MaterialTheme.colorScheme.error) },
+            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            onClick = onRemove,
         )
     }
 }

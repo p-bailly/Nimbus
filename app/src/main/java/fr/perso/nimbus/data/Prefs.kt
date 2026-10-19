@@ -203,6 +203,17 @@ class Prefs private constructor(context: Context) {
         writeWidgets(list)
     }
 
+    /** Déplace un widget de la page widgets à la position [toIndex] (réordonnancement). */
+    fun moveWidget(id: Int, toIndex: Int) {
+        val list = _widgets.value.toMutableList()
+        val from = list.indexOfFirst { it.id == id }
+        if (from < 0) return
+        val slot = list.removeAt(from)
+        list.add(toIndex.coerceIn(0, list.size), slot)
+        _widgets.value = list
+        writeWidgets(list)
+    }
+
     fun removeWidget(id: Int) {
         val list = _widgets.value.filterNot { it.id == id }
         _widgets.value = list

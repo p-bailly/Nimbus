@@ -7,6 +7,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +41,11 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -43,6 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.ui.LocalAppDrag
 
 /** Ombre portée des textes posés directement sur le fond d'écran. */
 val WallpaperTextShadow = Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 2f), blurRadius = 8f)
@@ -89,6 +100,77 @@ fun AppIcon(
             .padding(horizontal = 4.dp, vertical = 8.dp),
     ) {
         AppIconContent(app, iconSizeDp, showLabel, badgeCount, badgeDot, onWallpaper)
+    }
+}
+
+/**
+ * Icône du tiroir. Appui : ouvrir ; appui long sans bouger : actions (au relâcher) ;
+ * appui long puis glisser : le tiroir s'efface et l'app se pose sur l'accueil, à la case
+ * où on la lâche. [canDrag] false (espace privé) : pas de glisser-déposer.
+ */
+@Composable
+fun DrawerAppIcon(
+    app: AppEntry,
+    iconSizeDp: Int,
+    showLabel: Boolean,
+    badgeCount: Int,
+    badgeDot: Boolean,
+    canDrag: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = LocalHapticFeedback.current
+    val appDrag = LocalAppDrag.current
+    val current by rememberUpdatedState(app)
+    val click by rememberUpdatedState(onClick)
+    val longClick by rememberUpdatedState(onLongClick)
+    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .onGloballyPositioned { coords = it }
+            .semantics {
+                onClick(label = "Ouvrir ${app.label}") { click(); true }
+                onLongClick(label = "Actions pour ${app.label}") { longClick(); true }
+            }
+            // Ordre important : le glisser (dernier) voit les événements avant l'appui simple.
+            .pointerInput(Unit) { detectTapGestures(onTap = { click() }) }
+            .pointerInput(canDrag) {
+                val slop = viewConfiguration.touchSlop
+                var total = Offset.Zero
+                var dragging = false
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        total = Offset.Zero
+                        dragging = false
+                    },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        total += amount
+                        val c = coords
+                        if (!dragging && canDrag && c != null && total.getDistance() > slop) {
+                            dragging = true
+                            appDrag.start(current, c.localToRoot(change.position))
+                        }
+                        if (dragging && c != null) appDrag.position = c.localToRoot(change.position)
+                    },
+                    onDragEnd = {
+                        if (dragging) appDrag.drop() else longClick()
+                        dragging = false
+                    },
+                    onDragCancel = {
+                        if (dragging) appDrag.cancel()
+                        dragging = false
+                    },
+                )
+            }
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+    ) {
+        AppIconContent(app, iconSizeDp, showLabel, badgeCount, badgeDot, onWallpaper = false)
     }
 }
 

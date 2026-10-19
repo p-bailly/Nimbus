@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.app.Application
 import android.app.WallpaperColors
 import android.app.WallpaperManager
+import android.appwidget.AppWidgetProviderInfo
 import android.content.pm.ShortcutInfo
 import android.os.Build
 import android.os.Handler
@@ -57,6 +58,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.Collator
 import java.util.Locale
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /** Écran affiché au-dessus de l'accueil. */
@@ -82,9 +84,8 @@ data class UiState(
     val homeMenu: HomeMenu? = null,
     val widgetPickerOpen: Boolean = false,
     val widgetTarget: WidgetTarget = WidgetTarget.HOME,
-    val editingWidgets: Boolean = false,
-    /** Widget de l'accueil en cours de déplacement / redimensionnement. */
-    val editingHomeWidget: Int? = null,
+    /** Widget (accueil ou page widgets) en cours de redimensionnement, null sinon. */
+    val resizingWidget: Int? = null,
     val pageRequest: PageRequest = PageRequest(0, 0),
 )
 
@@ -411,7 +412,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun consumeSearchFocus() = _ui.update { it.copy(focusSearch = false) }
 
     fun openSettings() = _ui.update {
-        it.copy(screen = Screen.SETTINGS, drawerOpen = false, query = "", homeMenu = null, editingWidgets = false)
+        it.copy(screen = Screen.SETTINGS, drawerOpen = false, query = "", homeMenu = null, resizingWidget = null)
     }
 
     /** À n'appeler qu'après vérification du code PIN. */
@@ -431,16 +432,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun closeHomeMenu() = _ui.update { it.copy(homeMenu = null) }
 
     fun openWidgetPicker(target: WidgetTarget) = _ui.update {
-        it.copy(widgetPickerOpen = true, widgetTarget = target, homeMenu = null, editingHomeWidget = null)
+        it.copy(widgetPickerOpen = true, widgetTarget = target, homeMenu = null, resizingWidget = null)
     }
 
     fun closeWidgetPicker() = _ui.update { it.copy(widgetPickerOpen = false) }
 
-    fun setEditingWidgets(editing: Boolean) = _ui.update { it.copy(editingWidgets = editing, homeMenu = null) }
 
     fun showPage(page: Int) = _ui.update { it.copy(pageRequest = PageRequest(page, it.pageRequest.id + 1)) }
 
-    fun editHomeWidget(id: Int?) = _ui.update { it.copy(editingHomeWidget = id, homeMenu = null) }
+    /** Mode redimensionnement d'un seul widget (poignée), null pour en sortir. */
+    fun setResizingWidget(id: Int?) = _ui.update { it.copy(resizingWidget = id, homeMenu = null) }
 
     /** Bouton Accueil : tout refermer et revenir à la première page. */
     fun goHome() {
@@ -620,6 +621,38 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun removeFromHome(app: AppEntry) = prefs.removeHomeIcon(app.key)
 
     /**
+     * App lâchée depuis le tiroir sur la case (x, y). Déjà sur l'accueil : simple déplacement.
+     * Case occupée par une icône : celle-ci prend la première case libre ; par un widget :
+     * l'app va à la première case libre.
+     */
+    fun dropOnHome(app: AppEntry, x: Int, y: Int) {
+        if (app.profile == ProfileType.PRIVATE) return
+        val state = apps.value
+        if (state.home.any { it.app.key == app.key }) {
+            moveHomeIcon(app, x, y)
+            return
+        }
+        if (state.homeWidgets.any { (x to y) in it.cells() }) {
+            addToHome(app)
+            return
+        }
+        val s = settings.value
+        val taken = state.home.map { it.x to it.y }.toSet() + state.homeWidgets.flatMap { it.cells() } + (x to y)
+        val moves = mutableMapOf(app.key to (x to y))
+        state.home.firstOrNull { it.x == x && it.y == y }?.let { occupant ->
+            val free = (0 until s.homeRows).firstNotNullOfOrNull { row ->
+                (0 until s.homeColumns).firstOrNull { col -> (col to row) !in taken }?.let { col -> col to row }
+            }
+            if (free == null) {
+                SystemActions.toast(context, "Plus de place sur l'accueil")
+                return
+            }
+            moves[occupant.app.key] = free
+        }
+        prefs.setHomeIconPositions(moves)
+    }
+
+    /**
      * Déplace une icône vers la case (x, y). L'icône affichée dans cette case prend la case
      * qu'occupait l'icône déplacée. Tout est calculé sur la grille affichée, pas sur les
      * positions enregistrées (qui peuvent être hors d'une grille réduite).
@@ -687,8 +720,40 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun removeHomeWidget(id: Int) {
         prefs.removeHomeWidget(id)
         WidgetHostManager.get(context).deleteId(id)
-        _ui.update { it.copy(editingHomeWidget = null) }
+        _ui.update { it.copy(resizingWidget = null) }
     }
+
+    /**
+     * Taille par défaut d'un widget en cases de la grille : celle qu'il déclare (Android 12+),
+     * sinon déduite de sa taille minimale et de la taille approximative d'une case.
+     */
+    fun defaultWidgetSpan(info: AppWidgetProviderInfo): Pair<Int, Int> {
+        val s = settings.value
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && info.targetCellWidth > 0 && info.targetCellHeight > 0) {
+            return info.targetCellWidth.coerceIn(1, s.homeColumns) to info.targetCellHeight.coerceIn(1, s.homeRows)
+        }
+        val metrics = context.resources.displayMetrics
+        val cellW = (metrics.widthPixels / metrics.density - 24f) / s.homeColumns
+        val cellH = (metrics.heightPixels / metrics.density * 0.7f) / s.homeRows
+        val spanX = ceil((info.minWidth / metrics.density) / cellW).toInt()
+        val spanY = ceil((info.minHeight / metrics.density) / cellH).toInt()
+        return spanX.coerceIn(1, s.homeColumns) to spanY.coerceIn(1, s.homeRows)
+    }
+
+    /** Passe un widget de la page widgets à la grille de l'accueil (même identifiant, rien à reconfigurer). */
+    fun moveWidgetToHome(id: Int) {
+        val info = WidgetHostManager.get(context).info(id)
+        val (spanX, spanY) = info?.let(::defaultWidgetSpan) ?: (2 to 2)
+        if (addHomeWidget(id, spanX, spanY)) {
+            prefs.removeWidget(id)
+            showPage(0)
+        } else {
+            SystemActions.toast(context, "Plus de place sur l'accueil (agrandis la grille dans les paramètres)")
+        }
+    }
+
+    /** Réordonne la page widgets. */
+    fun moveWidgetToIndex(id: Int, index: Int) = prefs.moveWidget(id, index)
 
     // ---------------------------------------------------------------- Profil pro et espace privé
 

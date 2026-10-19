@@ -20,8 +20,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
@@ -53,85 +55,96 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     // n'est utilisé que si aucun écran au-dessus n'intercepte le geste.
     BackHandler {}
 
+    // Glisser-déposer tiroir -> accueil : lâché sur une case, ou ailleurs (première case libre).
+    val appDrag = remember { AppDragState() }
+    appDrag.onDrop = { app, cell ->
+        if (cell != null) vm.dropOnHome(app, cell.first, cell.second) else vm.addToHome(app)
+        vm.closeDrawer()
+    }
+
     NimbusTheme(mode = settings.themeMode, wallpaperColor = wallpaperColor) {
-        // Couleurs des icônes à thème, à la manière du Pixel : fond pastel / motif accentué.
-        val scheme = MaterialTheme.colorScheme
-        val themedBackground = if (dark) scheme.surfaceContainerHighest else scheme.primaryContainer
-        val themedForeground = scheme.primary
-        LaunchedEffect(themedBackground, themedForeground) {
-            vm.setThemedIconColors(themedBackground.toArgb(), themedForeground.toArgb())
-        }
-
-        Box(Modifier.fillMaxSize()) {
-            HomeScreen(vm = vm, ui = ui, settings = settings, apps = apps, active = onWallpaper)
-
-            AnimatedVisibility(
-                visible = ui.drawerOpen,
-                enter = slideInVertically { it / 3 } + fadeIn(),
-                exit = slideOutVertically { it / 3 } + fadeOut(),
-            ) {
-                AppDrawer(vm = vm, ui = ui, settings = settings, apps = apps, host = host)
+        CompositionLocalProvider(LocalAppDrag provides appDrag) {
+            // Couleurs des icônes à thème, à la manière du Pixel : fond pastel / motif accentué.
+            val scheme = MaterialTheme.colorScheme
+            val themedBackground = if (dark) scheme.surfaceContainerHighest else scheme.primaryContainer
+            val themedForeground = scheme.primary
+            LaunchedEffect(themedBackground, themedForeground) {
+                vm.setThemedIconColors(themedBackground.toArgb(), themedForeground.toArgb())
             }
 
-            AnimatedVisibility(
-                visible = ui.screen == Screen.SETTINGS,
-                enter = slideInHorizontally { it / 4 } + fadeIn(),
-                exit = slideOutHorizontally { it / 4 } + fadeOut(),
-            ) {
-                SettingsScreen(vm = vm, host = host)
-            }
+            Box(Modifier.fillMaxSize()) {
+                HomeScreen(vm = vm, ui = ui, settings = settings, apps = apps, active = onWallpaper)
 
-            AnimatedVisibility(
-                visible = ui.screen == Screen.HIDDEN_APPS,
-                enter = slideInHorizontally { it / 4 } + fadeIn(),
-                exit = slideOutHorizontally { it / 4 } + fadeOut(),
-            ) {
-                HiddenAppsScreen(vm = vm, apps = apps, settings = settings)
-            }
+                AnimatedVisibility(
+                    visible = ui.drawerOpen,
+                    enter = slideInVertically { it / 3 } + fadeIn(),
+                    exit = slideOutVertically { it / 3 } + fadeOut(),
+                ) {
+                    AppDrawer(vm = vm, ui = ui, settings = settings, apps = apps, host = host)
+                }
 
-            // L'app de la feuille est rafraîchie (nom, icône) ; si elle a disparu (espace privé
-            // verrouillé, désinstallation), la feuille n'est plus affichée.
-            ui.sheetApp?.let { apps.byKey[it.key] }?.let { app ->
-                AppActionSheet(app = app, apps = apps, vm = vm, host = host)
-            }
+                AnimatedVisibility(
+                    visible = ui.screen == Screen.SETTINGS,
+                    enter = slideInHorizontally { it / 4 } + fadeIn(),
+                    exit = slideOutHorizontally { it / 4 } + fadeOut(),
+                ) {
+                    SettingsScreen(vm = vm, host = host)
+                }
 
-            importResult?.let { result ->
-                AlertDialog(
-                    onDismissRequest = vm::dismissImportResult,
-                    title = { Text(result.title) },
-                    text = {
-                        Column(Modifier.verticalScroll(rememberScrollState())) {
-                            for (line in result.details) {
-                                Text("• $line", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 3.dp))
+                AnimatedVisibility(
+                    visible = ui.screen == Screen.HIDDEN_APPS,
+                    enter = slideInHorizontally { it / 4 } + fadeIn(),
+                    exit = slideOutHorizontally { it / 4 } + fadeOut(),
+                ) {
+                    HiddenAppsScreen(vm = vm, apps = apps, settings = settings)
+                }
+
+                // L'app de la feuille est rafraîchie (nom, icône) ; si elle a disparu (espace privé
+                // verrouillé, désinstallation), la feuille n'est plus affichée.
+                ui.sheetApp?.let { apps.byKey[it.key] }?.let { app ->
+                    AppActionSheet(app = app, apps = apps, vm = vm, host = host)
+                }
+
+                importResult?.let { result ->
+                    AlertDialog(
+                        onDismissRequest = vm::dismissImportResult,
+                        title = { Text(result.title) },
+                        text = {
+                            Column(Modifier.verticalScroll(rememberScrollState())) {
+                                for (line in result.details) {
+                                    Text("• $line", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 3.dp))
+                                }
                             }
-                        }
-                    },
-                    confirmButton = {
-                        if (result.widgets.isNotEmpty()) {
-                            TextButton(onClick = {
-                                vm.dismissImportResult()
-                                host.addWidgets(result.widgets)
-                            }) { Text("Rajouter les widgets") }
+                        },
+                        confirmButton = {
+                            if (result.widgets.isNotEmpty()) {
+                                TextButton(onClick = {
+                                    vm.dismissImportResult()
+                                    host.addWidgets(result.widgets)
+                                }) { Text("Rajouter les widgets") }
+                            } else {
+                                TextButton(onClick = vm::dismissImportResult) { Text("OK") }
+                            }
+                        },
+                        dismissButton = if (result.widgets.isNotEmpty()) {
+                            { TextButton(onClick = vm::dismissImportResult) { Text("Plus tard") } }
                         } else {
-                            TextButton(onClick = vm::dismissImportResult) { Text("OK") }
-                        }
-                    },
-                    dismissButton = if (result.widgets.isNotEmpty()) {
-                        { TextButton(onClick = vm::dismissImportResult) { Text("Plus tard") } }
-                    } else {
-                        null
-                    },
-                )
-            }
+                            null
+                        },
+                    )
+                }
 
-            if (ui.widgetPickerOpen) {
-                WidgetPicker(
-                    onDismiss = vm::closeWidgetPicker,
-                    onPick = { info ->
-                        vm.closeWidgetPicker()
-                        host.addWidget(info, toHome = ui.widgetTarget == WidgetTarget.HOME)
-                    },
-                )
+                AppDragLayer(appDrag, settings.iconSize.dp)
+
+                if (ui.widgetPickerOpen) {
+                    WidgetPicker(
+                        onDismiss = vm::closeWidgetPicker,
+                        onPick = { info ->
+                            vm.closeWidgetPicker()
+                            host.addWidget(info, toHome = ui.widgetTarget == WidgetTarget.HOME)
+                        },
+                    )
+                }
             }
         }
     }
