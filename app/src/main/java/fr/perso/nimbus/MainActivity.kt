@@ -21,6 +21,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.FilesSearch
 import fr.perso.nimbus.data.HomeCell
 import fr.perso.nimbus.data.HomeWidget
 import fr.perso.nimbus.data.PendingWidget
@@ -115,6 +116,10 @@ class MainActivity : ComponentActivity(), LauncherHost {
     private val contactsPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         viewModel.refreshSystemStatus()
         if (!granted) SystemActions.toast(this, "Sans accès aux contacts, la recherche se limite aux apps et au web")
+    }
+
+    private val filesPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        viewModel.refreshSystemStatus()
     }
 
     private val homeRole = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -276,6 +281,19 @@ class MainActivity : ComponentActivity(), LauncherHost {
 
     override fun requestContactsPermission() {
         contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+    }
+
+    override fun requestFilesPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Pas de dialogue : réglage système, relu au retour (onResume).
+            try {
+                startActivity(FilesSearch.allFilesAccessIntent(this))
+            } catch (e: ActivityNotFoundException) {
+                startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+            }
+        } else {
+            filesPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
     }
 
     override fun requestDefaultLauncher() {

@@ -17,6 +17,9 @@ interface LauncherHost {
 
     fun requestContactsPermission()
 
+    /** Accès aux fichiers pour la recherche (« Accès à tous les fichiers » sur Android 11+). */
+    fun requestFilesPermission()
+
     /** Demande à devenir le launcher par défaut (RoleManager, sinon réglages Accueil). */
     fun requestDefaultLauncher()
 

@@ -214,6 +214,13 @@ object SystemActions {
         openUrl(context, template.replace("%s", Uri.encode(query)))
     }
 
+    /** Recherche d'apps sur le Play Store (appli, sinon site web). */
+    fun playStoreSearch(context: Context, query: String) {
+        val q = Uri.encode(query)
+        if (start(context, Intent(Intent.ACTION_VIEW, Uri.parse("market://search?q=$q&c=apps")))) return
+        openUrl(context, "https://play.google.com/store/search?q=$q&c=apps")
+    }
+
     fun openUrl(context: Context, url: String) {
         if (!start(context, Intent(Intent.ACTION_VIEW, Uri.parse(url)))) toast(context, "Aucun navigateur installé")
     }

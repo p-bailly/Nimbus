@@ -66,6 +66,13 @@ enum class ThemeMode(val label: String) {
     LIGHT("Clair"),
 }
 
+/** Couleurs du tiroir d'apps : celles du lanceur, ou sombres quel que soit le thème. */
+enum class DrawerTheme(val label: String) {
+    FOLLOW("Comme le lanceur"),
+    NIGHT("Mode nuit"),
+    BLACK("Mode nuit, noir pur (OLED)"),
+}
+
 enum class IconShape(val label: String) {
     SQUIRCLE("Squircle"),
     CIRCLE("Cercle"),
@@ -143,6 +150,11 @@ data class LauncherSettings(
     val showBattery: Boolean = true,
     val badgesEnabled: Boolean = true,
     val searchContacts: Boolean = true,
+    /** Fichiers du téléphone dans les résultats (accès à tous les fichiers requis). */
+    val searchFiles: Boolean = true,
+    /** Ligne « Rechercher sur le Play Store » dans les résultats. */
+    val searchPlayStore: Boolean = true,
+    val drawerTheme: DrawerTheme = DrawerTheme.FOLLOW,
     val doubleTapAction: GestureAction = GestureAction.LOCK,
     val swipeUpAction: GestureAction = GestureAction.DRAWER,
     val swipeDownAction: GestureAction = GestureAction.NOTIFICATIONS,

@@ -84,6 +84,9 @@ class Prefs private constructor(context: Context) {
         e.putBoolean("showBattery", s.showBattery)
         e.putBoolean("badgesEnabled", s.badgesEnabled)
         e.putBoolean("searchContacts", s.searchContacts)
+        e.putBoolean("searchFiles", s.searchFiles)
+        e.putBoolean("searchPlayStore", s.searchPlayStore)
+        e.putString("drawerTheme", s.drawerTheme.name)
         e.putString("doubleTapAction", s.doubleTapAction.name)
         e.putString("swipeUpAction", s.swipeUpAction.name)
         e.putString("swipeDownAction", s.swipeDownAction.name)
@@ -120,6 +123,9 @@ class Prefs private constructor(context: Context) {
             showBattery = sp.getBoolean("showBattery", d.showBattery),
             badgesEnabled = sp.getBoolean("badgesEnabled", d.badgesEnabled),
             searchContacts = sp.getBoolean("searchContacts", d.searchContacts),
+            searchFiles = sp.getBoolean("searchFiles", d.searchFiles),
+            searchPlayStore = sp.getBoolean("searchPlayStore", d.searchPlayStore),
+            drawerTheme = enumPref("drawerTheme", d.drawerTheme),
             doubleTapAction = enumPref("doubleTapAction", d.doubleTapAction),
             swipeUpAction = enumPref("swipeUpAction", d.swipeUpAction),
             swipeDownAction = enumPref("swipeDownAction", d.swipeDownAction),

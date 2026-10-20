@@ -19,6 +19,8 @@ import fr.perso.nimbus.data.AppRepository
 import fr.perso.nimbus.data.BackupManager
 import fr.perso.nimbus.data.ContactResult
 import fr.perso.nimbus.data.ContactsSearch
+import fr.perso.nimbus.data.FileResult
+import fr.perso.nimbus.data.FilesSearch
 import fr.perso.nimbus.data.CustomIcons
 import fr.perso.nimbus.data.Gesture
 import fr.perso.nimbus.data.GestureAction
@@ -104,6 +106,7 @@ data class SystemStatus(
     val notificationAccess: Boolean = false,
     val gestureService: Boolean = false,
     val contactsPermission: Boolean = false,
+    val filesPermission: Boolean = false,
     val hasPin: Boolean = false,
 )
 
@@ -145,6 +148,7 @@ data class SearchResults(
     val query: String = "",
     val apps: List<AppEntry> = emptyList(),
     val contacts: List<ContactResult> = emptyList(),
+    val files: List<FileResult> = emptyList(),
 )
 
 /** Réglages qui influencent la construction de [AppsState]. */
@@ -281,13 +285,28 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    private val files: StateFlow<List<FileResult>> = combine(
+        ui.map { it.query.trim() }.distinctUntilChanged(),
+        settings.map { it.searchFiles }.distinctUntilChanged(),
+        status.map { it.filesPermission }.distinctUntilChanged(),
+    ) { query, enabled, granted -> Triple(query, enabled, granted) }
+        .debounce(200)
+        .mapLatest { (query, enabled, granted) ->
+            // Une ou deux lettres donneraient des centaines de fichiers sans rapport.
+            if (query.length < 3 || !enabled || !granted) emptyList()
+            else withContext(Dispatchers.IO) { FilesSearch.search(context, query) }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     val searchResults: StateFlow<SearchResults> = combine(
         searchIndex,
         ui.map { it.query }.distinctUntilChanged(),
         contacts,
-    ) { index, query, contacts ->
+        files,
+    ) { index, query, contacts, files ->
         if (query.isBlank()) SearchResults()
-        else SearchResults(query, SearchMatcher.search(index, query), contacts)
+        else SearchResults(query, SearchMatcher.search(index, query), contacts, files)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SearchResults())
 
     init {
@@ -594,6 +613,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun openContact(contact: ContactResult) {
         ContactsSearch.open(context, contact)
+        resetOnStop = true
+    }
+
+    fun openFile(file: FileResult) {
+        if (FilesSearch.open(context, file)) resetOnStop = true
+        else SystemActions.toast(context, "Aucune app pour ouvrir ce fichier")
+    }
+
+    fun playStoreSearch(query: String) {
+        if (query.isBlank()) return
+        SystemActions.playStoreSearch(context, query.trim())
         resetOnStop = true
     }
 
@@ -971,6 +1001,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             notificationAccess = SystemActions.hasNotificationAccess(context),
             gestureService = GestureService.isEnabled,
             contactsPermission = ContactsSearch.hasPermission(context),
+            filesPermission = FilesSearch.hasPermission(context),
             hasPin = prefs.hasPin(),
         )
     }

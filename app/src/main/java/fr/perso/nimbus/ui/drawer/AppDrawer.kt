@@ -16,7 +16,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
+import fr.perso.nimbus.R
 import fr.perso.nimbus.data.BadgeStyle
 import fr.perso.nimbus.data.ProfileState
 import fr.perso.nimbus.data.ProfileType
@@ -241,8 +243,10 @@ fun AppDrawer(
                     settings = settings,
                     badges = badges,
                     contactsBlocked = settings.searchContacts && !status.contactsPermission,
+                    filesBlocked = settings.searchFiles && !status.filesPermission,
                     vm = vm,
                     onRequestContacts = host::requestContactsPermission,
+                    onRequestFiles = host::requestFilesPermission,
                 )
             }
         }
@@ -289,7 +293,7 @@ private fun SearchField(
         value = query,
         onValueChange = onQueryChange,
         singleLine = true,
-        placeholder = { Text("Rechercher des apps, contacts, sur le web") },
+        placeholder = { Text("Rechercher", maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
         trailingIcon = {
             if (query.isNotEmpty()) {
@@ -581,7 +585,7 @@ private fun LazyGridScope.appItems(
 /** Mots qui font apparaître l'espace privé dans la recherche (utile s'il est masqué quand verrouillé). */
 private val PRIVATE_SPACE_WORDS = listOf("espace prive", "prive", "private space", "private")
 
-/** Résultats : apps (insensible aux accents), espace privé, contacts, puis recherche web. */
+/** Résultats : apps (insensible aux accents), espace privé, contacts, fichiers, puis Play Store et web. */
 @Composable
 private fun SearchResultsGrid(
     query: String,
@@ -590,8 +594,10 @@ private fun SearchResultsGrid(
     settings: LauncherSettings,
     badges: Map<String, Int>,
     contactsBlocked: Boolean,
+    filesBlocked: Boolean,
     vm: LauncherViewModel,
     onRequestContacts: () -> Unit,
+    onRequestFiles: () -> Unit,
 ) {
     val fullSpan: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
     val normalized = SearchMatcher.normalize(query)
@@ -637,9 +643,36 @@ private fun SearchResultsGrid(
             }
         }
 
+        if (results.files.isNotEmpty()) {
+            item(span = fullSpan) { SectionHeader("Fichiers") }
+            items(results.files, key = { "file:" + it.id }, span = { fullSpan() }) { file ->
+                ResultRow(
+                    text = file.name,
+                    subtitle = file.folder,
+                    onClick = { vm.openFile(file) },
+                    leading = { Icon(painterResource(fileIcon(file.mimeType)), contentDescription = null) },
+                )
+            }
+        } else if (filesBlocked) {
+            item(span = fullSpan) {
+                ResultRow(
+                    text = "Autoriser l'accès aux fichiers pour les rechercher ici",
+                    onClick = onRequestFiles,
+                    leading = { Icon(painterResource(R.drawable.ms_file_open), contentDescription = null) },
+                )
+            }
+        }
+
         item(span = fullSpan) {
             Column {
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                if (settings.searchPlayStore) {
+                    ResultRow(
+                        text = "Rechercher « ${query.trim()} » sur le Play Store",
+                        onClick = { vm.playStoreSearch(query) },
+                        leading = { Icon(painterResource(R.drawable.ms_shop), contentDescription = null) },
+                    )
+                }
                 ResultRow(
                     text = "Rechercher « ${query.trim()} » sur ${settings.webSearchEngine.let { if (it.urlTemplate == null) "le web" else it.label }}",
                     onClick = { vm.webSearch(query) },
@@ -682,8 +715,22 @@ private fun ContactRow(contact: ContactResult, onClick: () -> Unit) {
     )
 }
 
+/** Icône selon le type de fichier. */
+private fun fileIcon(mimeType: String?): Int = when {
+    mimeType == null -> R.drawable.ms_draft
+    mimeType.startsWith("image/") -> R.drawable.ms_image
+    mimeType.startsWith("video/") -> R.drawable.ms_movie
+    mimeType.startsWith("audio/") -> R.drawable.ms_music_note
+    else -> R.drawable.ms_draft
+}
+
 @Composable
-private fun ResultRow(text: String, onClick: () -> Unit, leading: @Composable () -> Unit) {
+private fun ResultRow(
+    text: String,
+    onClick: () -> Unit,
+    subtitle: String? = null,
+    leading: @Composable () -> Unit,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -695,6 +742,17 @@ private fun ResultRow(text: String, onClick: () -> Unit, leading: @Composable ()
     ) {
         Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { leading() }
         Spacer(Modifier.width(16.dp))
-        Text(text, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Column {
+            Text(text, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (!subtitle.isNullOrEmpty()) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }

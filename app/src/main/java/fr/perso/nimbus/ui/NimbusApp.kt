@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import fr.perso.nimbus.data.DrawerTheme
+import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.ui.components.AppActionSheet
 import fr.perso.nimbus.ui.components.AppPopup
 import fr.perso.nimbus.ui.components.WidgetPicker
@@ -47,7 +49,9 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     val apps by vm.apps.collectAsStateWithLifecycle()
     val importResult by vm.importResult.collectAsStateWithLifecycle()
 
-    val dark = isDarkTheme(settings.themeMode, isSystemInDarkTheme())
+    val drawerNight = settings.drawerTheme != DrawerTheme.FOLLOW
+    val drawerOnTop = ui.drawerOpen && ui.screen == Screen.HOME
+    val dark = (drawerNight && drawerOnTop) || isDarkTheme(settings.themeMode, isSystemInDarkTheme())
     val onWallpaper = !ui.drawerOpen && ui.screen == Screen.HOME
     // Sur le fond d'écran les icônes système restent claires ; ailleurs elles suivent le thème.
     LaunchedEffect(dark, onWallpaper) { host.setLightSystemBars(!onWallpaper && !dark) }
@@ -77,7 +81,9 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                     enter = slideInVertically { it / 3 } + fadeIn(),
                     exit = slideOutVertically { it / 3 } + fadeOut(),
                 ) {
-                    AppDrawer(vm = vm, ui = ui, settings = settings, apps = apps, host = host)
+                    DrawerColors(settings, wallpaperColor) {
+                        AppDrawer(vm = vm, ui = ui, settings = settings, apps = apps, host = host)
+                    }
                 }
 
                 AnimatedVisibility(
@@ -99,7 +105,11 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                 // L'app de la feuille est rafraîchie (nom, icône) ; si elle a disparu (espace privé
                 // verrouillé, désinstallation), la feuille n'est plus affichée.
                 ui.appPopup?.let { request ->
-                    apps.byKey[request.app.key]?.let { app -> AppPopup(app, request.anchor, apps, vm) }
+                    apps.byKey[request.app.key]?.let { app ->
+                        // Ouvert depuis le tiroir : mêmes couleurs que lui.
+                        if (ui.drawerOpen) DrawerColors(settings, wallpaperColor) { AppPopup(app, request.anchor, apps, vm) }
+                        else AppPopup(app, request.anchor, apps, vm)
+                    }
                 }
 
                 ui.sheetApp?.let { apps.byKey[it.key] }?.let { app ->
@@ -149,4 +159,17 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
             }
         }
     }
+}
+
+/** Couleurs du tiroir : celles du lanceur, ou sombres en mode nuit (noir pur en OLED). */
+@Composable
+private fun DrawerColors(settings: LauncherSettings, wallpaperColor: Int?, content: @Composable () -> Unit) {
+    if (settings.drawerTheme == DrawerTheme.FOLLOW) content()
+    else NimbusTheme(
+        mode = settings.themeMode,
+        wallpaperColor = wallpaperColor,
+        forceDark = true,
+        pureBlack = settings.drawerTheme == DrawerTheme.BLACK,
+        content = content,
+    )
 }

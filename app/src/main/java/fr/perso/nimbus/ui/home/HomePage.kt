@@ -535,7 +535,7 @@ private fun SearchBar(onClick: () -> Unit) {
             Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(12.dp))
             Text(
-                "Rechercher des apps, contacts, sur le web",
+                "Rechercher",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

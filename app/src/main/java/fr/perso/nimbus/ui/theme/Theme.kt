@@ -25,14 +25,20 @@ fun isDarkTheme(mode: ThemeMode, systemDark: Boolean): Boolean = when (mode) {
     ThemeMode.LIGHT -> false
 }
 
+/**
+ * [forceDark] : palette sombre quel que soit [mode] (tiroir en mode nuit) ;
+ * [pureBlack] : fonds noirs, pour les écrans OLED.
+ */
 @Composable
 fun NimbusTheme(
     mode: ThemeMode,
     wallpaperColor: Int?,
+    forceDark: Boolean = false,
+    pureBlack: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val dark = isDarkTheme(mode, isSystemInDarkTheme())
+    val dark = forceDark || isDarkTheme(mode, isSystemInDarkTheme())
     val seed = wallpaperColor ?: DEFAULT_SEED
     val scheme = when {
         mode == ThemeMode.MATERIAL_YOU && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
@@ -42,9 +48,21 @@ fun NimbusTheme(
         mode == ThemeMode.AMBIENT || mode == ThemeMode.MATERIAL_YOU ->
             remember(seed, dark) { seededColorScheme(seed, dark) }
         else -> remember(dark) { seededColorScheme(DEFAULT_SEED, dark) }
-    }
+    }.let { if (pureBlack && dark) remember(it) { it.blackened() } else it }
     MaterialTheme(colorScheme = scheme, content = content)
 }
+
+/** Fonds noirs, conteneurs gris très sombres : les couleurs d'accent restent celles du thème. */
+private fun ColorScheme.blackened(): ColorScheme = copy(
+    background = Color.Black,
+    surface = Color.Black,
+    surfaceDim = Color.Black,
+    surfaceContainerLowest = Color.Black,
+    surfaceContainerLow = Color(0xFF0A0A0A),
+    surfaceContainer = Color(0xFF121212),
+    surfaceContainerHigh = Color(0xFF1A1A1A),
+    surfaceContainerHighest = Color(0xFF222222),
+)
 
 /**
  * Palette complète dérivée d'une seule couleur : on garde sa teinte et on

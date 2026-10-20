@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.R
 import fr.perso.nimbus.data.BadgeStyle
+import fr.perso.nimbus.data.DrawerTheme
 import fr.perso.nimbus.data.Gesture
 import fr.perso.nimbus.data.GestureAction
 import fr.perso.nimbus.data.IconPack
@@ -89,6 +90,7 @@ private sealed interface SettingsDialog {
     data object DockColumns : SettingsDialog
     data object Badge : SettingsDialog
     data object Engine : SettingsDialog
+    data object DrawerThemeChoice : SettingsDialog
     data class GestureChoice(val gesture: Gesture) : SettingsDialog
     data class GestureApp(val gesture: Gesture) : SettingsDialog
     data object ConfirmImport : SettingsDialog
@@ -325,6 +327,11 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
             }
             SettingsSection.DRAWER -> SettingsPage("Page des applications", onBack = back) {
                 item {
+                    SettingsEntry(R.drawable.ms_dark_mode, SettingsColors.Blue, "Mode nuit", settings.drawerTheme.label, chevron = true) {
+                        dialog = SettingsDialog.DrawerThemeChoice
+                    }
+                }
+                item {
                     SettingsEntry(R.drawable.ms_view_column, SettingsColors.Blue, "Colonnes", "${settings.drawerColumns}", chevron = true) {
                         dialog = SettingsDialog.DrawerColumns
                     }
@@ -371,6 +378,27 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                 }
                 if (settings.searchContacts && !status.contactsPermission) {
                     item { SettingsBanner(R.drawable.ms_contacts, "Autoriser l'accès aux contacts", host::requestContactsPermission) }
+                }
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_file_open, SettingsColors.Blue, "Rechercher dans les fichiers",
+                        if (settings.searchFiles && !status.filesPermission) "Autorisation requise" else "Fichiers du téléphone, par nom",
+                        checked = settings.searchFiles,
+                    ) {
+                        val enable = !settings.searchFiles
+                        update { it.copy(searchFiles = enable) }
+                        if (enable && !status.filesPermission) host.requestFilesPermission()
+                    }
+                }
+                if (settings.searchFiles && !status.filesPermission) {
+                    item { SettingsBanner(R.drawable.ms_file_open, "Autoriser l'accès aux fichiers", host::requestFilesPermission) }
+                }
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_shop, SettingsColors.Blue, "Rechercher sur le Play Store",
+                        "Lien vers le Play Store dans les résultats",
+                        checked = settings.searchPlayStore,
+                    ) { update { it.copy(searchPlayStore = !it.searchPlayStore) } }
                 }
             }
             SettingsSection.NOTIFICATIONS -> SettingsPage("Notifications", onBack = back) {
@@ -675,6 +703,14 @@ private fun SettingsDialogs(
             selected = settings.webSearchEngine,
             label = { it.label },
             onSelect = { engine -> update { it.copy(webSearchEngine = engine) }; close() },
+            onDismiss = close,
+        )
+        SettingsDialog.DrawerThemeChoice -> ChoiceDialog(
+            title = "Mode nuit du tiroir",
+            options = DrawerTheme.entries,
+            selected = settings.drawerTheme,
+            label = { it.label },
+            onSelect = { theme -> update { it.copy(drawerTheme = theme) }; close() },
             onDismiss = close,
         )
         is SettingsDialog.GestureChoice -> ChoiceDialog(
