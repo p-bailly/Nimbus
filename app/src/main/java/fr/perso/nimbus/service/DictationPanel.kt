@@ -9,14 +9,12 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.text.InputType
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -26,11 +24,13 @@ import fr.perso.nimbus.data.Prefs
 import fr.perso.nimbus.data.claudeTargetName
 import fr.perso.nimbus.dictation.ClaudeDictation
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Panneau de dictée flottant, affiché par le service d'accessibilité : il reste par-dessus les
- * applis et laisse passer les touches autour de lui, on peut donc naviguer en dictant.
+ * Pastille de dictée flottante, affichée par le service d'accessibilité : micro, état, Copier ou
+ * Envoyer, fermer. Elle reste par-dessus les applis et laisse passer les touches autour d'elle,
+ * on peut donc naviguer en dictant. Le texte n'est pas affiché, seulement son nombre de mots.
  */
 class DictationPanel(private val service: DictationService) {
 
@@ -38,33 +38,32 @@ class DictationPanel(private val service: DictationService) {
     private val density = service.resources.displayMetrics.density
     private var root: View? = null
     private lateinit var params: WindowManager.LayoutParams
-    private lateinit var field: EditText
     private lateinit var status: TextView
     private lateinit var mic: FrameLayout
-    private lateinit var send: TextView
-    private lateinit var target: TextView
+    private lateinit var action: TextView
     private lateinit var choices: LinearLayout
 
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
-    /** Texte validé ; chaque nouvelle écoute s'y ajoute. */
-    private var base = ""
+    /** Texte dicté ; chaque nouvelle écoute s'y ajoute. */
+    private var text = ""
 
     val isShowing: Boolean get() = root != null
+
+    private val copyOnly: Boolean get() = Prefs.get(service).settings.value.dictationCopyOnly
 
     fun show() {
         if (root != null) return
         val view = build()
         params = WindowManager.LayoutParams(
-            service.resources.displayMetrics.widthPixels - dp(24),
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             y = dp(96)
-            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN
         }
         try {
             wm.addView(view, params)
@@ -79,7 +78,7 @@ class DictationPanel(private val service: DictationService) {
         recognizer?.destroy()
         recognizer = null
         listening = false
-        base = ""
+        text = ""
         root?.let { view ->
             try {
                 wm.removeView(view)
@@ -96,11 +95,10 @@ class DictationPanel(private val service: DictationService) {
 
     private fun listen() {
         if (!SpeechRecognizer.isRecognitionAvailable(service)) {
-            status.text = "Reconnaissance vocale indisponible (installez ou activez l'appli Google)"
+            status.text = "Reconnaissance indisponible"
+            SystemActions.toast(service, "Reconnaissance vocale indisponible : installez ou activez l'appli Google")
             return
         }
-        setEditing(false)
-        base = field.text.toString().trim()
         val r = recognizer ?: SpeechRecognizer.createSpeechRecognizer(service).also {
             it.setRecognitionListener(listener)
             recognizer = it
@@ -110,11 +108,19 @@ class DictationPanel(private val service: DictationService) {
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
             .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
-        setListening(true, "Je vous écoute…")
+        setListening(true, "Écoute…")
         r.startListening(intent)
     }
 
     private fun join(a: String, b: String) = listOf(a.trim(), b.trim()).filter { it.isNotEmpty() }.joinToString(" ")
+
+    private fun words(t: String): Int = t.split(Regex("\\s+")).count { it.isNotEmpty() }
+
+    private fun idle(): String = when (val n = words(text)) {
+        0 -> "Touchez le micro"
+        1 -> "1 mot"
+        else -> "$n mots"
+    }
 
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) = Unit
@@ -123,32 +129,26 @@ class DictationPanel(private val service: DictationService) {
         override fun onBufferReceived(buffer: ByteArray?) = Unit
         override fun onEndOfSpeech() = Unit
         override fun onEvent(eventType: Int, params: Bundle?) = Unit
-
-        override fun onPartialResults(partialResults: Bundle?) {
-            val heard = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-            field.setText(join(base, heard))
-        }
+        override fun onPartialResults(partialResults: Bundle?) = Unit
 
         override fun onResults(results: Bundle?) {
             val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-            base = join(base, heard)
-            field.setText(base)
-            setListening(false, if (base.isEmpty()) "Je n'ai rien entendu" else IDLE)
+            text = join(text, heard)
+            setListening(false, if (text.isEmpty()) "Rien entendu" else idle())
             if (heard.isNotBlank() && !Prefs.get(service).settings.value.dictationConfirm) primaryAction()
         }
 
         override fun onError(error: Int) {
-            field.setText(base)
             setListening(
                 false,
                 when (error) {
                     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-                        if (base.isEmpty()) "Je n'ai rien entendu" else IDLE
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Autorisez le micro pour dicter"
-                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Pas de connexion pour la reconnaissance vocale"
-                    // Micro refusé hors premier plan : rouvrir le panneau depuis la bulle ou la tuile.
-                    SpeechRecognizer.ERROR_CLIENT, SpeechRecognizer.ERROR_AUDIO -> "Micro indisponible : fermez et rouvrez la dictée"
-                    else -> "La reconnaissance vocale a échoué, réessayez"
+                        if (text.isEmpty()) "Rien entendu" else idle()
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Micro non autorisé"
+                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Pas de connexion"
+                    // Micro refusé hors premier plan : rouvrir la dictée depuis la bulle ou la tuile.
+                    SpeechRecognizer.ERROR_CLIENT, SpeechRecognizer.ERROR_AUDIO -> "Micro indisponible"
+                    else -> "Échec, réessayez"
                 },
             )
         }
@@ -159,198 +159,55 @@ class DictationPanel(private val service: DictationService) {
         status.text = message
         (mic.background as GradientDrawable).setColor(if (on) LISTENING_COLOR else ACCENT)
         mic.contentDescription = if (on) "Arrêter l'écoute" else "Parler"
-        send.isEnabled = !on
-        send.alpha = if (on) 0.5f else 1f
+        val ready = !on && text.isNotEmpty()
+        action.isEnabled = ready
+        action.alpha = if (ready) 1f else 0.45f
     }
-
-    private val copyOnly: Boolean get() = Prefs.get(service).settings.value.dictationCopyOnly
 
     /** Bouton principal : envoyer à Claude, ou copier en mode « Copier seulement ». */
-    private fun primaryAction() = if (copyOnly) copyNow() else sendNow()
-
-    private fun copyNow() {
-        val text = field.text.toString().trim()
-        if (text.isEmpty()) return
+    private fun primaryAction() {
+        val t = text.trim()
+        if (t.isEmpty()) return
         recognizer?.cancel()
-        close()
-        ClaudeDictation.copyText(service, text)
-    }
-
-    private fun sendNow() {
-        val text = field.text.toString().trim()
-        if (text.isEmpty()) return
-        recognizer?.cancel()
-        // L'appli où revenir : celle qui est ouverte au moment d'envoyer.
-        service.captureOrigin()
-        close()
-        ClaudeDictation.send(service, text)
-    }
-
-    /** Le champ ne prend le clavier que si on le touche : sinon les touches vont à l'appli dessous. */
-    private fun setEditing(editing: Boolean) {
-        val view = root ?: return
-        val flags = if (editing) FOCUSABLE else NOT_FOCUSABLE
-        if (params.flags != flags) {
-            params.flags = flags
-            wm.updateViewLayout(view, params)
-        }
-        val imm = service.getSystemService(InputMethodManager::class.java)
-        if (editing) {
-            field.requestFocus()
-            field.post { imm?.showSoftInput(field, 0) }
+        if (copyOnly) {
+            close()
+            ClaudeDictation.copyText(service, t)
         } else {
-            imm?.hideSoftInputFromWindow(field.windowToken, 0)
-            field.clearFocus()
+            // L'appli où revenir : celle qui est ouverte au moment d'envoyer.
+            service.captureOrigin()
+            close()
+            ClaudeDictation.send(service, t)
         }
     }
 
     // ------------------------------------------------------------ Vue
 
-    @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
+    @SuppressLint("ClickableViewAccessibility")
     private fun build(): View {
-        val card = LinearLayout(service).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(14))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(24).toFloat()
-                setColor(CARD_COLOR)
-            }
-            elevation = dp(8).toFloat()
-        }
+        val column = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL }
 
-        // En-tête : glisser pour déplacer le panneau, croix pour fermer.
-        val header = LinearLayout(service).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        header.addView(
-            TextView(service).apply {
-                text = "Dictée pour Claude"
-                setTextColor(TEXT_COLOR)
-                textSize = 16f
-                typeface = Typeface.DEFAULT_BOLD
-            },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
-        )
-        header.addView(
-            ImageView(service).apply {
-                setImageResource(R.drawable.ms_close)
-                setColorFilter(MUTED_COLOR)
-                contentDescription = "Fermer la dictée"
-                setPadding(dp(6), dp(6), dp(6), dp(6))
-                setOnClickListener { close() }
-            },
-            LinearLayout.LayoutParams(dp(36), dp(36)),
-        )
-        var downY = 0f
-        var startY = 0
-        header.setOnTouchListener { _, e ->
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { downY = e.rawY; startY = params.y }
-                // Ancré en bas : monter le doigt augmente le décalage.
-                MotionEvent.ACTION_MOVE -> root?.let {
-                    params.y = (startY - (e.rawY - downY)).roundToInt().coerceAtLeast(0)
-                    wm.updateViewLayout(it, params)
-                }
-            }
-            true
-        }
-        card.addView(header)
-
-        // Destination : touchez pour choisir parmi les conversations enregistrées.
-        target = TextView(service).apply {
-            setTextColor(ACCENT_LIGHT)
-            textSize = 14f
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(2), 0, dp(6))
-            setOnClickListener { toggleChoices() }
-        }
-        card.addView(target)
-        if (copyOnly) target.visibility = View.GONE
+        // Destination Claude, déroulée en touchant l'état (masquée en « Copier seulement »).
         choices = LinearLayout(service).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
-            background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
-                setColor(FIELD_COLOR)
-            }
+            background = rounded(CARD_COLOR, 18)
             setPadding(0, dp(4), 0, dp(4))
         }
-        card.addView(
+        column.addView(
             choices,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(6)
             },
         )
-        refreshTarget()
 
-        status = TextView(service).apply {
-            setTextColor(MUTED_COLOR)
-            textSize = 13f
-        }
-        card.addView(status)
-
-        field = EditText(service).apply {
-            setTextColor(TEXT_COLOR)
-            setHintTextColor(MUTED_COLOR)
-            hint = "Votre message"
-            textSize = 16f
-            minLines = 2
-            maxLines = 5
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
-                setColor(FIELD_COLOR)
-            }
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            setOnTouchListener { _, e ->
-                if (e.actionMasked == MotionEvent.ACTION_UP && !listening) setEditing(true)
-                false
-            }
-        }
-        card.addView(
-            field,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = dp(8)
-            },
-        )
-
-        val actions = LinearLayout(service).apply {
+        val pill = LinearLayout(service).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            background = rounded(CARD_COLOR, 26)
+            elevation = dp(6).toFloat()
+            setPadding(dp(6), dp(6), dp(6), dp(6))
         }
-        val left = LinearLayout(service).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        left.addView(
-            TextView(service).apply {
-                text = "Effacer"
-                setTextColor(MUTED_COLOR)
-                textSize = 15f
-                setPadding(dp(8), dp(10), dp(8), dp(10))
-                setOnClickListener {
-                    recognizer?.cancel()
-                    base = ""
-                    field.setText("")
-                    setListening(false, IDLE)
-                }
-            },
-        )
-        // Copier sans envoyer (en mode « Copier seulement », c'est le bouton principal).
-        if (!copyOnly) {
-            left.addView(
-                ImageView(service).apply {
-                    setImageResource(R.drawable.ms_content_copy)
-                    setColorFilter(MUTED_COLOR)
-                    contentDescription = "Copier le texte"
-                    setPadding(dp(8), dp(8), dp(8), dp(8))
-                    setOnClickListener { copyNow() }
-                },
-                LinearLayout.LayoutParams(dp(40), dp(40)),
-            )
-        }
-        actions.addView(left, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
         mic = FrameLayout(service).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -361,39 +218,71 @@ class DictationPanel(private val service: DictationService) {
                     setImageResource(R.drawable.ms_mic)
                     setColorFilter(TEXT_COLOR)
                 },
-                FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER),
+                FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER),
             )
             setOnClickListener { if (listening) recognizer?.stopListening() else listen() }
         }
-        actions.addView(mic, LinearLayout.LayoutParams(dp(56), dp(56)))
-        val sendBox = FrameLayout(service)
-        send = TextView(service).apply {
+        pill.addView(mic, LinearLayout.LayoutParams(dp(40), dp(40)))
+
+        status = TextView(service).apply {
+            setTextColor(MUTED_COLOR)
+            textSize = 13f
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            maxWidth = dp(120)
+            setPadding(dp(10), 0, dp(10), 0)
+            if (!copyOnly) {
+                contentDescription = "Changer de conversation"
+                setOnClickListener { toggleChoices() }
+            }
+        }
+        pill.addView(status)
+
+        action = TextView(service).apply {
             text = if (copyOnly) "Copier" else "Envoyer"
             setTextColor(TEXT_COLOR)
-            textSize = 15f
+            textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(18), dp(10), dp(18), dp(10))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(20).toFloat()
-                setColor(ACCENT)
-            }
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            background = rounded(ACCENT, 18)
             setOnClickListener { primaryAction() }
         }
-        sendBox.addView(send, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL))
-        actions.addView(sendBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        card.addView(
-            actions,
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = dp(10)
-            },
-        )
-        return card
-    }
+        pill.addView(action)
 
-    private fun refreshTarget() {
-        val settings = Prefs.get(service).settings.value
-        target.text = "Vers : ${settings.claudeTargetName}  ▾"
-        target.contentDescription = "Destination : ${settings.claudeTargetName}. Toucher pour changer"
+        pill.addView(
+            ImageView(service).apply {
+                setImageResource(R.drawable.ms_close)
+                setColorFilter(MUTED_COLOR)
+                contentDescription = "Fermer la dictée"
+                setPadding(dp(6), dp(6), dp(6), dp(6))
+                setOnClickListener { close() }
+            },
+            LinearLayout.LayoutParams(dp(32), dp(32)).apply { marginStart = dp(4) },
+        )
+
+        // Glisser la pastille la déplace (ancrée en bas : monter le doigt augmente le décalage).
+        var downX = 0f
+        var downY = 0f
+        var startX = 0
+        var startY = 0
+        pill.setOnTouchListener { _, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = e.rawX; downY = e.rawY
+                    startX = params.x; startY = params.y
+                }
+                MotionEvent.ACTION_MOVE -> root?.let {
+                    if (abs(e.rawX - downX) > dp(4) || abs(e.rawY - downY) > dp(4)) {
+                        params.x = startX + (e.rawX - downX).roundToInt()
+                        params.y = (startY - (e.rawY - downY)).roundToInt().coerceAtLeast(0)
+                        wm.updateViewLayout(it, params)
+                    }
+                }
+            }
+            true
+        }
+        column.addView(pill)
+        return column
     }
 
     private fun toggleChoices() {
@@ -404,6 +293,14 @@ class DictationPanel(private val service: DictationService) {
         val prefs = Prefs.get(service)
         val settings = prefs.settings.value
         choices.removeAllViews()
+        choices.addView(
+            TextView(service).apply {
+                text = "Envoyer vers"
+                setTextColor(MUTED_COLOR)
+                textSize = 12f
+                setPadding(dp(14), dp(6), dp(14), dp(2))
+            },
+        )
         val options = listOf<Pair<String, String?>>("Dernière conversation ouverte" to null) +
             settings.claudeSessions.map { it.name to it.url }
         for ((name, url) in options) {
@@ -413,11 +310,11 @@ class DictationPanel(private val service: DictationService) {
                     text = if (selected) "✓  $name" else "     $name"
                     setTextColor(if (selected) ACCENT_LIGHT else TEXT_COLOR)
                     textSize = 15f
-                    setPadding(dp(14), dp(10), dp(14), dp(10))
+                    setPadding(dp(14), dp(9), dp(14), dp(9))
                     setOnClickListener {
                         prefs.updateSettings { it.copy(claudeSessionUrl = url) }
                         choices.visibility = View.GONE
-                        refreshTarget()
+                        SystemActions.toast(service, "Vers : ${prefs.settings.value.claudeTargetName}")
                     }
                 },
             )
@@ -425,24 +322,25 @@ class DictationPanel(private val service: DictationService) {
         if (settings.claudeSessions.isEmpty()) {
             choices.addView(
                 TextView(service).apply {
-                    text = "Ajoutez vos conversations dans Paramètres Nimbus › Dictée pour Claude"
+                    text = "Ajoutez des conversations dans\nParamètres Nimbus › Dictée pour Claude"
                     setTextColor(MUTED_COLOR)
-                    textSize = 13f
-                    setPadding(dp(14), dp(6), dp(14), dp(10))
+                    textSize = 12f
+                    setPadding(dp(14), dp(4), dp(14), dp(8))
                 },
             )
         }
         choices.visibility = View.VISIBLE
     }
 
+    private fun rounded(color: Int, radiusDp: Int) = GradientDrawable().apply {
+        cornerRadius = dp(radiusDp).toFloat()
+        setColor(color)
+    }
+
     private fun dp(value: Int): Int = (value * density).roundToInt()
 
     private companion object {
-        const val IDLE = "Touchez le micro pour continuer, ou changez d'appli"
-        const val NOT_FOCUSABLE = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-        const val FOCUSABLE = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
         const val CARD_COLOR = 0xF21E2433.toInt()
-        const val FIELD_COLOR = 0xFF2B3346.toInt()
         const val TEXT_COLOR = 0xFFFFFFFF.toInt()
         const val MUTED_COLOR = 0xFFB4BCCD.toInt()
         /** Bleu nuit de l'icône Nimbus. */

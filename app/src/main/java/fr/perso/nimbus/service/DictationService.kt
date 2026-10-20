@@ -309,8 +309,8 @@ class DictationService : AccessibilityService() {
         val isEnabled: Boolean get() = instance != null
 
         private const val DELIVERY_TIMEOUT_MS = 10_000L
-        private const val BUBBLE_DP = 40
-        private const val BUBBLE_ICON_DP = 20
+        private const val BUBBLE_DP = 32
+        private const val BUBBLE_ICON_DP = 16
         private const val BUBBLE_PREFS = "nimbus_dictation_bubble"
         /** Bleu nuit de l'icône Nimbus. */
         private const val BUBBLE_COLOR = 0xFF5B7FD6.toInt()
