@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
 
@@ -88,6 +89,10 @@ class Prefs private constructor(context: Context) {
         e.putBoolean("searchPlayStore", s.searchPlayStore)
         e.putString("drawerTheme", s.drawerTheme.name)
         e.putString("claudeSessionUrl", s.claudeSessionUrl)
+        e.putString(
+            "claudeSessions",
+            JSONArray(s.claudeSessions.map { JSONObject().put("name", it.name).put("url", it.url) }).toString(),
+        )
         e.putBoolean("dictationBubble", s.dictationBubble)
         e.putBoolean("dictationConfirm", s.dictationConfirm)
         e.putBoolean("dictationReturn", s.dictationReturn)
@@ -131,6 +136,7 @@ class Prefs private constructor(context: Context) {
             searchPlayStore = sp.getBoolean("searchPlayStore", d.searchPlayStore),
             drawerTheme = enumPref("drawerTheme", d.drawerTheme),
             claudeSessionUrl = sp.getString("claudeSessionUrl", d.claudeSessionUrl),
+            claudeSessions = readClaudeSessions(),
             dictationBubble = sp.getBoolean("dictationBubble", d.dictationBubble),
             dictationConfirm = sp.getBoolean("dictationConfirm", d.dictationConfirm),
             dictationReturn = sp.getBoolean("dictationReturn", d.dictationReturn),
@@ -153,6 +159,25 @@ class Prefs private constructor(context: Context) {
             homeShowLabels = sp.getBoolean("homeShowLabels", d.homeShowLabels),
             showSearchBar = sp.getBoolean("showSearchBar", d.showSearchBar),
         )
+    }
+
+    private fun readClaudeSessions(): List<ClaudeSession> {
+        val raw = sp.getString("claudeSessions", null)
+        if (raw == null) {
+            // Avant la liste, un seul lien : il devient la première conversation.
+            val url = sp.getString("claudeSessionUrl", null) ?: return emptyList()
+            return listOf(ClaudeSession("Ma conversation", url))
+        }
+        return try {
+            val array = JSONArray(raw)
+            (0 until array.length()).mapNotNull { i ->
+                val o = array.optJSONObject(i) ?: return@mapNotNull null
+                val url = o.optString("url").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                ClaudeSession(o.optString("name").ifBlank { "Conversation" }, url)
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     private inline fun <reified T : Enum<T>> enumPref(key: String, default: T): T {

@@ -156,7 +156,9 @@ data class LauncherSettings(
     /** Ligne « Rechercher sur le Play Store » dans les résultats. */
     val searchPlayStore: Boolean = true,
     val drawerTheme: DrawerTheme = DrawerTheme.FOLLOW,
-    /** Lien de la conversation Claude (Claude Code…) où envoyer la dictée ; null = appli Claude. */
+    /** Conversations Claude (Claude Code…) où l'on peut envoyer la dictée. */
+    val claudeSessions: List<ClaudeSession> = emptyList(),
+    /** Lien de la conversation choisie pour la dictée ; null = dernière conversation ouverte dans Claude. */
     val claudeSessionUrl: String? = null,
     /** Bulle micro flottante par-dessus les applis (service d'accessibilité requis). */
     val dictationBubble: Boolean = false,
@@ -205,6 +207,14 @@ data class LauncherSettings(
         Gesture.PINCH_OUT -> copy(pinchOutAction = action)
     }
 }
+
+/** Conversation Claude enregistrée pour la dictée : nom affiché et lien (claude.ai/code/session_…). */
+data class ClaudeSession(val name: String, val url: String)
+
+/** Nom de la destination de la dictée. */
+val LauncherSettings.claudeTargetName: String
+    get() = claudeSessionUrl?.let { url -> claudeSessions.firstOrNull { it.url == url }?.name ?: "Conversation enregistrée" }
+        ?: "Dernière conversation ouverte"
 
 /** Une case de l'accueil : page (0 = première), colonne, ligne. */
 data class HomeCell(val page: Int, val x: Int, val y: Int)

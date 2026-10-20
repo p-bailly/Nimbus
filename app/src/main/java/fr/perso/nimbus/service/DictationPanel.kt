@@ -23,6 +23,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import fr.perso.nimbus.R
 import fr.perso.nimbus.data.Prefs
+import fr.perso.nimbus.data.claudeTargetName
 import fr.perso.nimbus.dictation.ClaudeDictation
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -41,6 +42,8 @@ class DictationPanel(private val service: DictationService) {
     private lateinit var status: TextView
     private lateinit var mic: FrameLayout
     private lateinit var send: TextView
+    private lateinit var target: TextView
+    private lateinit var choices: LinearLayout
 
     private var recognizer: SpeechRecognizer? = null
     private var listening = false
@@ -241,6 +244,32 @@ class DictationPanel(private val service: DictationService) {
         }
         card.addView(header)
 
+        // Destination : touchez pour choisir parmi les conversations enregistrées.
+        target = TextView(service).apply {
+            setTextColor(ACCENT_LIGHT)
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(2), 0, dp(6))
+            setOnClickListener { toggleChoices() }
+        }
+        card.addView(target)
+        choices = LinearLayout(service).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(FIELD_COLOR)
+            }
+            setPadding(0, dp(4), 0, dp(4))
+        }
+        card.addView(
+            choices,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(6)
+            },
+        )
+        refreshTarget()
+
         status = TextView(service).apply {
             setTextColor(MUTED_COLOR)
             textSize = 13f
@@ -330,6 +359,51 @@ class DictationPanel(private val service: DictationService) {
         return card
     }
 
+    private fun refreshTarget() {
+        val settings = Prefs.get(service).settings.value
+        target.text = "Vers : ${settings.claudeTargetName}  ▾"
+        target.contentDescription = "Destination : ${settings.claudeTargetName}. Toucher pour changer"
+    }
+
+    private fun toggleChoices() {
+        if (choices.visibility == View.VISIBLE) {
+            choices.visibility = View.GONE
+            return
+        }
+        val prefs = Prefs.get(service)
+        val settings = prefs.settings.value
+        choices.removeAllViews()
+        val options = listOf<Pair<String, String?>>("Dernière conversation ouverte" to null) +
+            settings.claudeSessions.map { it.name to it.url }
+        for ((name, url) in options) {
+            val selected = url == settings.claudeSessionUrl
+            choices.addView(
+                TextView(service).apply {
+                    text = if (selected) "✓  $name" else "     $name"
+                    setTextColor(if (selected) ACCENT_LIGHT else TEXT_COLOR)
+                    textSize = 15f
+                    setPadding(dp(14), dp(10), dp(14), dp(10))
+                    setOnClickListener {
+                        prefs.updateSettings { it.copy(claudeSessionUrl = url) }
+                        choices.visibility = View.GONE
+                        refreshTarget()
+                    }
+                },
+            )
+        }
+        if (settings.claudeSessions.isEmpty()) {
+            choices.addView(
+                TextView(service).apply {
+                    text = "Ajoutez vos conversations dans Paramètres Nimbus › Dictée pour Claude"
+                    setTextColor(MUTED_COLOR)
+                    textSize = 13f
+                    setPadding(dp(14), dp(6), dp(14), dp(10))
+                },
+            )
+        }
+        choices.visibility = View.VISIBLE
+    }
+
     private fun dp(value: Int): Int = (value * density).roundToInt()
 
     private companion object {
@@ -342,6 +416,7 @@ class DictationPanel(private val service: DictationService) {
         const val MUTED_COLOR = 0xFFB4BCCD.toInt()
         /** Bleu nuit de l'icône Nimbus. */
         const val ACCENT = 0xFF5B7FD6.toInt()
+        const val ACCENT_LIGHT = 0xFF9DB4F0.toInt()
         const val LISTENING_COLOR = 0xFFE5534B.toInt()
     }
 }

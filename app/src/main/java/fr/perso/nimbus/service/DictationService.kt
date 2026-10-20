@@ -225,7 +225,7 @@ class DictationService : AccessibilityService() {
         if (bubble != null) return
         val wm = getSystemService(WindowManager::class.java) ?: return
         val density = resources.displayMetrics.density
-        val size = (56 * density).roundToInt()
+        val size = (BUBBLE_DP * density).roundToInt()
         val positions = getSharedPreferences(BUBBLE_PREFS, Context.MODE_PRIVATE)
         val params = WindowManager.LayoutParams(
             size, size,
@@ -242,7 +242,7 @@ class DictationService : AccessibilityService() {
                 shape = GradientDrawable.OVAL
                 setColor(BUBBLE_COLOR)
             }
-            elevation = 6 * density
+            elevation = 4 * density
             alpha = 0.92f
             contentDescription = "Dictée pour Claude"
             addView(
@@ -250,7 +250,7 @@ class DictationService : AccessibilityService() {
                     setImageResource(R.drawable.ms_mic)
                     setColorFilter(0xFFFFFFFF.toInt())
                 },
-                FrameLayout.LayoutParams((28 * density).roundToInt(), (28 * density).roundToInt(), Gravity.CENTER),
+                FrameLayout.LayoutParams((BUBBLE_ICON_DP * density).roundToInt(), (BUBBLE_ICON_DP * density).roundToInt(), Gravity.CENTER),
             )
         }
         val slop = ViewConfiguration.get(this).scaledTouchSlop
@@ -309,6 +309,8 @@ class DictationService : AccessibilityService() {
         val isEnabled: Boolean get() = instance != null
 
         private const val DELIVERY_TIMEOUT_MS = 10_000L
+        private const val BUBBLE_DP = 40
+        private const val BUBBLE_ICON_DP = 20
         private const val BUBBLE_PREFS = "nimbus_dictation_bubble"
         /** Bleu nuit de l'icône Nimbus. */
         private const val BUBBLE_COLOR = 0xFF5B7FD6.toInt()

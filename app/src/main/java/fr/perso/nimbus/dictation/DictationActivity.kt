@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import fr.perso.nimbus.R
 import fr.perso.nimbus.data.Prefs
+import fr.perso.nimbus.data.claudeTargetName
 import fr.perso.nimbus.service.DictationService
 import fr.perso.nimbus.ui.theme.NimbusTheme
 import java.util.Locale
@@ -87,7 +88,7 @@ class DictationActivity : ComponentActivity() {
                     partial = partial,
                     listening = listening,
                     message = message,
-                    target = if (settings.claudeSessionUrl.isNullOrBlank()) "Appli Claude" else "Conversation Claude enregistrée",
+                    target = "Vers : " + settings.claudeTargetName,
                     onTextChange = { text = it },
                     onMic = { if (listening) recognizer?.stopListening() else startListening() },
                     onSend = ::send,

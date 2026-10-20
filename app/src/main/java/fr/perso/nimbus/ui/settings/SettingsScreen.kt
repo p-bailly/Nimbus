@@ -60,6 +60,7 @@ import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.data.SearchEngine
 import fr.perso.nimbus.data.SortMode
 import fr.perso.nimbus.data.ThemeMode
+import fr.perso.nimbus.data.claudeTargetName
 import fr.perso.nimbus.dictation.ClaudeDictation
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.AppsState
@@ -71,7 +72,7 @@ import fr.perso.nimbus.ui.components.AppPickerDialog
 import fr.perso.nimbus.ui.components.ChoiceDialog
 import fr.perso.nimbus.ui.components.PinDialog
 import fr.perso.nimbus.ui.components.PinMode
-import fr.perso.nimbus.ui.components.TextInputDialog
+import fr.perso.nimbus.ui.components.ClaudeSessionDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
@@ -93,7 +94,8 @@ private sealed interface SettingsDialog {
     data object Badge : SettingsDialog
     data object Engine : SettingsDialog
     data object DrawerThemeChoice : SettingsDialog
-    data object ClaudeSession : SettingsDialog
+    /** [index] null : nouvelle conversation. */
+    data class EditClaudeSession(val index: Int?) : SettingsDialog
     data class GestureChoice(val gesture: Gesture) : SettingsDialog
     data class GestureApp(val gesture: Gesture) : SettingsDialog
     data object ConfirmImport : SettingsDialog
@@ -428,11 +430,24 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     ) { ClaudeDictation.start(context) }
                 }
                 item {
-                    SettingsEntry(
-                        R.drawable.ms_public, SettingsColors.Purple, "Conversation Claude",
-                        settings.claudeSessionUrl ?: "Aucune : ouvre l'appli Claude sur son dernier écran",
-                        chevron = true,
-                    ) { dialog = SettingsDialog.ClaudeSession }
+                    Text(
+                        "Conversations — la destination se choisit dans le panneau de dictée (actuelle : ${settings.claudeTargetName})",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 4.dp),
+                    )
+                }
+                settings.claudeSessions.forEachIndexed { index, session ->
+                    item(key = "claude-session:$index") {
+                        SettingsEntry(R.drawable.ms_public, SettingsColors.Purple, session.name, session.url, chevron = true) {
+                            dialog = SettingsDialog.EditClaudeSession(index)
+                        }
+                    }
+                }
+                item {
+                    SettingsEntry(R.drawable.ms_add_box, SettingsColors.Purple, "Ajouter une conversation", "Nom et lien de la session") {
+                        dialog = SettingsDialog.EditClaudeSession(null)
+                    }
                 }
                 item {
                     SettingsEntry(
@@ -782,16 +797,41 @@ private fun SettingsDialogs(
             onSelect = { engine -> update { it.copy(webSearchEngine = engine) }; close() },
             onDismiss = close,
         )
-        SettingsDialog.ClaudeSession -> TextInputDialog(
-            title = "Lien de la conversation",
-            initial = settings.claudeSessionUrl.orEmpty(),
-            placeholder = "https://claude.ai/code/session_…",
-            onConfirm = { url ->
-                update { it.copy(claudeSessionUrl = url.trim().takeIf { u -> u.startsWith("http") }) }
-                close()
-            },
-            onDismiss = close,
-        )
+        is SettingsDialog.EditClaudeSession -> {
+            val index = dialog.index
+            val current = index?.let { settings.claudeSessions.getOrNull(it) }
+            ClaudeSessionDialog(
+                initial = current,
+                onSave = { session ->
+                    update { s ->
+                        val list = s.claudeSessions.toMutableList()
+                        if (current != null && index != null) list[index] = session else list.add(session)
+                        // La conversation modifiée reste la destination si elle l'était ; une première devient la destination.
+                        val target = when {
+                            current != null && s.claudeSessionUrl == current.url -> session.url
+                            s.claudeSessions.isEmpty() -> session.url
+                            else -> s.claudeSessionUrl
+                        }
+                        s.copy(claudeSessions = list, claudeSessionUrl = target)
+                    }
+                    close()
+                },
+                onDismiss = close,
+                onDelete = if (current != null && index != null) {
+                    {
+                        update { s ->
+                            s.copy(
+                                claudeSessions = s.claudeSessions.filterIndexed { i, _ -> i != index },
+                                claudeSessionUrl = s.claudeSessionUrl.takeIf { it != current.url },
+                            )
+                        }
+                        close()
+                    }
+                } else {
+                    null
+                },
+            )
+        }
         SettingsDialog.DrawerThemeChoice -> ChoiceDialog(
             title = "Mode nuit du tiroir",
             options = DrawerTheme.entries,
