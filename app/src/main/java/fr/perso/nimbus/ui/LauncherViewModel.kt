@@ -35,7 +35,9 @@ import fr.perso.nimbus.data.Prefs
 import fr.perso.nimbus.data.ProfileState
 import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.data.SortMode
+import fr.perso.nimbus.dictation.ClaudeDictation
 import fr.perso.nimbus.service.BadgeStore
+import fr.perso.nimbus.service.DictationService
 import fr.perso.nimbus.service.GestureService
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.drawer.SearchMatcher
@@ -69,7 +71,7 @@ import kotlin.math.roundToInt
 enum class Screen { HOME, SETTINGS, HIDDEN_APPS }
 
 /** Pages des paramètres (une page principale et ses sous-pages). */
-enum class SettingsSection { MAIN, APPEARANCE, GESTURES, BACKUP, HOME, DRAWER, SEARCH, NOTIFICATIONS, PRIVACY, ABOUT }
+enum class SettingsSection { MAIN, APPEARANCE, GESTURES, BACKUP, HOME, DRAWER, SEARCH, DICTATION, NOTIFICATIONS, PRIVACY, ABOUT }
 
 /** Menu ouvert par appui long sur l'accueil, à la position du doigt, sur la page [page]. */
 data class HomeMenu(val position: Offset, val page: Int)
@@ -107,6 +109,7 @@ data class SystemStatus(
     val gestureService: Boolean = false,
     val contactsPermission: Boolean = false,
     val filesPermission: Boolean = false,
+    val dictationService: Boolean = false,
     val hasPin: Boolean = false,
 )
 
@@ -575,6 +578,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             GestureAction.DRAWER -> openDrawer()
             GestureAction.SETTINGS -> openSettings()
             GestureAction.WIDGETS -> openWidgetPicker()
+            GestureAction.DICTATION -> ClaudeDictation.start(context)
             GestureAction.APP -> {
                 val app = prefs.gestureApps.value[gesture]?.let { apps.value.byKey[it] }
                 if (app != null) launch(app)
@@ -1002,6 +1006,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             gestureService = GestureService.isEnabled,
             contactsPermission = ContactsSearch.hasPermission(context),
             filesPermission = FilesSearch.hasPermission(context),
+            dictationService = DictationService.isEnabled,
             hasPin = prefs.hasPin(),
         )
     }

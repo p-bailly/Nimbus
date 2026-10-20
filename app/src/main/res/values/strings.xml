@@ -4,4 +4,7 @@
     <string name="badge_service_label">Pastilles de notification Nimbus</string>
     <string name="gesture_service_label">Gestes Nimbus</string>
     <string name="gesture_service_desc">Permet à Nimbus de verrouiller l\'écran par double tap et d\'ouvrir le volet de notifications par un geste. Aucune donnée n\'est lue ni collectée.</string>
+    <string name="dictation_service_label">Dictée Claude Nimbus</string>
+    <string name="dictation_service_desc">Affiche la bulle micro par-dessus les applis et écrit votre dictée dans l\'appli Claude, puis appuie sur Envoyer. Nimbus ne lit le contenu de l\'écran que dans l\'appli Claude, pendant un envoi ; ailleurs il note seulement quelle appli est ouverte, pour y revenir ensuite. Rien n\'est enregistré ni envoyé ailleurs.</string>
+    <string name="dictation_tile_label">Dictée Claude</string>
 </resources>

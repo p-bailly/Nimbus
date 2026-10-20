@@ -87,6 +87,10 @@ class Prefs private constructor(context: Context) {
         e.putBoolean("searchFiles", s.searchFiles)
         e.putBoolean("searchPlayStore", s.searchPlayStore)
         e.putString("drawerTheme", s.drawerTheme.name)
+        e.putString("claudeSessionUrl", s.claudeSessionUrl)
+        e.putBoolean("dictationBubble", s.dictationBubble)
+        e.putBoolean("dictationConfirm", s.dictationConfirm)
+        e.putBoolean("dictationReturn", s.dictationReturn)
         e.putString("doubleTapAction", s.doubleTapAction.name)
         e.putString("swipeUpAction", s.swipeUpAction.name)
         e.putString("swipeDownAction", s.swipeDownAction.name)
@@ -126,6 +130,10 @@ class Prefs private constructor(context: Context) {
             searchFiles = sp.getBoolean("searchFiles", d.searchFiles),
             searchPlayStore = sp.getBoolean("searchPlayStore", d.searchPlayStore),
             drawerTheme = enumPref("drawerTheme", d.drawerTheme),
+            claudeSessionUrl = sp.getString("claudeSessionUrl", d.claudeSessionUrl),
+            dictationBubble = sp.getBoolean("dictationBubble", d.dictationBubble),
+            dictationConfirm = sp.getBoolean("dictationConfirm", d.dictationConfirm),
+            dictationReturn = sp.getBoolean("dictationReturn", d.dictationReturn),
             doubleTapAction = enumPref("doubleTapAction", d.doubleTapAction),
             swipeUpAction = enumPref("swipeUpAction", d.swipeUpAction),
             swipeDownAction = enumPref("swipeDownAction", d.swipeDownAction),

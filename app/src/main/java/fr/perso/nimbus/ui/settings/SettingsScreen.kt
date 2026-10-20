@@ -60,6 +60,7 @@ import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.data.SearchEngine
 import fr.perso.nimbus.data.SortMode
 import fr.perso.nimbus.data.ThemeMode
+import fr.perso.nimbus.dictation.ClaudeDictation
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherHost
@@ -70,6 +71,7 @@ import fr.perso.nimbus.ui.components.AppPickerDialog
 import fr.perso.nimbus.ui.components.ChoiceDialog
 import fr.perso.nimbus.ui.components.PinDialog
 import fr.perso.nimbus.ui.components.PinMode
+import fr.perso.nimbus.ui.components.TextInputDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
@@ -91,6 +93,7 @@ private sealed interface SettingsDialog {
     data object Badge : SettingsDialog
     data object Engine : SettingsDialog
     data object DrawerThemeChoice : SettingsDialog
+    data object ClaudeSession : SettingsDialog
     data class GestureChoice(val gesture: Gesture) : SettingsDialog
     data class GestureApp(val gesture: Gesture) : SettingsDialog
     data object ConfirmImport : SettingsDialog
@@ -401,6 +404,78 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     ) { update { it.copy(searchPlayStore = !it.searchPlayStore) } }
                 }
             }
+            SettingsSection.DICTATION -> SettingsPage("Dictée pour Claude", onBack = back) {
+                item {
+                    Text(
+                        "Parlez depuis n'importe quelle appli : Nimbus transcrit, ouvre la conversation Claude " +
+                            "(par exemple une session Claude Code), y écrit le texte et l'envoie.",
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    )
+                }
+                if (!status.dictationService) {
+                    item {
+                        SettingsBanner(R.drawable.ms_accessibility_new, "Activer le service « Dictée Claude Nimbus »") {
+                            SystemActions.openAccessibilitySettings(context)
+                        }
+                    }
+                }
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_mic, SettingsColors.Purple, "Essayer maintenant", "Ouvre l'écran de dictée",
+                    ) { ClaudeDictation.start(context) }
+                }
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_public, SettingsColors.Purple, "Conversation Claude",
+                        settings.claudeSessionUrl ?: "Aucune : ouvre l'appli Claude sur son dernier écran",
+                        chevron = true,
+                    ) { dialog = SettingsDialog.ClaudeSession }
+                }
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_touch_app, SettingsColors.Purple, "Bulle flottante",
+                        if (status.dictationService) "Bouton micro par-dessus les applis ; glissez-le pour le déplacer"
+                        else "Nécessite le service « Dictée Claude Nimbus »",
+                        checked = settings.dictationBubble,
+                    ) {
+                        val enable = !settings.dictationBubble
+                        update { it.copy(dictationBubble = enable) }
+                        if (enable && !status.dictationService) SystemActions.openAccessibilitySettings(context)
+                    }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    item {
+                        SettingsEntry(
+                            R.drawable.ms_add_box, SettingsColors.Purple, "Tuile des réglages rapides",
+                            "Ajouter « Dictée Claude » aux réglages rapides",
+                        ) { SystemActions.requestDictationTile(context) }
+                    }
+                }
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_info, SettingsColors.Purple, "Confirmer avant d'envoyer",
+                        "Relire et corriger la transcription",
+                        checked = settings.dictationConfirm,
+                    ) { update { it.copy(dictationConfirm = !it.dictationConfirm) } }
+                }
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_autorenew, SettingsColors.Purple, "Revenir à l'appli d'origine",
+                        "Après l'envoi",
+                        checked = settings.dictationReturn,
+                    ) { update { it.copy(dictationReturn = !it.dictationReturn) } }
+                }
+                item {
+                    Text(
+                        "Astuce : un geste de l'accueil peut aussi lancer la dictée (Gestes › « Dictée pour Claude »).",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    )
+                }
+            }
             SettingsSection.NOTIFICATIONS -> SettingsPage("Notifications", onBack = back) {
                 if (settings.badgesEnabled && !status.notificationAccess) {
                     item {
@@ -536,6 +611,7 @@ private fun LazyListScope.mainPage(
     item { SettingsEntry(R.drawable.ms_home, SettingsColors.Blue, "Page d'accueil", chevron = true) { open(SettingsSection.HOME) } }
     item { SettingsEntry(R.drawable.ms_apps, SettingsColors.Blue, "Page des applications", chevron = true) { open(SettingsSection.DRAWER) } }
     item { SettingsEntry(R.drawable.ms_search, SettingsColors.Blue, "Page de recherche", chevron = true) { open(SettingsSection.SEARCH) } }
+    item { SettingsEntry(R.drawable.ms_mic, SettingsColors.Purple, "Dictée pour Claude", chevron = true) { open(SettingsSection.DICTATION) } }
 
     settingsSection("Autres")
     item { SettingsEntry(R.drawable.ms_notifications, SettingsColors.Purple, "Notifications") { open(SettingsSection.NOTIFICATIONS) } }
@@ -703,6 +779,16 @@ private fun SettingsDialogs(
             selected = settings.webSearchEngine,
             label = { it.label },
             onSelect = { engine -> update { it.copy(webSearchEngine = engine) }; close() },
+            onDismiss = close,
+        )
+        SettingsDialog.ClaudeSession -> TextInputDialog(
+            title = "Lien de la conversation",
+            initial = settings.claudeSessionUrl.orEmpty(),
+            placeholder = "https://claude.ai/code/session_…",
+            onConfirm = { url ->
+                update { it.copy(claudeSessionUrl = url.trim().takeIf { u -> u.startsWith("http") }) }
+                close()
+            },
             onDismiss = close,
         )
         SettingsDialog.DrawerThemeChoice -> ChoiceDialog(

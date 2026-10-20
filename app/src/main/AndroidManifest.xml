@@ -11,6 +11,8 @@
     <uses-permission
         android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
+    <!-- Dictée vers Claude -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Ouvrir le volet de notifications par geste -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
     <!-- Désinstaller une app depuis l'appui long -->
@@ -48,6 +50,42 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Dictée vers Claude : écran transparent par-dessus l'appli en cours -->
+        <activity
+            android:name=".dictation.DictationActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="fr.perso.nimbus.dictation"
+            android:theme="@style/Theme.Nimbus.Dictation"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Bulle de dictée et envoi dans l'appli Claude -->
+        <service
+            android:name=".service.DictationService"
+            android:exported="true"
+            android:label="@string/dictation_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/dictation_service" />
+        </service>
+
+        <!-- Tuile des réglages rapides « Dictée Claude » -->
+        <service
+            android:name=".service.DictationTileService"
+            android:exported="true"
+            android:icon="@drawable/ms_mic"
+            android:label="@string/dictation_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <!-- Pastilles de notification sur les icônes -->
         <service
@@ -91,6 +129,9 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.WEB_SEARCH" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
         <intent>
             <action android:name="android.intent.action.VIEW" />

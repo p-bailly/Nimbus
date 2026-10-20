@@ -3,6 +3,7 @@ package fr.perso.nimbus.service
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.app.ActivityOptions
+import android.app.StatusBarManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
@@ -11,6 +12,7 @@ import android.content.IntentSender
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutInfo
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.UserHandle
@@ -20,6 +22,7 @@ import android.provider.CalendarContract
 import android.provider.Settings
 import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
+import fr.perso.nimbus.R
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.data.SearchEngine
@@ -114,7 +117,7 @@ object SystemActions {
         if (GestureService.openNotifications()) return true
         return try {
             val service = context.getSystemService("statusbar") ?: return false
-            Class.forName("android.app.StatusBarManager")
+            Class.forName("StatusBarManager")
                 .getMethod("expandNotificationsPanel")
                 .invoke(service)
             true
@@ -129,7 +132,7 @@ object SystemActions {
         if (GestureService.performGlobal(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS)) return true
         return try {
             val service = context.getSystemService("statusbar") ?: return false
-            Class.forName("android.app.StatusBarManager")
+            Class.forName("StatusBarManager")
                 .getMethod("expandSettingsPanel")
                 .invoke(service)
             true
@@ -246,6 +249,22 @@ object SystemActions {
     fun openWallpaperPicker(context: Context) {
         val chooser = Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), "Choisir un fond d'écran")
         if (!start(context, chooser)) toast(context, "Sélecteur de fond d'écran indisponible")
+    }
+
+    /** Propose d'ajouter la tuile « Dictée Claude » aux réglages rapides (Android 13+). */
+    fun requestDictationTile(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val statusBar = context.getSystemService(StatusBarManager::class.java) ?: return
+        statusBar.requestAddTileService(
+            ComponentName(context, DictationTileService::class.java),
+            context.getString(R.string.dictation_tile_label),
+            Icon.createWithResource(context, R.drawable.ms_mic),
+            context.mainExecutor,
+        ) { result ->
+            if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED) {
+                toast(context, "La tuile est déjà dans les réglages rapides")
+            }
+        }
     }
 
     fun openAccessibilitySettings(context: Context) {

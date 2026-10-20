@@ -106,6 +106,7 @@ enum class GestureAction(val label: String) {
     POWER_MENU("Menu Marche/Arrêt"),
     ASSISTANT("Assistant"),
     WIDGETS("Ajouter un widget"),
+    DICTATION("Dictée pour Claude"),
     APP("Ouvrir une app…"),
 }
 
@@ -155,6 +156,13 @@ data class LauncherSettings(
     /** Ligne « Rechercher sur le Play Store » dans les résultats. */
     val searchPlayStore: Boolean = true,
     val drawerTheme: DrawerTheme = DrawerTheme.FOLLOW,
+    /** Lien de la conversation Claude (Claude Code…) où envoyer la dictée ; null = appli Claude. */
+    val claudeSessionUrl: String? = null,
+    /** Bulle micro flottante par-dessus les applis (service d'accessibilité requis). */
+    val dictationBubble: Boolean = false,
+    val dictationConfirm: Boolean = true,
+    /** Après l'envoi, revenir à l'appli d'où l'on a dicté. */
+    val dictationReturn: Boolean = true,
     val doubleTapAction: GestureAction = GestureAction.LOCK,
     val swipeUpAction: GestureAction = GestureAction.DRAWER,
     val swipeDownAction: GestureAction = GestureAction.NOTIFICATIONS,
