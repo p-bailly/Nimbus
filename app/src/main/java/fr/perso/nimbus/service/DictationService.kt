@@ -25,6 +25,7 @@ import fr.perso.nimbus.R
 import fr.perso.nimbus.data.Prefs
 import fr.perso.nimbus.dictation.ClaudeDictation
 import fr.perso.nimbus.dictation.DictationActivity
+import fr.perso.nimbus.dictation.DictationStarterActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,6 +49,7 @@ class DictationService : AccessibilityService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var bubble: View? = null
     private var bubbleHidden = false
+    private val panel by lazy { DictationPanel(this) }
 
     /** Dernière appli au premier plan (hors écran de dictée, Claude, barre système, clavier). */
     private var foreground: String? = null
@@ -73,7 +75,7 @@ class DictationService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
-        if (pkg == packageName && event.className == DictationActivity::class.java.name) return
+        if (pkg == packageName && event.className in DICTATION_SCREENS) return
         if (pkg == "com.android.systemui" || pkg in keyboards()) return
         claudeOnTop = pkg == ClaudeDictation.CLAUDE_PACKAGE
         if (!claudeOnTop) foreground = pkg
@@ -94,6 +96,7 @@ class DictationService : AccessibilityService() {
     private fun clear() {
         if (instance === this) instance = null
         handler.removeCallbacksAndMessages(null)
+        if (panel.isShowing) panel.close()
         removeBubble()
         scope.cancel()
     }
@@ -109,7 +112,17 @@ class DictationService : AccessibilityService() {
         origin = if (claudeOnTop) null else foreground
     }
 
-    /** Pendant l'écran de dictée, la bulle s'efface. */
+    /** Ouvre le panneau flottant (le service « micro » doit déjà tourner). */
+    fun showPanel() {
+        setBubbleHidden(true)
+        panel.show()
+    }
+
+    fun closePanel() {
+        if (panel.isShowing) panel.close()
+    }
+
+    /** Pendant la dictée, la bulle s'efface. */
     fun setBubbleHidden(hidden: Boolean) {
         bubbleHidden = hidden
         bubble?.visibility = if (hidden) View.GONE else View.VISIBLE
@@ -299,6 +312,7 @@ class DictationService : AccessibilityService() {
         private const val BUBBLE_PREFS = "nimbus_dictation_bubble"
         /** Bleu nuit de l'icône Nimbus. */
         private const val BUBBLE_COLOR = 0xFF5B7FD6.toInt()
+        private val DICTATION_SCREENS = setOf(DictationActivity::class.java.name, DictationStarterActivity::class.java.name)
         private val SEND_LABEL = Regex("(?i)\\b(send|envoyer|envoi)")
     }
 }

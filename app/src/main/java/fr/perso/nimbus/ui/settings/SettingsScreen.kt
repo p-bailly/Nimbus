@@ -408,7 +408,8 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                 item {
                     Text(
                         "Parlez depuis n'importe quelle appli : Nimbus transcrit, ouvre la conversation Claude " +
-                            "(par exemple une session Claude Code), y écrit le texte et l'envoie.",
+                            "(par exemple une session Claude Code), y écrit le texte et l'envoie. Avec le service activé, " +
+                            "la dictée s'ouvre dans un panneau flottant : vous pouvez changer d'appli pendant que vous parlez.",
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),

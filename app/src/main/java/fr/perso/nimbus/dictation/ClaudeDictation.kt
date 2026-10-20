@@ -19,14 +19,19 @@ object ClaudeDictation {
 
     const val CLAUDE_PACKAGE = "com.anthropic.claude"
 
-    /** Ouvre l'écran de dictée par-dessus l'appli en cours. */
+    /**
+     * Ouvre la dictée par-dessus l'appli en cours : panneau flottant (on peut changer d'appli
+     * en dictant) si le service d'accessibilité est activé, sinon écran de dictée.
+     */
     fun start(context: Context) {
         DictationService.instance?.captureOrigin()
         context.startActivity(intent(context))
     }
 
-    fun intent(context: Context): Intent =
-        Intent(context, DictationActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun intent(context: Context): Intent {
+        val screen = if (DictationService.isEnabled) DictationStarterActivity::class.java else DictationActivity::class.java
+        return Intent(context, screen).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
 
     /** Envoie [text] dans la conversation Claude ; repli : texte copié, à coller. */
     fun send(context: Context, text: String) {

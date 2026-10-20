@@ -13,6 +13,8 @@
         tools:ignore="ScopedStorage" />
     <!-- Dictée vers Claude -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- Ouvrir le volet de notifications par geste -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
     <!-- Désinstaller une app depuis l'appui long -->
@@ -60,6 +62,21 @@
             android:taskAffinity="fr.perso.nimbus.dictation"
             android:theme="@style/Theme.Nimbus.Dictation"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- Démarre le service « micro » puis ouvre le panneau flottant ; invisible -->
+        <activity
+            android:name=".dictation.DictationStarterActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity="fr.perso.nimbus.dictation"
+            android:theme="@style/Theme.Nimbus.Invisible" />
+
+        <!-- Micro pendant que le panneau de dictée est ouvert -->
+        <service
+            android:name=".service.DictationMicService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
         <!-- Bulle de dictée et envoi dans l'appli Claude -->
         <service
