@@ -163,6 +163,8 @@ data class LauncherSettings(
     /** Bulle micro flottante par-dessus les applis (service d'accessibilité requis). */
     val dictationBubble: Boolean = false,
     val dictationConfirm: Boolean = true,
+    /** Dictée copiée dans le presse-papiers, sans rien envoyer à Claude. */
+    val dictationCopyOnly: Boolean = false,
     /** Après l'envoi, revenir à l'appli d'où l'on a dicté. */
     val dictationReturn: Boolean = true,
     val doubleTapAction: GestureAction = GestureAction.LOCK,

@@ -471,6 +471,13 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                 }
                 item {
                     SettingsEntry(
+                        R.drawable.ms_content_copy, SettingsColors.Purple, "Copier seulement",
+                        "Ne rien envoyer à Claude : le texte est copié, à coller où vous voulez",
+                        checked = settings.dictationCopyOnly,
+                    ) { update { it.copy(dictationCopyOnly = !it.dictationCopyOnly) } }
+                }
+                item {
+                    SettingsEntry(
                         R.drawable.ms_info, SettingsColors.Purple, "Confirmer avant d'envoyer",
                         "Relire et corriger la transcription",
                         checked = settings.dictationConfirm,

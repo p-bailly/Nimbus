@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -88,10 +89,12 @@ class DictationActivity : ComponentActivity() {
                     partial = partial,
                     listening = listening,
                     message = message,
-                    target = "Vers : " + settings.claudeTargetName,
+                    target = if (settings.dictationCopyOnly) "Le texte sera copié, à coller où vous voulez" else "Vers : " + settings.claudeTargetName,
+                    sendLabel = if (settings.dictationCopyOnly) "Copier" else "Envoyer",
                     onTextChange = { text = it },
                     onMic = { if (listening) recognizer?.stopListening() else startListening() },
                     onSend = ::send,
+                    onCopy = if (settings.dictationCopyOnly) null else ::copy,
                     onCancel = ::finish,
                 )
             }
@@ -184,11 +187,21 @@ class DictationActivity : ComponentActivity() {
         }
     }
 
+    /** Bouton principal : envoyer à Claude, ou copier en mode « Copier seulement ». */
     private fun send() {
         val t = text.trim()
         if (t.isEmpty()) return
         recognizer?.cancel()
-        ClaudeDictation.send(applicationContext, t)
+        if (Prefs.get(this).settings.value.dictationCopyOnly) ClaudeDictation.copyText(applicationContext, t)
+        else ClaudeDictation.send(applicationContext, t)
+        finish()
+    }
+
+    private fun copy() {
+        val t = text.trim()
+        if (t.isEmpty()) return
+        recognizer?.cancel()
+        ClaudeDictation.copyText(applicationContext, t)
         finish()
     }
 }
@@ -200,9 +213,11 @@ private fun DictationScreen(
     listening: Boolean,
     message: String?,
     target: String,
+    sendLabel: String,
     onTextChange: (String) -> Unit,
     onMic: () -> Unit,
     onSend: () -> Unit,
+    onCopy: (() -> Unit)?,
     onCancel: () -> Unit,
 ) {
     Box(
@@ -255,9 +270,16 @@ private fun DictationScreen(
                 }
                 Spacer(Modifier.size(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    TextButton(onClick = onCancel) { Text("Annuler") }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = onCancel) { Text("Annuler") }
+                        if (onCopy != null) {
+                            IconButton(onClick = onCopy, enabled = text.isNotBlank() && !listening) {
+                                Icon(painterResource(R.drawable.ms_content_copy), contentDescription = "Copier le texte")
+                            }
+                        }
+                    }
                     MicButton(listening, onMic)
-                    Button(onClick = onSend, enabled = text.isNotBlank() && !listening) { Text("Envoyer") }
+                    Button(onClick = onSend, enabled = text.isNotBlank() && !listening) { Text(sendLabel) }
                 }
             }
         }

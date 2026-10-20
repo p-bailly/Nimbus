@@ -72,6 +72,12 @@ object ClaudeDictation {
         }
     }
 
+    /** Copie la dictée pour la coller soi-même, où l'on veut. */
+    fun copyText(context: Context, text: String) {
+        copy(context, text)
+        SystemActions.toast(context, "Texte copié : collez-le où vous voulez")
+    }
+
     fun copy(context: Context, text: String) {
         val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
         clipboard.setPrimaryClip(ClipData.newPlainText("Dictée", text))

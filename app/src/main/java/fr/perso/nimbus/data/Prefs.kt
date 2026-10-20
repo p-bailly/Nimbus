@@ -95,6 +95,7 @@ class Prefs private constructor(context: Context) {
         )
         e.putBoolean("dictationBubble", s.dictationBubble)
         e.putBoolean("dictationConfirm", s.dictationConfirm)
+        e.putBoolean("dictationCopyOnly", s.dictationCopyOnly)
         e.putBoolean("dictationReturn", s.dictationReturn)
         e.putString("doubleTapAction", s.doubleTapAction.name)
         e.putString("swipeUpAction", s.swipeUpAction.name)
@@ -139,6 +140,7 @@ class Prefs private constructor(context: Context) {
             claudeSessions = readClaudeSessions(),
             dictationBubble = sp.getBoolean("dictationBubble", d.dictationBubble),
             dictationConfirm = sp.getBoolean("dictationConfirm", d.dictationConfirm),
+            dictationCopyOnly = sp.getBoolean("dictationCopyOnly", d.dictationCopyOnly),
             dictationReturn = sp.getBoolean("dictationReturn", d.dictationReturn),
             doubleTapAction = enumPref("doubleTapAction", d.doubleTapAction),
             swipeUpAction = enumPref("swipeUpAction", d.swipeUpAction),

@@ -134,7 +134,7 @@ class DictationPanel(private val service: DictationService) {
             base = join(base, heard)
             field.setText(base)
             setListening(false, if (base.isEmpty()) "Je n'ai rien entendu" else IDLE)
-            if (heard.isNotBlank() && !Prefs.get(service).settings.value.dictationConfirm) sendNow()
+            if (heard.isNotBlank() && !Prefs.get(service).settings.value.dictationConfirm) primaryAction()
         }
 
         override fun onError(error: Int) {
@@ -161,6 +161,19 @@ class DictationPanel(private val service: DictationService) {
         mic.contentDescription = if (on) "Arrêter l'écoute" else "Parler"
         send.isEnabled = !on
         send.alpha = if (on) 0.5f else 1f
+    }
+
+    private val copyOnly: Boolean get() = Prefs.get(service).settings.value.dictationCopyOnly
+
+    /** Bouton principal : envoyer à Claude, ou copier en mode « Copier seulement ». */
+    private fun primaryAction() = if (copyOnly) copyNow() else sendNow()
+
+    private fun copyNow() {
+        val text = field.text.toString().trim()
+        if (text.isEmpty()) return
+        recognizer?.cancel()
+        close()
+        ClaudeDictation.copyText(service, text)
     }
 
     private fun sendNow() {
@@ -253,6 +266,7 @@ class DictationPanel(private val service: DictationService) {
             setOnClickListener { toggleChoices() }
         }
         card.addView(target)
+        if (copyOnly) target.visibility = View.GONE
         choices = LinearLayout(service).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
@@ -305,7 +319,11 @@ class DictationPanel(private val service: DictationService) {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        actions.addView(
+        val left = LinearLayout(service).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        left.addView(
             TextView(service).apply {
                 text = "Effacer"
                 setTextColor(MUTED_COLOR)
@@ -318,8 +336,21 @@ class DictationPanel(private val service: DictationService) {
                     setListening(false, IDLE)
                 }
             },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
+        // Copier sans envoyer (en mode « Copier seulement », c'est le bouton principal).
+        if (!copyOnly) {
+            left.addView(
+                ImageView(service).apply {
+                    setImageResource(R.drawable.ms_content_copy)
+                    setColorFilter(MUTED_COLOR)
+                    contentDescription = "Copier le texte"
+                    setPadding(dp(8), dp(8), dp(8), dp(8))
+                    setOnClickListener { copyNow() }
+                },
+                LinearLayout.LayoutParams(dp(40), dp(40)),
+            )
+        }
+        actions.addView(left, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         mic = FrameLayout(service).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
@@ -337,7 +368,7 @@ class DictationPanel(private val service: DictationService) {
         actions.addView(mic, LinearLayout.LayoutParams(dp(56), dp(56)))
         val sendBox = FrameLayout(service)
         send = TextView(service).apply {
-            text = "Envoyer"
+            text = if (copyOnly) "Copier" else "Envoyer"
             setTextColor(TEXT_COLOR)
             textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
@@ -346,7 +377,7 @@ class DictationPanel(private val service: DictationService) {
                 cornerRadius = dp(20).toFloat()
                 setColor(ACCENT)
             }
-            setOnClickListener { sendNow() }
+            setOnClickListener { primaryAction() }
         }
         sendBox.addView(send, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.CENTER_VERTICAL))
         actions.addView(sendBox, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
