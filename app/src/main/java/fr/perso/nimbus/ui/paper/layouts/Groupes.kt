@@ -43,8 +43,8 @@ import fr.perso.nimbus.ui.paper.tex
 import kotlin.math.hypot
 
 // Page « Groupes » : les Échanges (ℤ/6ℤ) se projettent sur les Trajets (ℤ/3ℤ) par φ, en diagramme
-// sagittal ; puis l'Écran forme D₃, les Jeux ℤ/3ℤ et les Outils ℤ/3ℤ × ℤ/3ℤ, et trois exercices
-// se calculent avec les logos.
+// sagittal ; puis l'Écran forme D₃, les Jeux ℤ/3ℤ et les Outils ℤ/3ℤ × ℤ/3ℤ. Les exercices qui
+// finissaient la page sont dans design/exercices-accueils.md : la place a servi à agrandir les logos.
 
 private val Blue = PaperFamily.ECHANGES.color
 private val Green = PaperFamily.TRAJETS.color
@@ -54,8 +54,12 @@ private val Violet = PaperFamily.OUTILS.color
 
 /** Abscisses des trois fibres de φ, ordonnées de ℤ/6ℤ (haut) et de ℤ/3ℤ (bas). */
 private val FibreX = floatArrayOf(86f, 206f, 326f)
-private const val TOP_Y = 258f
-private const val BOTTOM_Y = 364f
+private const val TOP_Y = 270f
+private const val BOTTOM_Y = 392f
+
+/** Pastilles de la section 1, et demi-écart des deux pastilles d'une fibre. */
+private const val MORPH_DISC = 48f
+private const val PAIR = 27f
 
 /** Échanges dans l'ordre des classes 0 à 5 de ℤ/6ℤ. */
 private val Echanges = listOf(
@@ -74,14 +78,13 @@ fun GroupesPage() {
         Dihedral()
         Cyclic()
         Product()
-        Exercises()
     }
 }
 
 // ---------------------------------------------------------------- 1. φ : ℤ/6ℤ → ℤ/3ℤ
 
 /** Abscisse de la pastille de rang [i] de la rangée du haut (classe k = FibreOrder[i]). */
-private fun topX(i: Int): Float = FibreX[FibreOrder[i] % 3] + if (i % 2 == 1) 22f else -22f
+private fun topX(i: Int): Float = FibreX[FibreOrder[i] % 3] + if (i % 2 == 1) PAIR else -PAIR
 
 @Composable
 private fun Morphism() {
@@ -111,9 +114,9 @@ private fun Morphism() {
         for (i in FibreOrder.indices) {
             val t = FibreOrder[i] % 3
             val x1 = topX(i)
-            val y1 = TOP_Y + 22f
-            val x2 = FibreX[t] + if (i % 2 == 1) 6f else -6f
-            val y2 = BOTTOM_Y - 22f
+            val y1 = TOP_Y + MORPH_DISC / 2f + 4f
+            val x2 = FibreX[t] + if (i % 2 == 1) 7f else -7f
+            val y2 = BOTTOM_Y - MORPH_DISC / 2f - 4f
             val length = hypot(x2 - x1, y2 - y1)
             val ux = (x2 - x1) / length
             val uy = (y2 - y1) / length
@@ -128,9 +131,9 @@ private fun Morphism() {
             }
             drawPath(head, ink)
         }
-        val left = FibreX[0] - 22f
-        val right = FibreX[0] + 22f
-        val r = 23f
+        val left = FibreX[0] - PAIR
+        val right = FibreX[0] + PAIR
+        val r = MORPH_DISC / 2f + 5f
         val kernel = Path().apply {
             moveTo(left * u, (TOP_Y - r) * u)
             lineTo(right * u, (TOP_Y - r) * u)
@@ -145,18 +148,18 @@ private fun Morphism() {
             style = Stroke(width = u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f * u, 3f * u))),
         )
     }
-    Text("φ", style = Paper.text(17f, 18f).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center), modifier = Modifier.at(366, 302).width(20.dp))
+    Text("φ", style = Paper.text(17f, 18f).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center), modifier = Modifier.at(370f, (TOP_Y + BOTTOM_Y) / 2f - 9f).width(20.dp))
 
     val number = Paper.text(13f, 16f).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center)
     for (i in FibreOrder.indices) {
         val k = FibreOrder[i]
         val x = topX(i)
-        Text("$k", style = number.copy(color = Blue), modifier = Modifier.at(x - 8f, TOP_Y - 44f).width(16.dp))
-        SlotDisc(Echanges[k], x, TOP_Y, 36f, glyphScale = 17f / 36f)
+        Text("$k", style = number.copy(color = Blue), modifier = Modifier.at(x - 8f, TOP_Y - MORPH_DISC / 2f - 22f).width(16.dp))
+        SlotDisc(Echanges[k], x, TOP_Y, MORPH_DISC, glyphScale = 17f / 36f)
     }
     listOf(PaperSlot.WAZE, PaperSlot.MAPS, PaperSlot.METEO).forEachIndexed { t, slot ->
-        Text("$t", style = number.copy(color = Green), modifier = Modifier.at(FibreX[t] + 24f, BOTTOM_Y - 8f).width(16.dp))
-        SlotDisc(slot, FibreX[t], BOTTOM_Y, 36f, glyphScale = 17f / 36f)
+        Text("$t", style = number.copy(color = Green), modifier = Modifier.at(FibreX[t] + MORPH_DISC / 2f + 6f, BOTTOM_Y - 8f).width(16.dp))
+        SlotDisc(slot, FibreX[t], BOTTOM_Y, MORPH_DISC, glyphScale = 17f / 36f)
     }
 }
 
@@ -204,12 +207,12 @@ private fun Definition() {
 private fun Proposition() {
     val line = Paper.text(14f, 20f)
     Column(
-        Modifier.at(22, 418).width(368.dp),
+        Modifier.at(22, 440).width(368.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(
-            Modifier.height(20.dp),
+            Modifier.height(26.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
@@ -217,9 +220,9 @@ private fun Proposition() {
             Text("ker", style = line)
             Text("φ", style = line.copy(fontStyle = FontStyle.Italic))
             Text("= {0, 3} = {", style = line)
-            SlotDisc(PaperSlot.WHATSAPP, 10f, 10f, 20f, glyphScale = 11f / 20f)
+            SlotDisc(PaperSlot.WHATSAPP, 13f, 13f, 26f, glyphScale = 11f / 20f)
             Text(",", style = line)
-            SlotDisc(PaperSlot.REDDIT, 10f, 10f, 20f, glyphScale = 11f / 20f)
+            SlotDisc(PaperSlot.REDDIT, 13f, 13f, 26f, glyphScale = 11f / 20f)
             Text("}", style = line)
         }
         Text(
@@ -265,11 +268,13 @@ private fun RowScope.Subscript(text: String, size: Float, parent: Float, color: 
 /** Titres de section : gras 15 sur 18. */
 private fun heading(color: Color): TextStyle = Paper.text(15f, 18f, color).copy(fontWeight = FontWeight.Bold)
 
-/** Pastille de 34 unités des sections 2 à 4 (cerclée : motif de la couleur sur fond blanc). */
+/** Pastille de 48 unités des sections 2 à 4 (cerclée : motif de la couleur sur fond blanc). */
 @Composable
 private fun Element(slot: PaperSlot, cx: Float, cy: Float, color: Color, ring: Boolean = false) {
-    SlotDisc(slot, cx, cy, 34f, style = if (ring) DiscStyle.RING else DiscStyle.FILL, color = color, glyphScale = 16f / 34f)
+    SlotDisc(slot, cx, cy, ELEMENT, style = if (ring) DiscStyle.RING else DiscStyle.FILL, color = color, glyphScale = 16f / 34f)
 }
+
+private const val ELEMENT = 48f
 
 /** Petit numéro en italique centré en ([cx], [cy]). */
 @Composable
@@ -284,9 +289,9 @@ private fun Tag(value: Int, cx: Float, cy: Float, color: Color, width: Float = 4
 /** Écran ≅ D₃ = {e, r, r², s, sr, sr²} : rotations en pastilles pleines, symétries cerclées. */
 @Composable
 private fun Dihedral() {
-    Heading("2  Écran", "≅ D", Pink, 22f, 488f, index = "3")
+    Heading("2  Écran", "≅ D", Pink, 22f, 516f, index = "3")
     val line = Paper.text(14.5f, 20f, Pink)
-    Row(Modifier.at(22, 514)) {
+    Row(Modifier.at(22, 542)) {
         Text("D", style = line, modifier = Modifier.alignByBaseline())
         Subscript("3", 9.5f, 14.5f, Pink)
         Text(
@@ -303,24 +308,30 @@ private fun Dihedral() {
             modifier = Modifier.alignByBaseline(),
         )
     }
+    // Six pastilles de 48, espacées de 52 : la virgule tient dans l'écart, l'accolade avant la marge.
+    val cy = 600f
     val sign = Paper.text(16f, 24f, Pink)
-    Text("= {", style = sign, modifier = Modifier.at(44, 548))
+    Text("= {", style = sign, modifier = Modifier.at(22f, cy - 12f))
     val d3 = listOf(PaperSlot.YOUTUBE, PaperSlot.TWITCH, PaperSlot.STREMIO, PaperSlot.SPOTIFY, PaperSlot.CAMERA, PaperSlot.PHOTOS)
     d3.forEachIndexed { m, slot ->
-        Element(slot, 92f + 42f * m, 560f, Pink, ring = m >= 3)
-        if (m < d3.lastIndex) Text(",", style = Paper.text(16f, 16f, Pink), modifier = Modifier.at(110f + 42f * m, 564f))
+        Element(slot, 76f + 52f * m, cy, Pink, ring = m >= 3)
+        if (m < d3.lastIndex) Text(",", style = Paper.text(16f, 16f, Pink), modifier = Modifier.at(100f + 52f * m, cy + 8f))
     }
-    Text("}", style = sign, modifier = Modifier.at(322, 548))
+    Text("}", style = sign, modifier = Modifier.at(364f, cy - 12f))
 }
+
+/** Titres des sections 3 et 4, et rangées des pastilles (les Jeux sur la première). */
+private const val SECTION_Y = 646f
+private val GridY = floatArrayOf(SECTION_Y + 66f, SECTION_Y + 122f, SECTION_Y + 178f)
 
 /** Jeux & perso ≅ ℤ/3ℤ. */
 @Composable
 private fun Cyclic() {
-    Heading("3  Jeux & perso", "≅ ℤ/3ℤ", Amber, 22f, 596f)
+    Heading("3  Jeux & perso", "≅ ℤ/3ℤ", Amber, 22f, SECTION_Y)
     listOf(PaperSlot.LICHESS, PaperSlot.BASKET, PaperSlot.PIR).forEachIndexed { i, slot ->
-        val cx = 39f + 44f * i
-        Element(slot, cx, 652f, Amber)
-        Tag(i, cx, 678f, Amber)
+        val cx = 46f + 56f * i
+        Element(slot, cx, GridY[0], Amber)
+        Tag(i, cx, GridY[0] + ELEMENT / 2f + 10f, Amber)
     }
 }
 
@@ -329,9 +340,10 @@ private fun Cyclic() {
 private fun Product() {
     // 208 et non 204 comme la maquette : à 204, le « 4 » touche le « ℤ/3ℤ » du titre des Jeux ; 208
     // laisse une espace et finit encore dans la marge (390).
-    Heading("4  Outils", "≅ ℤ/3ℤ × ℤ/3ℤ", Violet, 208f, 596f)
-    val gx = floatArrayOf(262f, 302f, 342f)
-    val gy = floatArrayOf(652f, 692f, 732f)
+    Heading("4  Outils", "≅ ℤ/3ℤ × ℤ/3ℤ", Violet, 208f, SECTION_Y)
+    // Colonnes calées sur la marge de droite (366 + 24 = 390), espacées de 56.
+    val gx = floatArrayOf(254f, 310f, 366f)
+    val gy = GridY
     val tools = listOf(
         PaperSlot.CLAUDE, PaperSlot.GITHUB, PaperSlot.DRIVE,
         PaperSlot.FICHIERS, PaperSlot.AUTHENTICATOR, PaperSlot.BANQUE,
@@ -339,51 +351,7 @@ private fun Product() {
     )
     tools.forEachIndexed { n, slot -> Element(slot, gx[n % 3], gy[n / 3], Violet) }
     for (v in 0..2) {
-        Tag(v, gx[v], 623f, Violet, 16f)
-        Tag(v, 230f, gy[v], Violet, 16f)
-    }
-}
-
-// ---------------------------------------------------------------- 5. Exercices
-
-@Composable
-private fun Exercises() {
-    Text("5  Exercices", style = heading(Paper.Ink), modifier = Modifier.at(22, 762))
-    Column(Modifier.at(22, 784), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        // s · r = sr. L'indice de « D₃ » rehausse cette ligne : la fin s'y cale en haut.
-        Exercise("a)", Modifier.height(30.18.dp)) {
-            SlotDisc(PaperSlot.SPOTIFY, 12f, 12f, 24f, style = DiscStyle.RING, glyphScale = 13f / 24f)
-            Text("·", style = Paper.text(16f, 24f, Pink))
-            SlotDisc(PaperSlot.TWITCH, 12f, 12f, 24f, glyphScale = 13f / 24f)
-            Row(Modifier.align(Alignment.Top)) {
-                Text("dans D", style = Paper.text(16f, 24f), modifier = Modifier.alignByBaseline())
-                Subscript("3", 10f, 16f, Paper.Ink)
-                Text(".", style = Paper.text(16f, 24f), modifier = Modifier.alignByBaseline())
-            }
-        }
-        // 1 + 2 = 0.
-        Exercise("b)") {
-            SlotDisc(PaperSlot.BASKET, 12f, 12f, 24f, glyphScale = 13f / 24f)
-            Text("+", style = Paper.text(16f, 24f, Amber))
-            SlotDisc(PaperSlot.PIR, 12f, 12f, 24f, glyphScale = 13f / 24f)
-            Text("dans ℤ/3ℤ.", style = Paper.text(16f, 24f))
-        }
-        // (2, 1) + (0, 2) = (2, 0).
-        Exercise("c)") {
-            SlotDisc(PaperSlot.BANQUE, 12f, 12f, 24f, glyphScale = 13f / 24f)
-            Text("+", style = Paper.text(16f, 24f, Violet))
-            SlotDisc(PaperSlot.PLAY, 12f, 12f, 24f, glyphScale = 13f / 24f)
-            Text("dans ℤ/3ℤ × ℤ/3ℤ.", style = Paper.text(16f, 24f))
-        }
-    }
-}
-
-/** Ligne d'exercice : « a) Calculer », puis l'opération écrite avec deux pastilles de 24 unités. */
-@Composable
-private fun Exercise(label: String, modifier: Modifier = Modifier.height(24.dp), content: @Composable RowScope.() -> Unit) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        Text(label, style = Paper.text(14f, 24f).copy(fontStyle = FontStyle.Italic), modifier = Modifier.padding(end = 2.dp))
-        Text("Calculer", style = Paper.text(16f, 24f))
-        content()
+        Tag(v, gx[v], SECTION_Y + 30f, Violet, 16f)
+        Tag(v, 220f, gy[v], Violet, 16f)
     }
 }

@@ -392,6 +392,12 @@ enum class DiscStyle {
 }
 
 /**
+ * Carré du motif d'un logo au crayon, rapporté au disque : son image (agrandie de
+ * [fr.perso.nimbus.ui.components.CRAYON_LOGO_SCALE]) en couvre 70 %, sans toucher le cercle.
+ */
+const val LOGO_FILL = 0.58f
+
+/**
  * Pastille ronde d'une place, centrée en ([cx], [cy]), de [size] unités de diamètre. Sans app, la
  * pastille est en pointillés avec l'initiale de la place : un appui permet de choisir l'app.
  */
@@ -450,7 +456,9 @@ fun SlotDisc(
                     overflow = TextOverflow.Visible,
                 )
             } else {
-                SlotGlyph(slot, size * glyphScale, glyphColor ?: if (style == DiscStyle.FILL) Color.White else color, own = own)
+                // Un logo au crayon remplit son disque, quel que soit le motif prévu pour la place.
+                val glyph = if (logo != null) size * LOGO_FILL else size * glyphScale
+                SlotGlyph(slot, glyph, glyphColor ?: if (style == DiscStyle.FILL) Color.White else color, own = own)
             }
         }
         if (badge > 0) {

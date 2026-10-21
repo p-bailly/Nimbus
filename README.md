@@ -54,7 +54,10 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   pas et laissent le « Ω » libre. Appui long sur le fond › « Sites d'origine » pour tout remettre.
 - Les 50 applis qui ont un logo au crayon (`design/logos-crayon/`, voir `CrayonLogos.kt`) le montrent
   sur un disque blanc cerclé de leur famille, sur toutes les pages d'accueil papier, dans la figure de
-  la table des matières et dans les pastilles du tiroir ; il passe devant le motif choisi.
+  la table des matières et dans les pastilles du tiroir ; il passe devant le motif choisi. Sur les
+  accueils, le logo remplit son disque, et les disques ont grandi (de 35 à 50 % environ) à la place
+  des exercices qui finissaient chaque page, gardés avec leurs réponses dans
+  `design/exercices-accueils.md`.
 - Les autres applis sont dessinées avec leur silhouette monochrome (calque des icônes à thème du Pixel,
   sinon premier plan de l'icône, sinon l'initiale), à la couleur propre de l'appli comme dans le
   sommaire, dans une pastille qui garde la couleur de sa famille (cercle, triangle de Sierpiński) ;

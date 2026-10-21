@@ -30,7 +30,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -49,7 +48,8 @@ import fr.perso.nimbus.ui.paper.tex
 import fr.perso.nimbus.ui.theme.PaperColors
 
 // Page 3 : les applis réparties dans un diagramme de Venn (sociales S, médias M, utiles U),
-// puis la formule du crible qui les dénombre.
+// puis la formule du crible qui les dénombre. L'exercice qui finissait la page est dans
+// design/exercices-accueils.md : la figure a pris sa place, pour des logos plus grands.
 
 // La figure est tracée dans son propre repère puis réduite, comme dans la maquette :
 // translate(10,3 ; 20) scale(0,95) depuis le coin haut gauche.
@@ -72,53 +72,53 @@ private const val NORMAL = 1.385f
 private class VennSet(val cx: Float, val cy: Float, val r: Float, val color: Color)
 
 private val Sets = listOf(
-    VennSet(146f, 322f, 130f, InkS),
-    VennSet(266f, 322f, 130f, InkM),
-    VennSet(206f, 478f, 158f, InkU),
+    VennSet(142f, 330f, 128f, InkS),
+    VennSet(270f, 330f, 128f, InkM),
+    VennSet(206f, 506f, 170f, InkU),
 )
 
-/** Pastilles : 42 unités cerclées de 1,2 (anneau extérieur), motif de 20, avant réduction. */
-private const val DISC = 42f
+/** Pastilles : 47 unités cerclées de 1,2 (anneau extérieur), motif de 20, avant réduction. */
+private const val DISC = 47f
 private const val DISC_RING = 1.2f
 private const val DISC_GLYPH = 20f
 
 /**
- * Centres des pastilles dans le repère de la figure (recherche sous contraintes de la maquette :
- * chaque pastille reste à 5 unités au moins de tout cercle, centres à 50 unités au moins).
+ * Centres des pastilles dans le repère de la figure (recherche sous contraintes : la plus grande
+ * pastille qui tienne, chacune à 3 unités au moins de tout cercle et des noms, centres à 56 au moins).
  */
 private val Discs: List<Triple<PaperSlot, Float, Float>> = listOf(
     // S ∩ M ∩ U
-    Triple(PaperSlot.WHATSAPP, 206f, 352f),
+    Triple(PaperSlot.WHATSAPP, 206f, 371f),
     // S ∩ M, S ∩ U, M ∩ U
-    Triple(PaperSlot.YOUTUBE, 212f, 252f),
-    Triple(PaperSlot.REDDIT, 165f, 298f),
+    Triple(PaperSlot.YOUTUBE, 209f, 256f),
+    Triple(PaperSlot.REDDIT, 176f, 303f),
     Triple(PaperSlot.GMAIL, 116f, 404f),
-    Triple(PaperSlot.PHOTOS, 314f, 405f),
-    Triple(PaperSlot.DRIVE, 266f, 424f),
+    Triple(PaperSlot.PHOTOS, 317f, 418f),
+    Triple(PaperSlot.DRIVE, 262f, 430f),
     // S seulement
-    Triple(PaperSlot.MESSAGES, 47f, 312f),
-    Triple(PaperSlot.TELEPHONE, 96f, 293f),
-    Triple(PaperSlot.DISCORD, 139f, 223f),
+    Triple(PaperSlot.MESSAGES, 45f, 313f),
+    Triple(PaperSlot.TELEPHONE, 98f, 292f),
+    Triple(PaperSlot.DISCORD, 139f, 231f),
     // M seulement
-    Triple(PaperSlot.STREMIO, 347f, 256f),
-    Triple(PaperSlot.SPOTIFY, 302f, 297f),
+    Triple(PaperSlot.STREMIO, 342f, 261f),
+    Triple(PaperSlot.SPOTIFY, 298f, 301f),
     Triple(PaperSlot.CAMERA, 351f, 348f),
-    Triple(PaperSlot.TWITCH, 274f, 225f),
+    Triple(PaperSlot.TWITCH, 274f, 231f),
     // U seulement
-    Triple(PaperSlot.CLAUDE, 207f, 526f),
-    Triple(PaperSlot.GITHUB, 281f, 495f),
-    Triple(PaperSlot.FICHIERS, 202f, 581f),
-    Triple(PaperSlot.AUTHENTICATOR, 269f, 566f),
-    Triple(PaperSlot.BANQUE, 122f, 489f),
+    Triple(PaperSlot.CLAUDE, 208f, 532f),
+    Triple(PaperSlot.GITHUB, 279f, 495f),
+    Triple(PaperSlot.FICHIERS, 201f, 590f),
+    Triple(PaperSlot.AUTHENTICATOR, 267f, 567f),
+    Triple(PaperSlot.BANQUE, 124f, 487f),
     Triple(PaperSlot.PLAY, 143f, 557f),
-    Triple(PaperSlot.AMAZON, 205f, 470f),
-    Triple(PaperSlot.PRONOTE, 334f, 494f),
-    Triple(PaperSlot.MAPS, 89f, 530f),
-    Triple(PaperSlot.WAZE, 318f, 545f),
-    Triple(PaperSlot.METEO, 75f, 461f),
+    Triple(PaperSlot.AMAZON, 206f, 474f),
+    Triple(PaperSlot.PRONOTE, 337f, 492f),
+    Triple(PaperSlot.MAPS, 88f, 532f),
+    Triple(PaperSlot.WAZE, 320f, 546f),
+    Triple(PaperSlot.METEO, 70f, 471f),
     // Hors de S ∪ M ∪ U
-    Triple(PaperSlot.LICHESS, 356f, 622f),
-    Triple(PaperSlot.BASKET, 259f, 666f),
+    Triple(PaperSlot.LICHESS, 365f, 629f),
+    Triple(PaperSlot.BASKET, 269f, 698f),
     Triple(PaperSlot.PIR, 109f, 707f),
 )
 
@@ -142,31 +142,22 @@ fun EnsemblesPage() {
                 +" – Les applis sociales "; it("S"); +", médias "; it("M"); +" et utiles "; it("U"); +"."
             },
             style = Paper.caption,
-            modifier = Modifier.at(22, 728).width(368.dp),
+            modifier = Modifier.at(22, 778).width(368.dp),
         )
 
         Text(
             tex { bf("Proposition"); +" (crible)"; bf(".") },
             style = Paper.body,
-            modifier = Modifier.at(22, 754),
+            modifier = Modifier.at(22, 804),
         )
         // Colonne de la maquette, écarts de 6 : dans le navigateur, les italiques portent chaque
-        // rangée de formule à 21 unités (754 + 20 + 6, puis + 21 + 6, puis + 21 + 6 + 6).
-        Equation(1, 780f) {
+        // rangée de formule à 21 unités (804 + 20 + 6, puis + 21 + 6).
+        Equation(1, 830f) {
             +"|"; it("S"); +" ∪ "; it("M"); +" ∪ "; it("U"); +"| = 7 + 9 + 15 − 3 − 2 − 3 + 1 = 24"
         }
-        Equation(2, 807f) {
+        Equation(2, 857f) {
             +"|"; it("A"); +" ∖ ("; it("S"); +" ∪ "; it("M"); +" ∪ "; it("U"); +")| = 27 − 24 = 3"
         }
-        Text(
-            tex {
-                bf("Exercice.")
-                +" Déterminer le nombre d'applis qui sont dans un seul des ensembles "
-                it("S"); +", "; it("M"); +", "; it("U"); +"."
-            },
-            style = Paper.body.copy(lineBreak = LineBreak.Simple),
-            modifier = Modifier.at(22, 840).width(368.dp),
-        )
     }
 }
 
@@ -199,8 +190,8 @@ private fun VennFigure() {
             scale(FIG_SCALE, pivot = Offset.Zero) {
                 drawRoundRect(
                     color = PaperColors.Ink,
-                    topLeft = Offset(14f * u, 160f * u),
-                    size = Size(384f * u, 576f * u),
+                    topLeft = Offset(FRAME_X0 * u, FRAME_Y0 * u),
+                    size = Size((FRAME_X1 - FRAME_X0) * u, (FRAME_Y1 - FRAME_Y0) * u),
                     cornerRadius = CornerRadius(16f * u),
                     style = Stroke(1f * u),
                 )
@@ -221,11 +212,11 @@ private fun VennFigure() {
         "M", "médias", InkM, label.copy(textAlign = TextAlign.End),
         Modifier.at(0, fy(170f)).width(fx(386f).dp),
     )
-    SetLabel("U", "utiles", InkU, label, Modifier.at(fx(302f), fy(650f)))
+    SetLabel("U", "utiles", InkU, label, Modifier.at(fx(310f), fy(690f)))
     Text(
         "A ∖ (S ∪ M ∪ U)",
         style = Paper.text(13f * FIG_SCALE, 13f * NORMAL * FIG_SCALE).copy(fontStyle = FontStyle.Italic),
-        modifier = Modifier.at(fx(150f), fy(708f)),
+        modifier = Modifier.at(fx(150f), fy(760f)),
     )
 
     // Pastilles à leur place, ou là où l'utilisateur les a posées (appui long puis glisser).
@@ -268,10 +259,10 @@ private fun VennFigure() {
 private const val FRAME_X0 = 14f
 private const val FRAME_Y0 = 160f
 private const val FRAME_X1 = 398f
-private const val FRAME_Y1 = 736f
+private const val FRAME_Y1 = 788f
 
 /** Écart minimal entre deux centres de pastilles (repère de la figure). */
-private const val DISC_GAP = 46f
+private const val DISC_GAP = 52f
 
 /**
  * Position permise pour la pastille [i] tirée en [p] : dans le cadre, à [DISC_GAP] au moins des autres

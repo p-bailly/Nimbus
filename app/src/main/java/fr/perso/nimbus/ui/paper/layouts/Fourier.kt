@@ -61,18 +61,20 @@ private class Term(val c: Float, val k: Int)
 
 private val Terms = listOf(Term(20f, 1), Term(-6f, -1), Term(-3f, 3), Term(-2f, -3))
 
-// Repère de la figure : z = 0 au point (206, 478) de la page, 9 unités par unité de z, l'axe des y
-// vers le haut (la maquette trace à 10 unités par unité de z, puis réduit le tout à 0,9).
+// Repère de la figure : z = 0 au point (206, 506) de la page, 9,6 unités par unité de z, l'axe des y
+// vers le haut (la maquette en avait 9 ; la figure a grandi à la place de l'exercice qui finissait la
+// page, maintenant dans design/exercices-accueils.md).
 private const val CENTER_X = 206f
-private const val CENTER_Y = 478f
-private const val UNIT = 9f
+private const val CENTER_Y = 506f
+private const val UNIT = 9.6f
 
 private const val TAU = (2 * PI).toFloat()
 private const val PERIOD_MS = 480_000L
 
-// Pastilles (maquette réduite à 0,9) : disque blanc de 34,2, anneau de 1,35 à l'extérieur, motif
-// de 16,2. L'appli 0, celle des épicycles, a un anneau de 2,25 et un halo jusqu'à 5,4 du disque.
-private const val DISC = 34.2f
+// Pastilles : disque blanc de 36,3, anneau de 1,35 à l'extérieur (deux applis voisines sur la courbe
+// restent à 4,48 unités de z, soit 43 : 4 de blanc au plus près), motif de 16,2. L'appli 0, celle des
+// épicycles, a un anneau de 2,25 et un halo jusqu'à 5,4 du disque.
+private const val DISC = 36.3f
 private const val RING = 1.35f
 private const val RING_FIRST = 2.25f
 private const val HALO_FIRST = 5.4f
@@ -180,44 +182,17 @@ fun FourierPage() {
                 it("k")
             },
             style = Paper.caption,
-            modifier = Modifier.baselineAt(22f, 760f).width(368.dp),
+            modifier = Modifier.baselineAt(22f, 806f).width(368.dp),
         )
         Text(
             "tours ; les 27 applis suivent la courbe.",
             style = Paper.caption,
-            modifier = Modifier.baselineAt(22f, 781.4f).width(368.dp),
+            modifier = Modifier.baselineAt(22f, 827.4f).width(368.dp),
         )
 
         // Équation (2) : boîte de ligne de 36 (l'intégrale et ses bornes), ligne de base à 21,1.
-        Box(Modifier.at(22, 790).width(340.dp), contentAlignment = Alignment.TopCenter) { Coefficient() }
-        Text("(2)", style = Numbered, modifier = Modifier.baselineAt(22f, 813.3f).width(368.dp))
-
-        PaperText(
-            tex {
-                bold { +"Exercice." }
-                +" À l'aide de (1) et (2), calculer "
-                it("c")
-                sub("1")
-                +", "
-                it("c")
-                sub("−1")
-                +", "
-                it("c")
-                sub("3")
-                +" et"
-            },
-            style = Paper.body,
-            modifier = Modifier.baselineAt(22f, 851.3f).width(368.dp),
-        )
-        PaperText(
-            tex {
-                it("c")
-                sub("−3")
-                +"."
-            },
-            style = Paper.body,
-            modifier = Modifier.baselineAt(22f, 877.5f).width(368.dp),
-        )
+        Box(Modifier.at(22, 836).width(340.dp), contentAlignment = Alignment.TopCenter) { Coefficient() }
+        Text("(2)", style = Numbered, modifier = Modifier.baselineAt(22f, 859.3f).width(368.dp))
     }
 }
 

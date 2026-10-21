@@ -12,8 +12,8 @@ class EnsemblesDragTest {
 
     @Test
     fun staysInsideTheFrame() {
-        assertEquals(Offset(37f, 183f), allowedDisc(Offset(-50f, 0f), 0, discs))
-        assertEquals(Offset(375f, 713f), allowedDisc(Offset(900f, 900f), 0, discs))
+        assertEquals(Offset(39.5f, 185.5f), allowedDisc(Offset(-50f, 0f), 0, discs))
+        assertEquals(Offset(372.5f, 762.5f), allowedDisc(Offset(900f, 900f), 0, discs))
     }
 
     @Test

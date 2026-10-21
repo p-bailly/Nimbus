@@ -2,6 +2,7 @@ package fr.perso.nimbus.ui.paper.layouts
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,6 +65,7 @@ import fr.perso.nimbus.data.PaperSlot.WAZE
 import fr.perso.nimbus.data.PaperSlot.WHATSAPP
 import fr.perso.nimbus.data.PaperSlot.YOUTUBE
 import fr.perso.nimbus.ui.components.rememberCrayonLogo
+import fr.perso.nimbus.ui.paper.LOGO_FILL
 import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.MathBuilder
 import fr.perso.nimbus.ui.paper.Paper
@@ -78,11 +80,12 @@ import kotlin.math.sqrt
 
 // Accueil « Sierpiński » : les 27 applis sont les 27 triangles de T₃, le troisième pas de la
 // construction du triangle de Sierpiński. Chaque bloc de T₁ (haut, bas gauche, bas droite) est
-// partagé en trois sous-blocs de trois triangles ; un sous-bloc a sa couleur.
+// partagé en trois sous-blocs de trois triangles ; un sous-bloc a sa couleur. L'exercice qui
+// finissait la page est dans design/exercices-accueils.md : la place a servi à agrandir les logos.
 
 /** Sommet du haut et côté de T₀. */
 private const val APEX_X = 206f
-private const val APEX_Y = 246f
+private const val APEX_Y = 266f
 private const val SIDE = 380f
 private val S3 = sqrt(3f) / 2f
 
@@ -145,15 +148,6 @@ fun SierpinskiPage() {
         Figure()
         Caption()
         Theorem()
-        Text(
-            tex {
-                bf("Exercice.")
-                +" Déterminer le nombre de triangles de "; it("T"); lo("5"); +" et le\nrapport aire("
-                it("T"); lo("5"); +") / aire("; it("T"); lo("0"); +")."
-            },
-            style = Paper.text(14.5f, 25.9f),
-            modifier = Modifier.baseline(22f, 779f).width(368.dp),
-        )
     }
 }
 
@@ -200,7 +194,13 @@ private fun Figure() {
     for (c in CELLS) TriangleSlot(c)
 }
 
-/** Place d'un triangle : motif blanc de 17 unités au centre de gravité, pastille près de la pointe. */
+/**
+ * Disque d'un logo, au centre de gravité de son triangle : plus large que le cercle inscrit (27,4), il
+ * déborde sur le blanc des trous de T₃ et laisse voir les trois pointes ; 9,5 entre deux disques voisins.
+ */
+private const val DISC = 38f
+
+/** Place d'un triangle : logo sur un disque blanc au centre de gravité, ou motif blanc de 22 unités. */
 @Composable
 private fun TriangleSlot(c: Cell) {
     val env = LocalPaper.current
@@ -213,33 +213,35 @@ private fun TriangleSlot(c: Cell) {
             .size(c.side.dp, c.height.dp)
             .slot(c.slot, TriangleShape),
     ) {
-        val glyph = Modifier.offset((c.side / 2f - 8.5f).dp, (2f * c.height / 3f - 8.5f).dp)
+        val cy = 2f * c.height / 3f
+        val glyph = Modifier.offset((c.side / 2f - 11f).dp, (cy - 11f).dp)
         if (app != null && (env.ownColors || logo != null)) {
-            // Aux couleurs des applis, ou avec un logo au crayon : le triangle garde la couleur de la
-            // famille, le motif prend celle de l'appli sur un petit disque blanc.
+            // Aux couleurs des applis, ou avec un logo au crayon : le motif prend la couleur de l'appli
+            // sur un disque blanc cerclé de celle du triangle (débordant du triangle, voir [DISC]).
             Box(
                 Modifier
-                    .offset((c.side / 2f - 12f).dp, (2f * c.height / 3f - 12f).dp)
-                    .size(24.dp)
-                    .background(Color.White, CircleShape),
+                    .offset((c.side / 2f - DISC / 2f).dp, (cy - DISC / 2f).dp)
+                    .size(DISC.dp)
+                    .background(Color.White, CircleShape)
+                    .border(1.5.dp, c.color, CircleShape),
                 contentAlignment = Alignment.Center,
-            ) { SlotGlyph(c.slot, 15f, Color.White, own = true) }
+            ) { SlotGlyph(c.slot, if (logo != null) DISC * LOGO_FILL else 19f, Color.White, own = true) }
         } else if (app != null) {
-            SlotGlyph(c.slot, 17f, Color.White, glyph)
+            SlotGlyph(c.slot, 22f, Color.White, glyph)
         } else {
             // Place sans appli : son initiale ; un appui permet de la choisir.
-            Box(glyph.size(17.dp), contentAlignment = Alignment.Center) {
+            Box(glyph.size(22.dp), contentAlignment = Alignment.Center) {
                 Text(
                     c.slot.title.take(1),
-                    style = Paper.text(14f, 17f, Color.White).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center),
+                    style = Paper.text(17f, 22f, Color.White).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center),
                 )
             }
         }
         if (badge > 0) {
-            // Pastille de notification : petit point d'encre cerclé de papier, sous la pointe.
+            // Pastille de notification : petit point d'encre cerclé de papier, en haut à droite du disque.
             Box(
                 Modifier
-                    .offset((c.side / 2f - 3.5f).dp, (c.height * 0.24f).dp)
+                    .offset((c.side / 2f + DISC * 0.35f - 3.5f).dp, (cy - DISC * 0.35f - 3.5f).dp)
                     .size(7.dp)
                     .background(PaperColors.Paper, CircleShape)
                     .padding(1.5.dp)
@@ -257,10 +259,10 @@ private fun Caption() {
             +" – Le triangle "; it("T"); lo("3", parent = 12.5f, size = 9f); +" ; couleur : famille de l'appli."
         },
         style = Paper.text(12.5f, 16f).copy(textAlign = TextAlign.Center),
-        modifier = Modifier.baseline(22f, 602f).width(368.dp),
+        modifier = Modifier.baseline(22f, 632f).width(368.dp),
     )
     Row(
-        Modifier.baseline(22f, 628f).width(368.dp),
+        Modifier.baseline(22f, 658f).width(368.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -293,21 +295,21 @@ private fun Theorem() {
             +" "; it("triangles et")
         },
         style = body,
-        modifier = Modifier.baseline(22f, 667.7f),
+        modifier = Modifier.baseline(22f, 712f),
     )
     // aire(T_n) = (3/4)ⁿ aire(T₀) ⟶ 0, centrée sur la colonne de gauche ; numéro à droite.
-    Box(Modifier.baseline(22f, 706f).width(338.dp), contentAlignment = Alignment.TopCenter) { AreaFormula() }
+    Box(Modifier.baseline(22f, 750.3f).width(338.dp), contentAlignment = Alignment.TopCenter) { AreaFormula() }
     Text(
         "(1)",
         style = Paper.text(17f, 23.8f).copy(textAlign = TextAlign.End),
-        modifier = Modifier.baseline(22f, 707f).width(368.dp),
+        modifier = Modifier.baseline(22f, 751.3f).width(368.dp),
     )
     Text(
         tex {
             it("Les "); +"27"; it(" applis sont les "); +"27"; it(" triangles de "); it("T"); lo("3"); it(".")
         },
         style = body,
-        modifier = Modifier.baseline(22f, 743f),
+        modifier = Modifier.baseline(22f, 787.3f),
     )
 }
 

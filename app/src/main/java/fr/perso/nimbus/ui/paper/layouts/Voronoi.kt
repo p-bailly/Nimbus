@@ -6,7 +6,6 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -64,7 +63,8 @@ import kotlin.math.hypot
 
 // Page « Voronoï » : chaque appli possède sa cellule, les points de Ω plus proches de son site que
 // de tout autre. Un appui n'importe où dans la cellule ouvre l'appli ; un appui long puis un glissé
-// déplace son site dans Ω, et les cellules suivent le doigt.
+// déplace son site dans Ω, et les cellules suivent le doigt. L'exercice qui finissait la page est
+// dans design/exercices-accueils.md : la figure a pris sa place, pour des logos plus grands.
 
 /** Site d'une appli, dans le repère de la figure (avant mise à l'échelle). */
 private class Site(val slot: PaperSlot, val x: Double, val y: Double)
@@ -91,20 +91,20 @@ private const val Y1 = 736.0
 
 /**
  * Un site déplacé reste à [MARGIN] du cadre et à [GAP] des autres sites (repère de la figure) : sa
- * pastille (rayon 20,5) tient entière dans sa cellule, avec 2,5 de blanc jusqu'au bord.
+ * pastille (rayon 28,5) tient entière dans sa cellule, avec 2,5 de blanc jusqu'au bord.
  */
-private const val MARGIN = 23.0
-private const val GAP = 46.0
+private const val MARGIN = 31.0
+private const val GAP = 62.0
 
 /** Le « Ω » du coin (centre de son dessin) : une pastille reste à [OMEGA_GAP] de son centre. */
 private const val OMEGA_X = 27.5
 private const val OMEGA_Y = 174.3
-private const val OMEGA_GAP = 31.0
+private const val OMEGA_GAP = 40.0
 
-/** La figure est réduite à 0,9 et décalée de (20,6 ; 54) sur la page. */
-private const val SCALE = 0.9f
-private const val SHIFT_X = 20.6f
-private const val SHIFT_Y = 54f
+/** La figure est réduite à 0,95 et décalée de (10,3 ; 46) sur la page : Ω y va d'une marge à l'autre. */
+private const val SCALE = 0.95f
+private const val SHIFT_X = 10.3f
+private const val SHIFT_Y = 46f
 
 /**
  * Interlignage des paragraphes : 20 dans la maquette, mais Chrome y arrondit les métriques de la
@@ -112,8 +112,8 @@ private const val SHIFT_Y = 54f
  */
 private const val LINE = 21f
 
-/** Pastille : 38 unités de diamètre plus un cerne de 1,5 à l'extérieur, motif de 18 (avant réduction). */
-private const val DISC = (38f + 2 * 1.5f) * SCALE
+/** Pastille : 54 unités de diamètre plus un cerne de 1,5 à l'extérieur, motif de 18 (avant réduction). */
+private const val DISC = (54f + 2 * 1.5f) * SCALE
 private const val RING = 1.5f * SCALE
 private const val GLYPH = 18f * SCALE
 
@@ -285,11 +285,11 @@ fun VoronoiPage() {
                 +" – Un appui en "; it("x"); +" ∈ "; it("V"); +"("; it("a"); +") ouvre l'appli "; it("a"); +"."
             },
             style = Paper.caption,
-            modifier = Modifier.at(22, 726).width(368.dp),
+            modifier = Modifier.at(22, 755).width(368.dp),
         )
         // Clé des familles.
         Row(
-            Modifier.at(22, 747).width(368.dp).height(16.dp),
+            Modifier.at(22, 776).width(368.dp).height(16.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -301,23 +301,14 @@ fun VoronoiPage() {
             }
         }
 
-        Column(Modifier.at(22, 772).width(368.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                tex {
-                    bf("Proposition."); +" "; italic { +"Pour a ≠ b," }; +" "
-                    it("V"); +"("; it("a"); +") ∩ "; it("V"); +"("; it("b"); +") ⊂ "; it("médiatrice de"); +" ["; it("a"); +", "; it("b"); +"]."
-                },
-                style = Paper.text(14.5f, LINE),
-            )
-            // Espace insécable devant « = » : une ligne ne commence jamais par un signe de relation.
-            Text(
-                tex {
-                    bf("Exercice."); +" On prend Ω = ℝ², "; it("A"); +" = {"; it("a"); +", "; it("b"); +"}, "
-                    it("a"); +" = (0, 0) et "; it("b"); +" = (2, 0). Déterminer "; it("V"); +"("; it("a"); +")."
-                },
-                style = Paper.text(14.5f, LINE),
-            )
-        }
+        Text(
+            tex {
+                bf("Proposition."); +" "; italic { +"Pour a ≠ b," }; +" "
+                it("V"); +"("; it("a"); +") ∩ "; it("V"); +"("; it("b"); +") ⊂ "; it("médiatrice de"); +" ["; it("a"); +", "; it("b"); +"]."
+            },
+            style = Paper.text(14.5f, LINE),
+            modifier = Modifier.at(22, 801).width(368.dp),
+        )
     }
 }
 

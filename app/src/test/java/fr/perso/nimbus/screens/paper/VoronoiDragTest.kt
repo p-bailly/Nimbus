@@ -36,7 +36,7 @@ import kotlin.math.hypot
 
 /**
  * Page « Voronoï » : appui, appui long et glissé d'un site. Repère : 1 unité = 1 dp (3 px), la
- * figure est réduite à 0,9 et décalée de (20,6 ; 54) ; Ω = [14, 398] × [160, 736].
+ * figure est réduite à 0,95 et décalée de (10,3 ; 46) ; Ω = [14, 398] × [160, 736].
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -83,7 +83,7 @@ class VoronoiDragTest {
     }
 
     /** Point de la figure, en pixels de l'écran. */
-    private fun px(x: Double, y: Double) = Offset((20.6f + 0.9f * x.toFloat()) * 3f, (54f + 0.9f * y.toFloat()) * 3f)
+    private fun px(x: Double, y: Double) = Offset((10.3f + 0.95f * x.toFloat()) * 3f, (46f + 0.95f * y.toFloat()) * 3f)
 
     @Test
     fun tapOpensTheNearestSite() {
@@ -113,10 +113,10 @@ class VoronoiDragTest {
         }
         compose.waitForIdle()
         val edge = saved?.get(PaperSlot.WHATSAPP)!!
-        assertEquals(37f, edge.x)
+        assertEquals(45f, edge.x)
         assertNull(actions)
 
-        // Vers le coin : le « Ω » l'arrête à 31 de son centre (27,5 ; 174,3).
+        // Vers le coin : le « Ω » l'arrête à 40 de son centre (27,5 ; 174,3).
         compose.onRoot().performTouchInput {
             down(px(edge.x.toDouble(), edge.y.toDouble()))
             advanceEventTime(1000)
@@ -125,9 +125,9 @@ class VoronoiDragTest {
         }
         compose.waitForIdle()
         val corner = saved?.get(PaperSlot.WHATSAPP)!!
-        assertTrue(hypot(corner.x - 27.5, corner.y - 174.3) >= 31.0)
+        assertTrue(hypot(corner.x - 27.5, corner.y - 174.3) >= 40.0)
 
-        // Puis contre Discord (137,9 ; 275) : il est repoussé à 46 au moins de son site.
+        // Puis contre Discord (137,9 ; 275) : il est repoussé à 62 au moins de son site.
         compose.onRoot().performTouchInput {
             down(px(corner.x.toDouble(), corner.y.toDouble()))
             advanceEventTime(1000)
@@ -137,7 +137,7 @@ class VoronoiDragTest {
         }
         compose.waitForIdle()
         val pushed = saved?.get(PaperSlot.WHATSAPP)!!
-        assertTrue(hypot(pushed.x - 137.9, pushed.y - 275.0) >= 46.0)
+        assertTrue(hypot(pushed.x - 137.9, pushed.y - 275.0) >= 62.0)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/paper/h2_voronoi_glisse.png")
     }
 }
