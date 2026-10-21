@@ -130,19 +130,17 @@ class PaperEnv(
     val sites: Map<PaperSlot, Offset> = emptyMap(),
     /** Un site vient d'être posé : nouvelle carte de tous les sites déplacés. */
     val onSites: (Map<PaperSlot, Offset>) -> Unit = {},
+    /** Page « Ensembles » : pastilles déplacées par l'utilisateur (repère de la figure). */
+    val ensembles: Map<PaperSlot, Offset> = emptyMap(),
+    /** Une pastille d'« Ensembles » vient d'être posée : nouvelle carte de toutes les pastilles déplacées. */
+    val onEnsembles: (Map<PaperSlot, Offset>) -> Unit = {},
     /**
-     * Couleur propre de l'app de chaque place (celle du sommaire), si la page est aux couleurs des
-     * applis ; vide : couleurs des familles.
+     * Motifs aux couleurs des applis (ceux du sommaire), dans des pastilles qui gardent la couleur de
+     * leur famille : disque blanc cerclé de la famille ; false : motif blanc ou de la famille.
      */
-    val colors: Map<PaperSlot, Color> = emptyMap(),
+    val ownColors: Boolean = false,
 ) {
     fun app(slot: PaperSlot): AppEntry? = apps[slot]
-
-    /** Page aux couleurs des applis (motifs du sommaire) plutôt qu'à celles des familles. */
-    val ownColors: Boolean get() = colors.isNotEmpty()
-
-    /** Encre d'une place : la couleur de son app si la page est aux couleurs des applis, sinon [family]. */
-    fun colorOf(slot: PaperSlot, family: Color = slot.family.color): Color = colors[slot] ?: family
 
     /** Nom affiché d'une place : celui de l'app (renommage compris), sinon celui de la maquette. */
     fun name(slot: PaperSlot): String = apps[slot]?.label ?: slot.title
@@ -357,7 +355,7 @@ fun SlotGlyph(slot: PaperSlot, size: Float, tint: Color, modifier: Modifier = Mo
     val px = with(LocalDensity.current) { size.dp.roundToPx() }.coerceAtLeast(8)
     val app = env.app(slot)
     val glyph = rememberAppGlyph(app, px, fallback = slot.glyph, sync = env.syncGlyphs)
-    val ink = if (own && app != null) rememberAppColor(app) else tint
+    val ink = if (own && app != null) rememberAppColor(app, fallback = slot.glyph) else tint
     Box(modifier.size(size.dp), contentAlignment = Alignment.Center) {
         when (glyph) {
             is Glyph.Mask -> Image(
@@ -397,16 +395,18 @@ fun SlotDisc(
     cy: Float,
     size: Float = 36f,
     style: DiscStyle = DiscStyle.FILL,
-    color: Color = LocalPaper.current.colorOf(slot),
+    color: Color = slot.family.color,
     ring: Float = 1.5f,
     glyphScale: Float = 0.48f,
     glyphColor: Color? = null,
-    /** Motif à la couleur propre de l'app, comme dans le sommaire (disque cerclé seulement). */
+    /** Motif à la couleur propre de l'app, comme dans le sommaire. */
     ownColors: Boolean = false,
 ) {
     val env = LocalPaper.current
     val app = env.app(slot)
     val badge = app?.let { env.badges[it.packageName] } ?: 0
+    // Motif du sommaire (couleur de l'appli, Google en couleur) : demandé, ou page aux couleurs des applis.
+    val own = ownColors || (env.ownColors && glyphColor == null)
     Box(
         Modifier
             .at(cx - size / 2f, cy - size / 2f)
@@ -422,6 +422,11 @@ fun SlotDisc(
                         app == null -> Modifier
                             .background(Color.White, CircleShape)
                             .dashedCircle(color, ring)
+                        // Aux couleurs des applis, un disque plein devient un disque blanc cerclé de la
+                        // famille, du même trait que les autres : le motif prend la couleur de l'appli.
+                        own && style == DiscStyle.FILL -> Modifier
+                            .background(Color.White, CircleShape)
+                            .border(ring.dp, color, CircleShape)
                         style == DiscStyle.FILL -> Modifier.background(color, CircleShape)
                         else -> Modifier
                             .background(Color.White, CircleShape)
@@ -436,8 +441,6 @@ fun SlotDisc(
                     overflow = TextOverflow.Visible,
                 )
             } else {
-                // Disque cerclé d'une page aux couleurs des applis : le motif du sommaire (Google en couleur).
-                val own = ownColors || (env.ownColors && style == DiscStyle.RING && glyphColor == null)
                 SlotGlyph(slot, size * glyphScale, glyphColor ?: if (style == DiscStyle.FILL) Color.White else color, own = own)
             }
         }

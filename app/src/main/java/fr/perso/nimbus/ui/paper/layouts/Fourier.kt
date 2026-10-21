@@ -287,7 +287,7 @@ private fun MovingApp(slot: PaperSlot, j: Int, time: State<Float>) {
     val ring = if (first) RING_FIRST else RING
     val size = DISC + 2 * ring
     val lead = TAU * j / PaperSlot.entries.size
-    val halo = LocalPaper.current.colorOf(slot).copy(alpha = 0.18f)
+    val halo = slot.family.color.copy(alpha = 0.18f)
     Box(
         Modifier
             .graphicsLayer {

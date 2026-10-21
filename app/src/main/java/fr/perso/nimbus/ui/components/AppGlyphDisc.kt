@@ -122,11 +122,15 @@ fun rememberAppGlyph(app: AppEntry?, px: Int, fallback: GlyphChoice? = null, syn
     }.value
 }
 
-/** Couleur propre de [app] (voir [GlyphFactory.color]) ; l'encre en attendant. */
+/**
+ * Couleur propre de [app] (voir [GlyphFactory.color]), avec le motif choisi, sinon [fallback] (motif
+ * de sa place) ; l'encre en attendant.
+ */
 @Composable
-fun rememberAppColor(app: AppEntry): Color {
+fun rememberAppColor(app: AppEntry, fallback: GlyphChoice? = null): Color {
     val context = LocalContext.current
-    val (choice, other) = LocalGlyphChoices.current.resolve(app)
+    val (chosen, other) = LocalGlyphChoices.current.resolve(app)
+    val choice = chosen ?: fallback
     return produceState(PaperColors.Ink, app.key, choice, other?.key) {
         value = withContext(Dispatchers.Default) {
             runCatching { Color(GlyphFactory.get(context).color(app, choice, other)) }.getOrDefault(PaperColors.Ink)

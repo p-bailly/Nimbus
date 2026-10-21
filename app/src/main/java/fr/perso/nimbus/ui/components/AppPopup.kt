@@ -82,6 +82,7 @@ fun AppPopup(app: AppEntry, anchor: Rect, apps: AppsState, vm: LauncherViewModel
             add("Infos" to { then { vm.appInfo(app) } })
             if (paperSlot != null) {
                 add("Changer" to { then { vm.showPaperSlotPicker(paperSlot) } })
+                add("Échanger" to { then { vm.showPaperSwap(paperSlot) } })
             } else if (!isPrivate) {
                 if (onHome) add("Retirer" to { then { vm.removeFromHome(app) } })
                 else add("Accueil" to { then { vm.addToHome(app) } })
@@ -144,6 +145,7 @@ fun AppPopup(app: AppEntry, anchor: Rect, apps: AppsState, vm: LauncherViewModel
                     PopupAction(R.drawable.ms_info, "Infos") { then { vm.appInfo(app) } }
                     if (paperSlot != null) {
                         PopupAction(R.drawable.ms_autorenew, "Changer") { then { vm.showPaperSlotPicker(paperSlot) } }
+                        PopupAction(R.drawable.ms_swipe, "Échanger") { then { vm.showPaperSwap(paperSlot) } }
                     } else if (!isPrivate) {
                         if (onHome) PopupAction(R.drawable.ms_close, "Retirer") { then { vm.removeFromHome(app) } }
                         else PopupAction(R.drawable.ms_add_to_home_screen, "Accueil") { then { vm.addToHome(app) } }

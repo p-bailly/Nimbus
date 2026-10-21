@@ -25,10 +25,12 @@ sealed interface Glyph {
 }
 
 /**
- * Logos dessinés pour Nimbus (ceux des maquettes, tracés SVG sur 24 × 24), pour remplacer une
- * silhouette qui ne convient pas ; [argb] : leur couleur dans le sommaire (null : celle de l'app).
+ * Logos dessinés pour Nimbus (ceux des maquettes, tracés SVG), pour remplacer une silhouette qui ne
+ * convient pas ; [argb] : leur couleur dans le sommaire (null : celle de l'app). [layers] : tracés SVG
+ * peints dans l'ordre ; « - » devant un tracé l'efface (évidement), « T: » devant un mot le compose
+ * en gras. Le logo est recadré sur ce qui est peint.
  */
-enum class PaperLogo(val label: String, val argb: Long?, val path: String) {
+enum class PaperLogo(val label: String, val argb: Long?, vararg layers: String) {
     YOUTUBE(
         "Logo YouTube", 0xFFE0201B,
         "M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 " +
@@ -46,6 +48,37 @@ enum class PaperLogo(val label: String, val argb: Long?, val path: String) {
         "M3.5 7h9.5v1.8H3.5zM5.6 8.8h1.8v8.4H5.6zM9.6 8.8h1.8v6.2c0 .5.3.7.8.7h.6v1.6h-1c-1.4 0-2.2-.8-2.2-2.2zM14.5 10.5h1.7v1.3" +
             "c.6-1 1.6-1.5 2.9-1.5h.6v1.8h-.8c-1.6 0-2.7 1-2.7 2.9v2.2h-1.7z",
     ),
+    /**
+     * « Mes applis » (design/logo/logo.svg du dépôt Managing-Apps, sans le crayonné) : quatre applis
+     * en orbite autour de la coche « à jour ».
+     */
+    MES_APPLIS(
+        "Logo Mes applis", null,
+        "M30,54a24,24 0 1,0 48,0a24,24 0 1,0 -48,0ZM32.2,54a21.8,21.8 0 1,1 43.6,0a21.8,21.8 0 1,1 -43.6,0Z",
+        "-M29.5,37.7a8.2,8.2 0 1,0 16.4,0a8.2,8.2 0 1,0 -16.4,0Z",
+        "-M62.1,37.7a8.2,8.2 0 1,0 16.4,0a8.2,8.2 0 1,0 -16.4,0Z",
+        "-M29.5,70.3a8.2,8.2 0 1,0 16.4,0a8.2,8.2 0 1,0 -16.4,0Z",
+        "-M62.1,70.3a8.2,8.2 0 1,0 16.4,0a8.2,8.2 0 1,0 -16.4,0Z",
+        "M31.6,37.7a6.1,6.1 0 1,0 12.2,0a6.1,6.1 0 1,0 -12.2,0Z",
+        "M64.2,37.7a6.1,6.1 0 1,0 12.2,0a6.1,6.1 0 1,0 -12.2,0Z",
+        "M31.6,70.3a6.1,6.1 0 1,0 12.2,0a6.1,6.1 0 1,0 -12.2,0Z",
+        "M64.2,70.3a6.1,6.1 0 1,0 12.2,0a6.1,6.1 0 1,0 -12.2,0Z",
+        "M42,54a12,12 0 1,0 24,0a12,12 0 1,0 -24,0Z",
+        "-M47.21,55.77L52.3,60.5L61.03,51.83L58.77,49.57L52.3,56.1L49.39,53.43Z",
+    ),
+    /** Cartes IGN : une carte pliée en trois volets. */
+    IGN(
+        "Logo carte (IGN)", null,
+        "M2,6.2L8,4.2V18.2L2,20.2Z",
+        "M8.9,4.3L15.1,6.3V20.3L8.9,18.3Z",
+        "M16,6.2L22,4.2V18.2L16,20.2Z",
+        "-M3.4,9.6L6.6,8.6V9.6L3.4,10.6ZM10.3,9.4L13.7,10.5V11.5L10.3,10.4ZM17.4,12.4L20.6,11.4V12.4L17.4,13.4Z",
+    ),
+    /** SNCF : le mot, en gras. */
+    SNCF("Logo SNCF", 0xFFA1006B, "T:SNCF"),
+    ;
+
+    val layers: List<String> = layers.toList()
 }
 
 /**
@@ -287,9 +320,10 @@ class GlyphFactory private constructor(context: Context) {
             val r = (p shr 16) and 0xFF
             val g = (p shr 8) and 0xFF
             val b = p and 0xFF
-            if (r > 215 && g > 215 && b > 215) light++
+            if (r > 200 && g > 200 && b > 200) light++
         }
-        return visible == 0 || light > visible * 0.6f
+        // Plus d'un tiers de blanc (aiguilles d'horloge, dessin blanc sur le fond de l'icône) : illisible.
+        return visible == 0 || light > visible * 0.33f
     }
 
     /** Silhouette en couleur : premier plan de l'icône adaptative (ou l'icône), couleurs gardées. */
@@ -297,9 +331,10 @@ class GlyphFactory private constructor(context: Context) {
         val icon = icon(app) ?: return null
         val work = max(sizePx * 2, 96)
         if (icon is AdaptiveIconDrawable) {
-            return icon.foreground?.let { mask(it, work, sizePx, adaptive = true, maxCover = 0.55f, keepColors = true) }
+            // Un premier plan coloré peut être grand (le rond de Chrome) : seul un fond plein est refusé.
+            return icon.foreground?.let { mask(it, work, sizePx, adaptive = true, maxCover = 0.85f, keepColors = true) }
         }
-        return mask(icon, work, sizePx, adaptive = false, maxCover = 0.55f, keepColors = true)
+        return mask(icon, work, sizePx, adaptive = false, maxCover = 0.85f, keepColors = true)
     }
 
     /**
@@ -351,17 +386,37 @@ class GlyphFactory private constructor(context: Context) {
     /** Logo dessiné par Nimbus (son tracé SVG), blanc sur transparent, recadré et centré dans un carré de [sizePx]. */
     private fun logo(logo: PaperLogo, sizePx: Int): Glyph.Mask {
         val big = sizePx * 2
-        val path = PathParser.createPathFromPathData(logo.path)
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = android.graphics.Typeface.create(android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.BOLD)
+            textSize = 20f
+        }
+        // Calques : (effacer ?, tracé) ; un mot devient le tracé de ses lettres.
+        val layers = logo.layers.map { layer ->
+            val erase = layer.startsWith("-")
+            val data = layer.removePrefix("-")
+            val path = if (data.startsWith("T:")) {
+                android.graphics.Path().also { val word = data.removePrefix("T:"); text.getTextPath(word, 0, word.length, 0f, 0f, it) }
+            } else {
+                PathParser.createPathFromPathData(data)
+            }
+            erase to path
+        }
         val bounds = RectF()
-        @Suppress("DEPRECATION")
-        path.computeBounds(bounds, true)
+        layers.filter { !it.first }.forEachIndexed { i, (_, path) ->
+            val r = RectF()
+            @Suppress("DEPRECATION")
+            path.computeBounds(r, true)
+            if (i == 0) bounds.set(r) else bounds.union(r)
+        }
         val scale = big / max(bounds.width(), bounds.height())
         val bitmap = Bitmap.createBitmap(big, big, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.translate(big / 2f, big / 2f)
         canvas.scale(scale, scale)
         canvas.translate(-bounds.centerX(), -bounds.centerY())
-        canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE })
+        val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
+        val eraser = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR) }
+        for ((erase, path) in layers) canvas.drawPath(path, if (erase) eraser else ink)
         return Glyph.Mask(downscale(bitmap, sizePx).asImageBitmap())
     }
 

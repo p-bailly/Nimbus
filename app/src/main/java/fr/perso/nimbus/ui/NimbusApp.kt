@@ -33,9 +33,11 @@ import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.data.DrawerTheme
 import fr.perso.nimbus.data.LauncherSettings
+import fr.perso.nimbus.data.PaperSlot
 import fr.perso.nimbus.ui.components.AppActionSheet
 import fr.perso.nimbus.ui.components.AppPickerDialog
 import fr.perso.nimbus.ui.components.AppPopup
+import fr.perso.nimbus.ui.components.ChoiceDialog
 import fr.perso.nimbus.ui.components.LocalGlyphChoices
 import fr.perso.nimbus.ui.components.WidgetPicker
 import fr.perso.nimbus.ui.drawer.AppDrawer
@@ -212,6 +214,23 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                             vm.showPaperSlotPicker(null)
                         },
                         onDismiss = { vm.showPaperSlotPicker(null) },
+                    )
+                }
+
+                ui.paperSwap?.let { slot ->
+                    val paperApps by vm.paperApps.collectAsStateWithLifecycle()
+                    val others = PaperSlot.of(slot.family).filter { it != slot }
+                    ChoiceDialog(
+                        title = "Échanger ${paperApps[slot]?.label ?: slot.title} avec…",
+                        options = others,
+                        selected = null,
+                        label = { other -> other?.let { paperApps[it]?.label ?: "${it.title} (place vide)" }.orEmpty() },
+                        onSelect = { other ->
+                            if (other != null) vm.swapPaperSlots(slot, other)
+                            vm.showPaperSwap(null)
+                        },
+                        onDismiss = { vm.showPaperSwap(null) },
+                        footer = "Les deux applis échangent leur place ; seules celles du groupe « ${slot.family.label} » sont proposées.",
                     )
                 }
 

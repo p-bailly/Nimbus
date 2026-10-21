@@ -108,6 +108,7 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
     var pickingStyle by remember { mutableStateOf(false) }
     val paper = settings.homeStyle.paper
     val voronoiSites by vm.voronoiSites.collectAsStateWithLifecycle()
+    val ensemblesSites by vm.ensemblesSites.collectAsStateWithLifecycle()
 
     NimbusBottomSheet(
         onDismissRequest = vm::closeHomeMenu,
@@ -122,6 +123,14 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
                         "Sites d'origine" to {
                             vm.closeHomeMenu()
                             vm.setVoronoiSites(emptyMap())
+                        },
+                    )
+                }
+                if (settings.homeStyle == HomeStyle.ENSEMBLES && ensemblesSites.isNotEmpty()) {
+                    add(
+                        "Places d'origine" to {
+                            vm.closeHomeMenu()
+                            vm.setEnsemblesSites(emptyMap())
                         },
                     )
                 }
@@ -174,6 +183,12 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
                     MenuTile(R.drawable.ms_history, "Sites d'origine") {
                         vm.closeHomeMenu()
                         vm.setVoronoiSites(emptyMap())
+                    }
+                }
+                if (settings.homeStyle == HomeStyle.ENSEMBLES && ensemblesSites.isNotEmpty()) {
+                    MenuTile(R.drawable.ms_history, "Places d'origine") {
+                        vm.closeHomeMenu()
+                        vm.setEnsemblesSites(emptyMap())
                     }
                 }
                 if (!paper) {

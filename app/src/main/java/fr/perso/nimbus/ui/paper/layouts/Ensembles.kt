@@ -1,18 +1,32 @@
 package fr.perso.nimbus.ui.paper.layouts
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -23,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import fr.perso.nimbus.data.PaperSlot
 import fr.perso.nimbus.ui.paper.DiscStyle
+import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.MathBuilder
 import fr.perso.nimbus.ui.paper.PAPER_HEIGHT
 import fr.perso.nimbus.ui.paper.PAPER_WIDTH
@@ -213,8 +228,17 @@ private fun VennFigure() {
         modifier = Modifier.at(fx(150f), fy(708f)),
     )
 
+    // Pastilles à leur place, ou là où l'utilisateur les a posées (appui long puis glisser).
+    val env = LocalPaper.current
+    var placed by remember(env.ensembles) { mutableStateOf(env.ensembles) }
+    var dragged by remember { mutableStateOf<Pair<PaperSlot, Offset>?>(null) }
+    val discs = remember(placed, dragged) {
+        val moved = dragged?.let { placed + it } ?: placed
+        Discs.map { (slot, x, y) -> moved[slot]?.let { Triple(slot, it.x, it.y) } ?: Triple(slot, x, y) }
+    }
+
     val size = (DISC + 2 * DISC_RING) * FIG_SCALE
-    for ((slot, x, y) in Discs) {
+    for ((slot, x, y) in discs) {
         SlotDisc(
             slot, fx(x), fy(y),
             size = size,
@@ -226,6 +250,119 @@ private fun VennFigure() {
             ownColors = true,
         )
     }
+    DiscTouch(
+        discs,
+        onMove = { slot, at -> dragged = slot to at },
+        onDrop = {
+            dragged?.let {
+                placed = placed + it
+                env.onEnsembles(placed)
+            }
+            dragged = null
+        },
+        onCancel = { dragged = null },
+    )
+}
+
+/** Cadre de la figure (repère de la figure) : une pastille déplacée y reste entière. */
+private const val FRAME_X0 = 14f
+private const val FRAME_Y0 = 160f
+private const val FRAME_X1 = 398f
+private const val FRAME_Y1 = 736f
+
+/** Écart minimal entre deux centres de pastilles (repère de la figure). */
+private const val DISC_GAP = 46f
+
+/**
+ * Position permise pour la pastille [i] tirée en [p] : dans le cadre, à [DISC_GAP] au moins des autres
+ * pastilles ; null si elle touche une autre pastille (elle reste alors où elle était).
+ */
+internal fun allowedDisc(p: Offset, i: Int, discs: List<Offset>): Offset? {
+    val r = DISC / 2 + 2f
+    val at = Offset(p.x.coerceIn(FRAME_X0 + r, FRAME_X1 - r), p.y.coerceIn(FRAME_Y0 + r, FRAME_Y1 - r))
+    return at.takeIf { discs.withIndex().none { (j, o) -> j != i && (o - at).getDistance() < DISC_GAP } }
+}
+
+/**
+ * Touchers de la figure, par-dessus les pastilles : appui sur une pastille, l'ouvrir ; appui long, ses
+ * actions ; appui long puis glisser, la déplacer ([onMove] à chaque pas, [onDrop] au lâcher).
+ */
+@Composable
+private fun DiscTouch(
+    discs: List<Triple<PaperSlot, Float, Float>>,
+    onMove: (PaperSlot, Offset) -> Unit,
+    onDrop: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val env by rememberUpdatedState(LocalPaper.current)
+    val current by rememberUpdatedState(discs)
+    val haptics = LocalHapticFeedback.current
+    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    // Pastille sous le doigt (repère de la figure), ou -1.
+    fun hit(list: List<Triple<PaperSlot, Float, Float>>, x: Float, y: Float): Int {
+        val i = list.indices.minByOrNull { (list[it].second - x) * (list[it].second - x) + (list[it].third - y) * (list[it].third - y) } ?: return -1
+        val d = Offset(list[i].second - x, list[i].third - y).getDistance()
+        return if (d <= DISC / 2 + 6f) i else -1
+    }
+    Box(
+        Modifier
+            .at(fx(FRAME_X0), fy(FRAME_Y0))
+            .size(((FRAME_X1 - FRAME_X0) * FIG_SCALE).dp, ((FRAME_Y1 - FRAME_Y0) * FIG_SCALE).dp)
+            .onGloballyPositioned { coords = it }
+            .pointerInput(Unit) {
+                val unit = 1.dp.toPx() * FIG_SCALE
+                detectTapGestures(onTap = { at ->
+                    val i = hit(current, FRAME_X0 + at.x / unit, FRAME_Y0 + at.y / unit)
+                    if (i >= 0) env.onOpen(current[i].first)
+                })
+            }
+            .pointerInput(Unit) {
+                val unit = 1.dp.toPx() * FIG_SCALE
+                val slop = viewConfiguration.touchSlop
+                var index = -1
+                var start = Offset.Zero
+                var total = Offset.Zero
+                var moving = false
+                fun rect(d: Triple<PaperSlot, Float, Float>): Rect {
+                    val c = coords ?: return Rect.Zero
+                    val r = DISC / 2 * unit
+                    val x = (d.second - FRAME_X0) * unit
+                    val y = (d.third - FRAME_Y0) * unit
+                    return Rect(c.localToWindow(Offset(x - r, y - r)), c.localToWindow(Offset(x + r, y + r)))
+                }
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { at ->
+                        index = hit(current, FRAME_X0 + at.x / unit, FRAME_Y0 + at.y / unit)
+                        if (index >= 0) {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            start = Offset(current[index].second, current[index].third)
+                        }
+                        total = Offset.Zero
+                        moving = false
+                    },
+                    onDrag = { change, amount ->
+                        if (index < 0) return@detectDragGesturesAfterLongPress
+                        change.consume()
+                        total += amount
+                        if (!moving && total.getDistance() > slop) moving = true
+                        if (moving) {
+                            val others = current.map { Offset(it.second, it.third) }
+                            allowedDisc(start + total / unit, index, others)?.let { onMove(current[index].first, it) }
+                        }
+                    },
+                    onDragEnd = {
+                        if (index >= 0) {
+                            if (moving) onDrop() else current[index].let { env.onActions(it.first, rect(it)) }
+                        }
+                        moving = false
+                    },
+                    onDragCancel = {
+                        if (moving) onCancel()
+                        moving = false
+                    },
+                )
+            },
+    )
 }
 
 /** Nom d'un ensemble : la lettre en gras, le mot en italique, à l'encre de l'ensemble. */

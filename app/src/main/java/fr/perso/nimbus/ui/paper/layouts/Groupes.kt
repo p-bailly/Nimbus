@@ -36,7 +36,6 @@ import fr.perso.nimbus.ui.paper.Paper
 import fr.perso.nimbus.ui.paper.PaperPage
 import fr.perso.nimbus.ui.paper.SlotDisc
 import fr.perso.nimbus.ui.paper.at
-import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.color
 import fr.perso.nimbus.ui.paper.tex
 import kotlin.math.hypot
@@ -262,7 +261,7 @@ private fun heading(color: Color): TextStyle = Paper.text(15f, 18f, color).copy(
 /** Pastille de 34 unités des sections 2 à 4 (cerclée : motif de la couleur sur fond blanc). */
 @Composable
 private fun Element(slot: PaperSlot, cx: Float, cy: Float, color: Color, ring: Boolean = false) {
-    SlotDisc(slot, cx, cy, 34f, style = if (ring) DiscStyle.RING else DiscStyle.FILL, color = LocalPaper.current.colorOf(slot, color), glyphScale = 16f / 34f)
+    SlotDisc(slot, cx, cy, 34f, style = if (ring) DiscStyle.RING else DiscStyle.FILL, color = color, glyphScale = 16f / 34f)
 }
 
 /** Petit numéro en italique centré en ([cx], [cy]). */
