@@ -55,6 +55,8 @@ fun AppGlyphDisc(
     glyphScale: Float = 0.5f,
     dot: Boolean = false,
     placeholder: String? = null,
+    /** Motif dans les couleurs de l'icône quand il les a gardées (voir [AppGlyph]). */
+    colored: Boolean = false,
 ) {
     Box(modifier.size(size).then(if (app != null) Modifier.semantics { contentDescription = app.label } else Modifier)) {
         Box(
@@ -74,7 +76,7 @@ fun AppGlyphDisc(
                 ),
         ) {
             if (app != null) {
-                AppGlyph(app, size * glyphScale, color)
+                AppGlyph(app, size * glyphScale, color, colored = colored)
             } else if (placeholder != null) {
                 val fontSize = with(LocalDensity.current) { (size * 0.42f).toSp() }
                 Text(

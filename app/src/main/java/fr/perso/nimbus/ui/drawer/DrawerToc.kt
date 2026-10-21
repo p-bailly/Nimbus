@@ -1,7 +1,10 @@
 package fr.perso.nimbus.ui.drawer
 
 import android.os.Build
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -27,12 +30,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.data.Category
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.BadgeStyle
@@ -42,6 +49,7 @@ import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.components.AppGlyph
+import fr.perso.nimbus.ui.components.AppGlyphDisc
 import fr.perso.nimbus.ui.components.drawerAppGestures
 import fr.perso.nimbus.ui.components.rememberAppColor
 import fr.perso.nimbus.ui.theme.PaperColors
@@ -50,16 +58,16 @@ import fr.perso.nimbus.ui.theme.PaperStyle
 import fr.perso.nimbus.ui.theme.PaperTextButton
 import fr.perso.nimbus.ui.theme.footnoteMark
 
-// Tiroir en sommaire (thème papier) : la table des matières d'un article LaTeX. Les catégories sont
-// des sections numérotées en gras, les apps des sous-sections avec points de conduite et numéro de
-// page ; les apps fréquentes viennent avant, sans numéro, paginées en chiffres romains, et l'espace
+// Tiroir en sommaire (thème papier) : la table des matières d'un article LaTeX. Sous le titre, une
+// figure des apps les plus utilisées qui ne sont pas sur l'accueil ; puis les catégories en sections
+// numérotées en gras, les apps en sous-sections avec points de conduite et numéro de page, et l'espace
 // privé en annexe A. Les notifications d'une app sont un appel de note après son nom.
 
 /** Une ligne du sommaire. */
 internal sealed interface TocLine {
     val key: String
 
-    /** Titre de section ; [number] null pour une section non numérotée (« Fréquentes »). */
+    /** Titre de section ; [number] null pour une section non numérotée. */
     data class Section(
         val number: String?,
         val title: String,
@@ -77,23 +85,16 @@ internal sealed interface TocLine {
 private const val APPS_PER_PAGE = 4
 
 /**
- * Lignes du sommaire : [frequent] en préliminaires, puis une section par catégorie de [categories]
- * (ou les apps numérotées à la suite s'il n'y en a qu'une), puis [privateApps] en annexe A s'il est
- * donné (vide : espace privé verrouillé). Chaque section commence sur une nouvelle page.
+ * Lignes du sommaire : une section par catégorie de [categories] (ou les apps numérotées à la suite
+ * s'il n'y en a qu'une), puis [privateApps] en annexe A s'il est donné (vide : espace privé verrouillé).
+ * Chaque section commence sur une nouvelle page.
  */
 internal fun tableOfContents(
     apps: List<AppEntry>,
     categories: List<Category>,
-    frequent: List<AppEntry> = emptyList(),
     privateApps: List<AppEntry>? = null,
 ): List<TocLine> {
     val lines = ArrayList<TocLine>()
-    if (frequent.isNotEmpty()) {
-        lines += TocLine.Section(null, "Fréquentes", roman(1), key = "frequent")
-        frequent.forEachIndexed { i, app ->
-            lines += TocLine.Entry(null, app, roman(1 + i / APPS_PER_PAGE), key = "frequent:${app.key}")
-        }
-    }
     var page = 1
     fun section(number: String, members: List<AppEntry>) {
         members.forEachIndexed { i, app ->
@@ -124,20 +125,12 @@ internal fun tableOfContents(
     return lines
 }
 
-/** Chiffres romains en minuscules (pages des préliminaires). */
-internal fun roman(n: Int): String {
-    val values = intArrayOf(1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1)
-    val symbols = arrayOf("m", "cm", "d", "cd", "c", "xc", "l", "xl", "x", "ix", "v", "iv", "i")
-    var rest = n
-    return buildString {
-        for (i in values.indices) {
-            while (rest >= values[i]) {
-                append(symbols[i])
-                rest -= values[i]
-            }
-        }
-    }
-}
+/** Apps de la figure du sommaire : au plus [FIGURE_APPS] des plus utilisées, hors de l'accueil ([onHome]). */
+internal fun usageFigure(mostUsed: List<AppEntry>, onHome: Set<String>): List<AppEntry> =
+    mostUsed.asSequence().filter { it.key !in onHome }.take(FIGURE_APPS).toList()
+
+/** Une rangée de cinq pastilles : la figure reste petite. */
+private const val FIGURE_APPS = 5
 
 /** Corps du sommaire : un peu plus grand que le texte courant, pour viser sans peine. */
 private val TocText: TextStyle get() = PaperStyle.serif(18f, 23f)
@@ -164,9 +157,15 @@ internal fun TocPage(apps: AppsState, settings: LauncherSettings, badges: Map<St
     val showPrivate = privateSpace != null &&
         !(privateSpace.quiet && (settings.hidePrivateSpaceWhenLocked || privateSpace.hiddenWhenLocked))
     val privateApps = if (!showPrivate) null else if (privateSpace!!.quiet) emptyList() else apps.privateApps
-    val lines = remember(apps.visible, apps.categories, apps.frequent, privateApps) {
-        tableOfContents(apps.visible, apps.categories, apps.frequent, privateApps)
+    val lines = remember(apps.visible, apps.categories, privateApps) {
+        tableOfContents(apps.visible, apps.categories, privateApps)
     }
+    // Ce qui est déjà sur l'accueil : les places de la page papier, ou la grille et le dock.
+    val paperApps by vm.paperApps.collectAsStateWithLifecycle()
+    val onHome = remember(settings.homeStyle, paperApps, apps.homeKeys, apps.favoriteKeys) {
+        if (settings.homeStyle.paper) paperApps.values.mapNotNullTo(HashSet()) { it?.key } else apps.homeKeys + apps.favoriteKeys
+    }
+    val figure = remember(apps.mostUsed, onHome) { usageFigure(apps.mostUsed, onHome) }
     val listState = rememberLazyListState()
 
     // Déverrouillage demandé depuis le sommaire : on descend jusqu'à l'annexe.
@@ -187,6 +186,9 @@ internal fun TocPage(apps: AppsState, settings: LauncherSettings, badges: Map<St
     ) {
         item(key = "toc-title") {
             Text("Table des matières", style = PaperStyle.title, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+        }
+        if (settings.showFrequentApps && figure.isNotEmpty()) {
+            item(key = "toc-figure") { UsageFigure(figure, badges, vm) }
         }
         items(lines, key = { it.key }) { line ->
             when (line) {
@@ -209,6 +211,64 @@ internal fun TocPage(apps: AppsState, settings: LauncherSettings, badges: Map<St
         }
     }
 }
+
+/**
+ * Figure des apps les plus utilisées hors de l'accueil : une rangée de pastilles cerclées à la couleur
+ * de chaque app, leur nom dessous, dans un cadre de filet, et sa légende. Appui : ouvrir ; appui long :
+ * actions, ou glisser vers l'accueil.
+ */
+@Composable
+private fun UsageFigure(apps: List<AppEntry>, badges: Map<String, Int>, vm: LauncherViewModel) {
+    Column(Modifier.padding(top = 12.dp, bottom = 2.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(0.6.dp, PaperColors.Rule)
+                .padding(vertical = 12.dp, horizontal = 4.dp),
+        ) {
+            for (app in apps) {
+                val color = rememberAppColor(app)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .width(FigureCell)
+                        .drawerAppGestures(
+                            app,
+                            canDrag = true,
+                            onClick = { vm.launch(app) },
+                            onLongClick = { anchor -> vm.showAppPopup(app, anchor) },
+                        )
+                        .alpha(if (app.isPaused) 0.45f else 1f)
+                        .padding(vertical = 2.dp),
+                ) {
+                    AppGlyphDisc(app, FigureDisc, color = color, ring = 1.3.dp, colored = true, dot = (badges[app.packageName] ?: 0) > 0)
+                    Text(
+                        app.label,
+                        style = PaperStyle.caption.copy(textAlign = TextAlign.Center),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 5.dp),
+                    )
+                }
+            }
+        }
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure 1") }
+                append(" – Les applis les plus utilisées, hors de l'accueil.")
+            },
+            style = PaperStyle.caption.copy(textAlign = TextAlign.Center),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 7.dp),
+        )
+    }
+}
+
+/** Case d'une app de la figure, et sa pastille. */
+private val FigureCell = 66.dp
+private val FigureDisc = 46.dp
 
 /** Titre de section : numéro, titre et page en gras, sans points de conduite. */
 @Composable

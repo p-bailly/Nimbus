@@ -95,8 +95,9 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 
 **Tiroir d'applications**
 - Sous le thème « Papier (LaTeX) », une table des matières : chaque catégorie est une section
-  numérotée, chaque app une sous-section avec points de conduite et numéro de page ; les fréquentes
-  viennent avant (pages en chiffres romains), l'espace privé en annexe A, et les notifications d'une
+  numérotée, chaque app une sous-section avec points de conduite et numéro de page ; sous le titre,
+  une figure des cinq applis les plus utilisées qui ne sont pas déjà sur l'accueil (places de la
+  page papier, ou grille et dock) ; l'espace privé en annexe A, et les notifications d'une
   app sont un appel de note. Devant chaque nom, le motif de l'app (le même que sur les pages
   papier) à sa propre couleur, la teinte dominante de son icône. Appui : ouvrir ; appui long :
   actions ou glisser vers l'accueil.

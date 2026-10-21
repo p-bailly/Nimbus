@@ -150,6 +150,8 @@ data class AppsState(
     val workProfile: ProfileState? = null,
     /** Apps les plus utilisées, pour la ligne « Fréquentes » du tiroir. */
     val frequent: List<AppEntry> = emptyList(),
+    /** Apps visibles déjà ouvertes, de la plus utilisée à la moins utilisée (figure du sommaire). */
+    val mostUsed: List<AppEntry> = emptyList(),
     val home: List<PlacedIcon> = emptyList(),
     val homeKeys: Set<String> = emptySet(),
     /** Widgets de la grille d'accueil, ramenés dans les limites de la grille. */
@@ -454,6 +456,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             privateSpace = profiles.firstOrNull { it.type == ProfileType.PRIVATE },
             workProfile = profiles.firstOrNull { it.type == ProfileType.WORK },
             frequent = frequent,
+            mostUsed = visible.filter { (lists.usage[it.key] ?: 0) > 0 }.sortedByDescending { lists.usage[it.key] ?: 0 },
             home = home,
             homeKeys = lists.home.map { it.key }.toSet(),
             homeWidgets = homeWidgets,

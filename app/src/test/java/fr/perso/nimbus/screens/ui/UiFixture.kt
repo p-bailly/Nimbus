@@ -82,6 +82,9 @@ object UiFixture {
             favorites = listOf(app("Téléphone"), app("Messages"), app("WhatsApp"), app("Appareil photo")),
             categories = Category.defaults.filter { c -> visible.any { it.category == c.id } },
             frequent = listOf(app("WhatsApp"), app("Claude"), app("Spotify"), app("Maps"), app("Gmail")),
+            // WhatsApp est dans le dock : la figure du sommaire commence à Claude.
+            mostUsed = listOf("WhatsApp", "Claude", "Spotify", "Maps", "Gmail", "Waze", "Discord").map(::app),
+            favoriteKeys = setOf(app("Téléphone"), app("Messages"), app("WhatsApp"), app("Appareil photo")).map { it.key }.toSet(),
             byKey = visible.associateBy { it.key },
         )
     }

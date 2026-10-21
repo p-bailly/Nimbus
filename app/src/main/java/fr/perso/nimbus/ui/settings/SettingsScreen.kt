@@ -445,7 +445,11 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     }
                 }
                 item {
-                    SettingsEntry(R.drawable.ms_history, SettingsColors.Blue, "Apps fréquentes en haut", "En tri alphabétique", checked = settings.showFrequentApps) {
+                    SettingsEntry(
+                        R.drawable.ms_history, SettingsColors.Blue, "Apps fréquentes en haut",
+                        if (paper && settings.drawerToc) "Sommaire : une figure des plus utilisées, hors de l'accueil" else "En tri alphabétique",
+                        checked = settings.showFrequentApps,
+                    ) {
                         update { it.copy(showFrequentApps = !it.showFrequentApps) }
                     }
                 }

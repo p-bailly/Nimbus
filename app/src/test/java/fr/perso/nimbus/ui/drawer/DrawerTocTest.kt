@@ -54,12 +54,10 @@ class DrawerTocTest {
         val lines = tableOfContents(
             apps = listOf(gmail, sms, signal, tel, wa, maps),
             categories = listOf(cat(AppCategory.COMMUNICATION), cat(AppCategory.TRAVEL)),
-            frequent = listOf(wa, maps),
             privateApps = listOf(app("Banque", AppCategory.SHOPPING)),
         )
         assertEquals(
             listOf(
-                "Fréquentes i", "WhatsApp i", "Maps i",
                 // Quatre apps par page ; chaque section commence sur une nouvelle page.
                 "1 Communication 1", "1.1 Gmail 1", "1.2 Messages 1", "1.3 Signal 1", "1.4 Téléphone 1", "1.5 WhatsApp 2",
                 "2 Voyage & Cartes 3", "2.1 Maps 3",
@@ -68,6 +66,17 @@ class DrawerTocTest {
             lines.map { it.text() },
         )
         assertEquals(lines.size, lines.map { it.key }.toSet().size)
+    }
+
+    @Test
+    fun figureKeepsTheMostUsedAppsThatAreNotOnTheHomeScreen() {
+        val used = listOf("WhatsApp", "Maps", "Claude", "Gmail", "Spotify", "Waze", "Discord", "Photos").map { app(it, AppCategory.OTHER) }
+        val onHome = setOf(used[0].key, used[3].key)
+        assertEquals(
+            listOf("Maps", "Claude", "Spotify", "Waze", "Discord"),
+            usageFigure(used, onHome).map { it.label },
+        )
+        assertEquals(emptyList<AppEntry>(), usageFigure(used.take(1), onHome))
     }
 
     @Test
@@ -80,10 +89,5 @@ class DrawerTocTest {
     fun lockedPrivateSpaceKeepsItsAppendix() {
         val lines = tableOfContents(listOf(app("Agenda", AppCategory.OTHER)), emptyList(), privateApps = emptyList())
         assertEquals(listOf("1 Agenda 1", "A Espace privé 2"), lines.map { it.text() })
-    }
-
-    @Test
-    fun romanNumerals() {
-        assertEquals(listOf("i", "iv", "ix", "xiv", "xl"), listOf(1, 4, 9, 14, 40).map(::roman))
     }
 }
