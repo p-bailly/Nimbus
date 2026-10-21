@@ -39,8 +39,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 
 **Accueils « papier » (style LaTeX)**
 - Appui long sur le fond › « Style de l'accueil » (ou Paramètres › Page d'accueil) : la grille
-  d'icônes, ou l'une des sept pages d'article : Groupes, Voronoï, Ensembles, Sierpiński, Fourier
-  (les applis tournent sur des épicycles), Lapin de Douady (ensemble de Julia), Remerciements.
+  d'icônes, ou l'une des cinq pages d'article : Groupes, Voronoï, Ensembles, Sierpiński, Fourier
+  (les applis tournent sur des épicycles).
 - Chaque page place 27 applis sur une figure mathématique : leurs places (WhatsApp, Messages…
   πr) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
   long sur une appli › « Changer », ou Paramètres › Page d'accueil › « Applis de la page ». Une place
@@ -292,7 +292,7 @@ app/src/main/java/fr/perso/nimbus/
     ├── HomeDrag.kt          Glisser-déposer sur l'accueil (calque sous le doigt)
     ├── theme/Theme.kt       Thèmes Ambiant, Material You, Sombre, Clair, Papier (PaperTheme.kt)
     ├── home/                Accueil, pages, grille d'icônes et de widgets
-    ├── paper/               Accueils « papier » : repère, en-tête, pastilles, sept pages (layouts/)
+    ├── paper/               Accueils « papier » : repère, en-tête, pastilles, cinq pages (layouts/)
     ├── drawer/              Tiroir, recherche sans accents, défilement A–Z, sommaire (DrawerToc)
     ├── unlock/              Page de déverrouillage : activité par-dessus l'écran verrouillé,
     │                        page, données (UnlockFeed), lancement à l'extinction (UnlockLauncher)

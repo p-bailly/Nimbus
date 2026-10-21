@@ -149,7 +149,9 @@ class Prefs private constructor(context: Context) {
         val d = LauncherSettings()
         return LauncherSettings(
             themeMode = enumPref("themeMode", d.themeMode),
-            homeStyle = enumPref("homeStyle", d.homeStyle),
+            // Lapin de Douady et Remerciements ont été retirés : leur accueil devient la page Groupes.
+            homeStyle = sp.getString("homeStyle", null)?.takeIf { it in RETIRED_STYLES }?.let { HomeStyle.GROUPES }
+                ?: enumPref("homeStyle", d.homeStyle),
             iconShape = enumPref("iconShape", d.iconShape),
             iconPack = sp.getString("iconPack", d.iconPack),
             wrapLegacyIcons = sp.getBoolean("wrapLegacyIcons", d.wrapLegacyIcons),
@@ -650,6 +652,9 @@ class Prefs private constructor(context: Context) {
         private const val KEY_PAPER_SLOTS = "paperSlots"
         private const val KEY_VORONOI_SITES = "voronoiSites"
         private const val KEY_ENSEMBLES_SITES = "ensemblesSites"
+
+        /** Styles d'accueil supprimés (encore possibles dans une ancienne sauvegarde). */
+        private val RETIRED_STYLES = setOf("LAPIN", "REMERCIEMENTS")
         private const val KEY_HOME_ICONS = "homeIcons"
         private const val KEY_HOME_WIDGETS = "homeWidgets"
 

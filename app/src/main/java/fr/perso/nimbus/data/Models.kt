@@ -87,7 +87,7 @@ enum class ThemeMode(val label: String) {
 
 /**
  * Présentation de l'accueil : grille d'icônes, ou une page « papier » où les 27 applis des
- * [PaperSlot] sont placées sur une figure mathématique (ou un texte, pour les remerciements).
+ * [PaperSlot] sont placées sur une figure mathématique.
  */
 enum class HomeStyle(val label: String, val paper: Boolean = true) {
     GRID("Grille d'icônes", paper = false),
@@ -96,8 +96,6 @@ enum class HomeStyle(val label: String, val paper: Boolean = true) {
     ENSEMBLES("3 · Ensembles"),
     SIERPINSKI("4 · Sierpiński"),
     FOURIER("5 · Fourier"),
-    LAPIN("6 · Lapin de Douady"),
-    REMERCIEMENTS("7 · Remerciements"),
 }
 
 /** Couleurs du tiroir d'apps : celles du lanceur, ou sombres quel que soit le thème. */

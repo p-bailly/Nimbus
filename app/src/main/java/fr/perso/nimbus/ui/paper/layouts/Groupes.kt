@@ -22,7 +22,9 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -86,9 +88,14 @@ private fun Morphism() {
     Row(Modifier.at(22, 142)) {
         Text("1", style = heading(Paper.Ink))
         Text(
+            // Premier théorème d'isomorphisme : φ est surjective de noyau {0, 3}, donc ℤ/6ℤ / ker φ ≅ ℤ/3ℤ.
             tex {
                 color(Blue) { +"Échanges" }
-                +" → "
+                b.withStyle(SpanStyle(fontWeight = FontWeight.Normal)) {
+                    append(" / ker ")
+                    withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append("φ") }
+                    append(" ≅ ")
+                }
                 color(Green) { +"Trajets" }
             },
             style = heading(Paper.Ink),

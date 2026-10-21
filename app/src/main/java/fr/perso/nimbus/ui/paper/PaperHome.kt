@@ -24,8 +24,6 @@ import fr.perso.nimbus.ui.home.multiTouchGestures
 import fr.perso.nimbus.ui.paper.layouts.EnsemblesPage
 import fr.perso.nimbus.ui.paper.layouts.FourierPage
 import fr.perso.nimbus.ui.paper.layouts.GroupesPage
-import fr.perso.nimbus.ui.paper.layouts.LapinPage
-import fr.perso.nimbus.ui.paper.layouts.RemerciementsPage
 import fr.perso.nimbus.ui.paper.layouts.SierpinskiPage
 import fr.perso.nimbus.ui.paper.layouts.VoronoiPage
 
@@ -114,7 +112,5 @@ fun PaperLayout(style: HomeStyle) {
         HomeStyle.ENSEMBLES -> EnsemblesPage()
         HomeStyle.SIERPINSKI -> SierpinskiPage()
         HomeStyle.FOURIER -> FourierPage()
-        HomeStyle.LAPIN -> LapinPage()
-        HomeStyle.REMERCIEMENTS -> RemerciementsPage()
     }
 }
