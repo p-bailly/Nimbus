@@ -29,12 +29,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.data.DrawerTheme
 import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.ui.components.AppActionSheet
 import fr.perso.nimbus.ui.components.AppPickerDialog
 import fr.perso.nimbus.ui.components.AppPopup
+import fr.perso.nimbus.ui.components.LocalGlyphChoices
 import fr.perso.nimbus.ui.components.WidgetPicker
 import fr.perso.nimbus.ui.drawer.AppDrawer
 import fr.perso.nimbus.ui.home.HomeScreen
@@ -55,6 +57,7 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     val wallpaperColor by vm.wallpaperColor.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
     val importResult by vm.importResult.collectAsStateWithLifecycle()
+    val glyphChoices by vm.glyphChoices.collectAsStateWithLifecycle()
 
     val drawerNight = settings.drawerTheme != DrawerTheme.FOLLOW
     val drawerOnTop = ui.drawerOpen && ui.screen == Screen.HOME
@@ -63,12 +66,13 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     val paperHome = settings.homeStyle.paper
     // Sur le fond d'écran les icônes système restent claires (foncées sur un accueil « papier ») ;
     // ailleurs elles suivent le thème.
-    LaunchedEffect(dark, onWallpaper, paperHome) {
-        host.setLightSystemBars(if (onWallpaper) paperHome else !dark)
-    }
-    // Boutons de navigation : masqués sur l'accueil seulement (tiroir et réglages les gardent).
-    val hideNavigation = onWallpaper && settings.hideNavigationOnHome
-    LaunchedEffect(hideNavigation) { host.setNavigationBarHidden(hideNavigation) }
+    val statusLight = if (onWallpaper) paperHome else !dark
+    // Boutons de navigation discrets sur l'accueil seulement (tiroir et réglages les gardent lisibles) :
+    // de la couleur du fond (clairs sur le papier ou un fond d'écran clair), ils restent utilisables.
+    val discreet = onWallpaper && settings.hideNavigationOnHome
+    val lightBackground = if (paperHome) true else wallpaperColor?.let { ColorUtils.calculateLuminance(it) > 0.5 } ?: false
+    val navigationLight = if (discreet) !lightBackground else statusLight
+    LaunchedEffect(statusLight, navigationLight) { host.setSystemBars(statusLight, navigationLight) }
 
     // Un launcher ne se ferme pas avec Retour : ce gestionnaire, déclaré en premier,
     // n'est utilisé que si aucun écran au-dessus n'intercepte le geste.
@@ -78,7 +82,7 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     val homeDrag = remember { HomeDragState() }
 
     NimbusTheme(mode = settings.themeMode, wallpaperColor = wallpaperColor) {
-        CompositionLocalProvider(LocalHomeDrag provides homeDrag) {
+        CompositionLocalProvider(LocalHomeDrag provides homeDrag, LocalGlyphChoices provides glyphChoices) {
             // Couleurs des icônes à thème, à la manière du Pixel : fond pastel / motif accentué.
             val scheme = MaterialTheme.colorScheme
             val themedBackground = if (dark) scheme.surfaceContainerHighest else scheme.primaryContainer

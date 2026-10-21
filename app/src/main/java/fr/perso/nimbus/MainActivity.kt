@@ -21,7 +21,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.FilesSearch
@@ -133,7 +132,7 @@ class MainActivity : ComponentActivity(), LauncherHost {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setLightSystemBars(false)
+        setSystemBars(statusLight = false, navigationLight = false)
         pendingWidgetId = savedInstanceState?.getInt(KEY_PENDING_WIDGET, AppWidgetManager.INVALID_APPWIDGET_ID)
             ?: AppWidgetManager.INVALID_APPWIDGET_ID
         if (savedInstanceState != null) {
@@ -204,20 +203,15 @@ class MainActivity : ComponentActivity(), LauncherHost {
 
     // ---------------------------------------------------------------- LauncherHost
 
-    override fun setLightSystemBars(light: Boolean) {
-        val style = if (light) {
+    override fun setSystemBars(statusLight: Boolean, navigationLight: Boolean) {
+        fun style(light: Boolean) = if (light) {
             SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
         } else {
             SystemBarStyle.dark(Color.TRANSPARENT)
         }
-        enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
-    }
-
-    override fun setNavigationBarHidden(hidden: Boolean) {
-        val controller = WindowCompat.getInsetsController(window, window.decorView)
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        if (hidden) controller.hide(WindowInsetsCompat.Type.navigationBars())
-        else controller.show(WindowInsetsCompat.Type.navigationBars())
+        enableEdgeToEdge(statusBarStyle = style(statusLight), navigationBarStyle = style(navigationLight))
+        // Boutons toujours là (une version précédente les masquait) : un appui suffit, sans glissé.
+        WindowCompat.getInsetsController(window, window.decorView).show(WindowInsetsCompat.Type.navigationBars())
     }
 
     override fun exportBackup() {

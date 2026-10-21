@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -24,10 +26,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.Glyph
+import fr.perso.nimbus.data.GlyphChoice
+import fr.perso.nimbus.data.GlyphChoices
 import fr.perso.nimbus.data.GlyphFactory
 import fr.perso.nimbus.ui.theme.PaperColors
 import fr.perso.nimbus.ui.theme.PaperTextBase
@@ -94,17 +99,45 @@ fun AppGlyphDisc(
     }
 }
 
+/** Motifs choisis pour les apps (voir [GlyphChoices]), fournis par la racine de l'interface. */
+val LocalGlyphChoices = staticCompositionLocalOf { GlyphChoices() }
+
+/**
+ * Motif de [app] dans un carré de [px] pixels : celui choisi pour l'app, sinon [fallback] (motif de
+ * sa place), sinon sa silhouette. Calculé en arrière-plan (null en attendant), ou tout de suite si [sync].
+ */
+@Composable
+fun rememberAppGlyph(app: AppEntry?, px: Int, fallback: GlyphChoice? = null, sync: Boolean = false): Glyph? {
+    if (app == null) return null
+    val context = LocalContext.current
+    val (chosen, other) = LocalGlyphChoices.current.resolve(app)
+    val choice = chosen ?: fallback
+    fun make(): Glyph = runCatching { GlyphFactory.get(context).glyph(app, px, choice, other) }
+        .getOrElse { Glyph.Letters(app.label.take(1)) }
+    if (sync) return remember(app.key, app.label, px, choice, other?.key) { make() }
+    return produceState<Glyph?>(null, app.key, app.label, px, choice, other?.key) {
+        value = withContext(Dispatchers.Default) { make() }
+    }.value
+}
+
+/** Couleur propre de [app] (voir [GlyphFactory.color]) ; l'encre en attendant. */
+@Composable
+fun rememberAppColor(app: AppEntry): Color {
+    val context = LocalContext.current
+    val (choice, other) = LocalGlyphChoices.current.resolve(app)
+    return produceState(PaperColors.Ink, app.key, choice, other?.key) {
+        value = withContext(Dispatchers.Default) {
+            runCatching { Color(GlyphFactory.get(context).color(app, choice, other)) }.getOrDefault(PaperColors.Ink)
+        }
+    }.value
+}
+
 /** Silhouette de l'app teinte de [tint] dans un carré de [size], ou ses lettres en italique. */
 @Composable
 fun AppGlyph(app: AppEntry, size: Dp, tint: Color, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
     val density = LocalDensity.current
     val px = with(density) { size.roundToPx() }.coerceAtLeast(8)
-    val glyph = produceState<Glyph?>(null, app.key, app.label, px) {
-        value = withContext(Dispatchers.Default) {
-            runCatching { GlyphFactory.get(context).glyph(app, px) }.getOrElse { Glyph.Letters(app.label.take(1)) }
-        }
-    }.value
+    val glyph = rememberAppGlyph(app, px)
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         when (glyph) {
             is Glyph.Mask -> Image(
@@ -119,6 +152,7 @@ fun AppGlyph(app: AppEntry, size: Dp, tint: Color, modifier: Modifier = Modifier
                     glyph.text,
                     style = PaperTextBase.copy(fontSize = fontSize, lineHeight = with(density) { size.toSp() }, color = tint, fontStyle = FontStyle.Italic, textAlign = TextAlign.Center),
                     maxLines = 1,
+                    overflow = TextOverflow.Visible,
                 )
             }
             null -> Unit

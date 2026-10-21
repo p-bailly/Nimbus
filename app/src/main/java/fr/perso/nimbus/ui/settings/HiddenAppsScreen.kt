@@ -71,7 +71,7 @@ fun HiddenAppsScreen(vm: LauncherViewModel, apps: AppsState, settings: LauncherS
                 if (paper) {
                     PaperListRow(
                         title = app.label,
-                        subtitle = app.category.label,
+                        subtitle = apps.categoryLabel(app.category),
                         onClick = { vm.launch(app) },
                         leading = { AppGlyphDisc(app, 36.dp) },
                         trailing = { PaperTextButton("Afficher", onClick = { vm.setHidden(app, false) }) },
@@ -90,7 +90,7 @@ fun HiddenAppsScreen(vm: LauncherViewModel, apps: AppsState, settings: LauncherS
                     Spacer(Modifier.width(20.dp))
                     Column(Modifier.weight(1f)) {
                         Text(app.label, fontSize = 18.sp)
-                        Text(app.category.label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(apps.categoryLabel(app.category), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     TextButton(onClick = { vm.setHidden(app, false) }) { Text("Afficher") }
                 }

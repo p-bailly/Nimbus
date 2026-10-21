@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.R
 import fr.perso.nimbus.data.BadgeStyle
+import fr.perso.nimbus.data.Category
 import fr.perso.nimbus.data.DrawerTheme
 import fr.perso.nimbus.data.Gesture
 import fr.perso.nimbus.data.GestureAction
@@ -83,6 +84,7 @@ import fr.perso.nimbus.ui.components.PinDialog
 import fr.perso.nimbus.ui.components.PinMode
 import fr.perso.nimbus.ui.components.ClaudeSessionDialog
 import fr.perso.nimbus.ui.components.AppGlyphDisc
+import fr.perso.nimbus.ui.components.CategoryDialog
 import fr.perso.nimbus.ui.theme.LocalPaperUi
 import fr.perso.nimbus.ui.theme.PaperChevron
 import fr.perso.nimbus.ui.theme.PaperColors
@@ -120,6 +122,9 @@ private sealed interface SettingsDialog {
     data object DrawerThemeChoice : SettingsDialog
     /** [index] null : nouvelle conversation. */
     data class EditClaudeSession(val index: Int?) : SettingsDialog
+    /** [id] null : nouvelle catégorie. */
+    data class EditCategory(val id: String?) : SettingsDialog
+    data object ResetCategories : SettingsDialog
     data class GestureChoice(val gesture: Gesture) : SettingsDialog
     data class GestureApp(val gesture: Gesture) : SettingsDialog
     data object ConfirmImport : SettingsDialog
@@ -296,8 +301,8 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     SettingsEntry(
                         R.drawable.ms_swipe_up,
                         SettingsColors.Blue,
-                        "Masquer les boutons de navigation",
-                        "Sur l'accueil ; glisser depuis le bas de l'écran pour les voir",
+                        "Cacher les boutons de navigation",
+                        "Sur l'accueil : de la couleur du fond, ils restent à leur place et utilisables",
                         checked = settings.hideNavigationOnHome,
                     ) {
                         update { it.copy(hideNavigationOnHome = !it.hideNavigationOnHome) }
@@ -450,6 +455,25 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                         "Onglets ; appui long sur une app › Plus pour la déplacer",
                         checked = settings.autoCategories,
                     ) { update { it.copy(autoCategories = !it.autoCategories) } }
+                }
+                settingsSection("Catégories")
+                items(apps.allCategories, key = { "category:${it.id}" }) { category ->
+                    val count = apps.visible.count { it.category == category.id }
+                    SettingsEntry(
+                        R.drawable.ms_category, SettingsColors.Blue, category.label,
+                        if (count == 0) "Vide (onglet masqué)" else "$count app${if (count > 1) "s" else ""}",
+                        chevron = true,
+                    ) { dialog = SettingsDialog.EditCategory(category.id) }
+                }
+                item {
+                    SettingsEntry(R.drawable.ms_add_box, SettingsColors.Blue, "Ajouter une catégorie", "Un onglet (une section du sommaire) de plus") {
+                        dialog = SettingsDialog.EditCategory(null)
+                    }
+                }
+                item {
+                    SettingsEntry(R.drawable.ms_autorenew, SettingsColors.Blue, "Catégories d'origine", "Noms et ordre d'origine, catégories créées supprimées") {
+                        dialog = SettingsDialog.ResetCategories
+                    }
                 }
             }
             SettingsSection.SEARCH -> SettingsPage("Page de recherche", onBack = back, folio = folio(page)) {
@@ -866,13 +890,12 @@ private fun AppearancePreview(apps: AppsState, settings: LauncherSettings, wallp
 
 /**
  * Aperçu sous le thème papier : la page d'accueil en réduction, encadrée d'un filet comme une
- * figure (titre courant, heure, date, pastilles des apps), sa légende, puis le choix du thème.
+ * figure (heure, date, pastilles des apps ; pas d'en-tête, comme les pages), sa légende, puis le choix du thème.
  */
 @Composable
 internal fun PaperAppearancePreview(apps: AppsState, settings: LauncherSettings, onThemeClick: () -> Unit) {
     val samples = remember(apps.favorites, apps.visible) { (apps.favorites + apps.visible).distinctBy { it.key }.take(5) }
     val now = remember { LocalDateTime.now() }
-    val head = settings.homeStyle.label.substringAfter("· ")
     SettingsCard {
         Column(Modifier.fillMaxWidth()) {
             Column(
@@ -882,16 +905,9 @@ internal fun PaperAppearancePreview(apps: AppsState, settings: LauncherSettings,
                     .border(0.6.dp, PaperColors.Rule, RoundedCornerShape(3.dp))
                     .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 20.dp),
             ) {
-                Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth().padding(bottom = 3.dp)) {
-                    Text(head, style = PaperStyle.smallCaps(9.5f, spacing = 0.08f))
-                    Spacer(Modifier.weight(1f))
-                    Text("1", style = PaperStyle.serif(9.5f, 12f))
-                }
-                PaperRule(thickness = 0.5.dp)
                 Text(
                     now.format(DateTimeFormatter.ofPattern("HH:mm", Locale.FRANCE)),
                     style = PaperStyle.serif(30f, 34f),
-                    modifier = Modifier.padding(top = 10.dp),
                 )
                 Text(
                     now.format(DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRANCE)),
@@ -1078,6 +1094,56 @@ private fun SettingsDialogs(
                     null
                 },
             )
+        }
+        is SettingsDialog.EditCategory -> {
+            val list = apps.allCategories
+            val index = list.indexOfFirst { it.id == dialog.id }
+            val current = list.getOrNull(index)
+            CategoryDialog(
+                initial = current,
+                count = current?.let { c -> apps.visible.count { it.category == c.id } } ?: 0,
+                onSave = { name ->
+                    if (current == null) vm.addCategory(name) else vm.renameCategory(current.id, name)
+                    close()
+                },
+                onDismiss = close,
+                onMoveUp = if (current != null && index > 0) ({ vm.moveCategory(current.id, -1) }) else null,
+                onMoveDown = if (current != null && index < list.lastIndex) ({ vm.moveCategory(current.id, 1) }) else null,
+                onDelete = if (current != null && current.id != Category.OTHER_ID) {
+                    {
+                        vm.deleteCategory(current.id)
+                        close()
+                    }
+                } else {
+                    null
+                },
+            )
+        }
+        SettingsDialog.ResetCategories -> {
+            val text = "Les catégories reprennent leur nom et leur ordre d'origine ; celles que tu as créées sont " +
+                "supprimées et leurs apps reviennent au classement automatique."
+            val reset = {
+                vm.resetCategories()
+                close()
+            }
+            if (LocalPaperUi.current) {
+                PaperDialog(
+                    onDismissRequest = close,
+                    title = "Catégories d'origine",
+                    actions = {
+                        PaperTextButton("Annuler", onClick = close)
+                        PaperTextButton("Rétablir", bold = true, onClick = reset)
+                    },
+                ) { Text(text, style = PaperStyle.body.copy(textAlign = TextAlign.Justify)) }
+            } else {
+                AlertDialog(
+                    onDismissRequest = close,
+                    title = { Text("Catégories d'origine") },
+                    text = { Text(text) },
+                    confirmButton = { TextButton(onClick = reset) { Text("Rétablir") } },
+                    dismissButton = { TextButton(onClick = close) { Text("Annuler") } },
+                )
+            }
         }
         SettingsDialog.DrawerThemeChoice -> ChoiceDialog(
             title = "Mode nuit du tiroir",

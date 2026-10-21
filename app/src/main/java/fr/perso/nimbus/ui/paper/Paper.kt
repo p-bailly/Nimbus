@@ -68,15 +68,13 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.Glyph
-import fr.perso.nimbus.data.GlyphFactory
 import fr.perso.nimbus.data.PaperFamily
 import fr.perso.nimbus.data.PaperSlot
 import fr.perso.nimbus.service.SystemActions
+import fr.perso.nimbus.ui.components.rememberAppGlyph
 import fr.perso.nimbus.ui.theme.PaperColors
 import fr.perso.nimbus.ui.theme.PaperTextBase
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -90,12 +88,19 @@ import kotlin.math.roundToInt
 const val PAPER_WIDTH = 412
 const val PAPER_HEIGHT = 916
 
-/** Bande du repère qui doit rester entre la barre d'état et la barre de navigation. */
-private const val SAFE_TOP = 30
+/**
+ * Bande du repère qui doit rester entre la barre d'état et la barre de navigation : le contenu des
+ * pages commence vers y = 142 (vers y = 66 avec l'heure et la date) et finit avant y = 890.
+ */
+private const val CONTENT_TOP = 134
+private const val CLOCK_TOP = 60
 private const val SAFE_BOTTOM = 890
 
-/** Hauteur de l'heure et de la date sous le filet de l'en-tête : sans elles, l'en-tête descend d'autant. */
-private const val CLOCK_HEIGHT = 76
+/**
+ * Marge latérale du repère qui peut sortir de l'écran : le texte est posé à 22 unités des bords,
+ * il n'en reste que 22 − 14 = 8 quand la page est limitée par la largeur de l'écran.
+ */
+private const val SIDE_CROP = 14
 
 /** Encre d'une famille. */
 val PaperFamily.color: Color get() = Color(argb)
@@ -109,7 +114,7 @@ class PaperEnv(
     val onOpen: (PaperSlot) -> Unit = {},
     /** Appui long sur une place, avec sa position à l'écran (pour le pop-up). */
     val onActions: (PaperSlot, Rect) -> Unit = { _, _ -> },
-    /** Heure et date sous le titre courant ; false sur l'accueil, où la barre d'état les affiche déjà. */
+    /** Heure et date en haut de la page ; false sur l'accueil, où la barre d'état les affiche déjà. */
     val clock: Boolean = true,
     /** Heure figée (aperçus, captures) ; null = heure du téléphone. */
     val fixedTime: LocalDateTime? = null,
@@ -136,11 +141,12 @@ class PaperEnv(
 
 val LocalPaper = staticCompositionLocalOf { PaperEnv.Empty }
 
-// ---------------------------------------------------------------- Repère et en-tête
+// ---------------------------------------------------------------- Repère
 
 /**
  * Fond papier sur tout l'écran et repère de 412 × 916 unités, mis à l'échelle pour que la bande
- * utile (30 à 890, ou 106 à 890 sans l'heure et la date) tienne entre les barres système, et centré.
+ * utile (134 à 890, ou 60 à 890 avec l'heure et la date) tienne entre les barres système, et que
+ * la largeur moins les marges rognées ([SIDE_CROP]) tienne dans l'écran ; centré.
  * Dans [content], 1.dp = 1 unité et 1.sp = 1 unité (la taille de police du système ne déforme pas la page).
  */
 @Composable
@@ -153,8 +159,9 @@ fun PaperCanvas(modifier: Modifier = Modifier, content: @Composable BoxScope.() 
         val bottomPx = env.fixedInsets?.second?.let { with(density) { it.dp.toPx() } } ?: bars.getBottom(density).toFloat()
         val w = constraints.maxWidth.toFloat()
         val free = constraints.maxHeight - topPx - bottomPx
-        val top = if (env.clock) SAFE_TOP else SAFE_TOP + CLOCK_HEIGHT
-        val scale = min(w / PAPER_WIDTH, free / (SAFE_BOTTOM - top))
+        val top = if (env.clock) CLOCK_TOP else CONTENT_TOP
+        val scale = min(w / (PAPER_WIDTH - 2 * SIDE_CROP), free / (SAFE_BOTTOM - top))
+        // Page limitée par la largeur : x < 0, les marges rognées sortent de l'écran.
         val x = ((w - PAPER_WIDTH * scale) / 2f).roundToInt()
         // Page limitée par la largeur : la hauteur en trop se partage au-dessus et au-dessous.
         val y = (topPx + (free - (SAFE_BOTTOM - top) * scale) / 2f - top * scale).roundToInt()
@@ -173,32 +180,18 @@ fun PaperCanvas(modifier: Modifier = Modifier, content: @Composable BoxScope.() 
 fun Modifier.at(x: Number, y: Number): Modifier = offset(x.toFloat().dp, y.toFloat().dp)
 
 /**
- * Page complète : titre courant (petites capitales) et numéro de page sur un filet, puis l'heure
- * et la date centrées ([PaperEnv.clock]). Le contenu commence vers y = 142.
+ * Page complète, sans en-tête (ni titre courant ni numéro : la place va au contenu), avec l'heure
+ * et la date centrées en haut si [PaperEnv.clock]. Le contenu commence vers y = 142.
  */
 @Composable
-fun PaperPage(runningHead: String, pageNumber: String, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+fun PaperPage(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     PaperCanvas(modifier) {
-        PaperHeader(runningHead, pageNumber)
+        if (LocalPaper.current.clock) PaperClock()
         content()
     }
 }
 
-@Composable
-fun PaperHeader(runningHead: String, pageNumber: String) {
-    val clock = LocalPaper.current.clock
-    // Sans l'heure ni la date, le titre courant descend juste au-dessus du contenu.
-    val shift = if (clock) 0 else CLOCK_HEIGHT
-    val head = Paper.text(12f, 14f).copy(fontFeatureSettings = "smcp", letterSpacing = 0.08.em)
-    Box(Modifier.at(22, 36 + shift).width(368.dp)) {
-        Text(runningHead, style = head, modifier = Modifier.align(Alignment.CenterStart))
-        Text(pageNumber, style = head, modifier = Modifier.align(Alignment.CenterEnd))
-    }
-    HRule(22, 55 + shift, 368, 0.6f)
-    if (clock) PaperClock()
-}
-
-/** Heure (appui : alarmes) et date (appui : agenda), centrées sous le filet de l'en-tête. */
+/** Heure (appui : alarmes) et date (appui : agenda), centrées en haut de la page. */
 @Composable
 private fun PaperClock() {
     val context = LocalContext.current
@@ -341,8 +334,8 @@ fun Modifier.slot(slot: PaperSlot, shape: Shape = CircleShape, label: String? = 
 @Composable
 fun SlotGlyph(slot: PaperSlot, size: Float, tint: Color, modifier: Modifier = Modifier) {
     val env = LocalPaper.current
-    val app = env.app(slot)
-    val glyph = rememberGlyph(app, size)
+    val px = with(LocalDensity.current) { size.dp.roundToPx() }.coerceAtLeast(8)
+    val glyph = rememberAppGlyph(env.app(slot), px, fallback = slot.glyph, sync = env.syncGlyphs)
     Box(modifier.size(size.dp), contentAlignment = Alignment.Center) {
         when (glyph) {
             is Glyph.Mask -> Image(
@@ -362,24 +355,6 @@ fun SlotGlyph(slot: PaperSlot, size: Float, tint: Color, modifier: Modifier = Mo
             null -> Unit
         }
     }
-}
-
-@Composable
-private fun rememberGlyph(app: AppEntry?, size: Float): Glyph? {
-    val context = LocalContext.current
-    val px = with(LocalDensity.current) { size.dp.roundToPx() }.coerceAtLeast(8)
-    if (app == null) return null
-    if (LocalPaper.current.syncGlyphs) {
-        return remember(app.key, app.label, px) {
-            runCatching { GlyphFactory.get(context).glyph(app, px) }.getOrElse { Glyph.Letters(app.label.take(1)) }
-        }
-    }
-    val state = produceState<Glyph?>(null, app.key, app.label, px) {
-        value = withContext(Dispatchers.Default) {
-            runCatching { GlyphFactory.get(context).glyph(app, px) }.getOrElse { Glyph.Letters(app.label.take(1)) }
-        }
-    }
-    return state.value
 }
 
 enum class DiscStyle {

@@ -66,7 +66,7 @@ private val FibreOrder = intArrayOf(0, 3, 1, 4, 2, 5)
 
 @Composable
 fun GroupesPage() {
-    PaperPage("Groupes", "1") {
+    PaperPage {
         Morphism()
         Proposition()
         Dihedral()

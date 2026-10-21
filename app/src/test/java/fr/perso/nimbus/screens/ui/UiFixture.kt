@@ -17,6 +17,7 @@ import androidx.test.core.app.ActivityScenario
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import fr.perso.nimbus.data.AppCategory
+import fr.perso.nimbus.data.Category
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.PendingWidget
 import fr.perso.nimbus.data.ThemeMode
@@ -79,7 +80,7 @@ object UiFixture {
             loaded = true,
             visible = visible,
             favorites = listOf(app("Téléphone"), app("Messages"), app("WhatsApp"), app("Appareil photo")),
-            categories = visible.map { it.category }.distinct().sortedBy { it.ordinal },
+            categories = Category.defaults.filter { c -> visible.any { it.category == c.id } },
             frequent = listOf(app("WhatsApp"), app("Claude"), app("Spotify"), app("Maps"), app("Gmail")),
             byKey = visible.associateBy { it.key },
         )
@@ -124,8 +125,7 @@ object FakeHost : LauncherHost {
     override fun requestContactsPermission() = Unit
     override fun requestFilesPermission() = Unit
     override fun requestDefaultLauncher() = Unit
-    override fun setLightSystemBars(light: Boolean) = Unit
-    override fun setNavigationBarHidden(hidden: Boolean) = Unit
+    override fun setSystemBars(statusLight: Boolean, navigationLight: Boolean) = Unit
     override fun exportBackup() = Unit
     override fun importBackup() = Unit
     override fun chooseAutoBackupFolder() = Unit

@@ -5,6 +5,7 @@ import android.os.Process
 import androidx.compose.ui.graphics.ImageBitmap
 import fr.perso.nimbus.data.AppCategory
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.Category
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,6 +30,19 @@ class DrawerTocTest {
         is TocLine.Entry -> listOfNotNull(number, app.label, page).joinToString(" ")
     }
 
+    private fun cat(category: AppCategory) = Category(category.name, category.label)
+
+    @Test
+    fun renamedAndCreatedCategories() {
+        val gmail = app("Gmail", AppCategory.COMMUNICATION)
+        val pronote = app("Pronote", AppCategory.OTHER).copy(category = "c1")
+        val lines = tableOfContents(
+            apps = listOf(gmail, pronote),
+            categories = listOf(Category("c1", "Lycée"), Category(AppCategory.COMMUNICATION.name, "Messages et appels")),
+        )
+        assertEquals(listOf("1 Lycée 1", "1.1 Pronote 1", "2 Messages et appels 2", "2.1 Gmail 2"), lines.map { it.text() })
+    }
+
     @Test
     fun sectionsSubsectionsAndPages() {
         val gmail = app("Gmail", AppCategory.COMMUNICATION)
@@ -39,7 +53,7 @@ class DrawerTocTest {
         val maps = app("Maps", AppCategory.TRAVEL)
         val lines = tableOfContents(
             apps = listOf(gmail, sms, signal, tel, wa, maps),
-            categories = listOf(AppCategory.COMMUNICATION, AppCategory.TRAVEL),
+            categories = listOf(cat(AppCategory.COMMUNICATION), cat(AppCategory.TRAVEL)),
             frequent = listOf(wa, maps),
             privateApps = listOf(app("Banque", AppCategory.SHOPPING)),
         )
@@ -58,7 +72,7 @@ class DrawerTocTest {
 
     @Test
     fun singleCategoryNumbersTheApps() {
-        val lines = tableOfContents(listOf(app("Agenda", AppCategory.OTHER), app("Waze", AppCategory.OTHER)), listOf(AppCategory.OTHER))
+        val lines = tableOfContents(listOf(app("Agenda", AppCategory.OTHER), app("Waze", AppCategory.OTHER)), listOf(cat(AppCategory.OTHER)))
         assertEquals(listOf("1 Agenda 1", "2 Waze 1"), lines.map { it.text() })
     }
 

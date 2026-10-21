@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.perso.nimbus.data.AppCategory
+import fr.perso.nimbus.data.Category
 import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.data.ProfileState
 import fr.perso.nimbus.data.ProfileType
@@ -55,8 +56,8 @@ class DrawerScreenshot {
         val state = UiFixture.appsState()
         val banque = UiFixture.app("Banque Populaire")
         val apps = state.copy(
-            visible = state.visible.filter { it.category == AppCategory.COMMUNICATION },
-            categories = listOf(AppCategory.COMMUNICATION, AppCategory.TRAVEL),
+            visible = state.visible.filter { it.category == AppCategory.COMMUNICATION.name },
+            categories = Category.defaults.filter { it.id == AppCategory.COMMUNICATION.name || it.id == AppCategory.TRAVEL.name },
             frequent = emptyList(),
             privateSpace = ProfileState(Process.myUserHandle(), ProfileType.PRIVATE, quiet = false),
             privateApps = listOf(banque.copy(key = "private:" + banque.key, profile = ProfileType.PRIVATE)),

@@ -31,7 +31,12 @@ class Prefs private constructor(context: Context) {
     val hidden: StateFlow<Set<String>> = _hidden.asStateFlow()
 
     private val _categoryOverrides = MutableStateFlow(readOverrides())
-    val categoryOverrides: StateFlow<Map<String, AppCategory>> = _categoryOverrides.asStateFlow()
+    /** Catégorie choisie par app : clé d'app -> identifiant de [Category]. */
+    val categoryOverrides: StateFlow<Map<String, String>> = _categoryOverrides.asStateFlow()
+
+    private val _categories = MutableStateFlow(readCategories())
+    /** Catégories du tiroir, dans l'ordre des onglets (prédéfinies tant qu'elles n'ont pas été modifiées). */
+    val categories: StateFlow<List<Category>> = _categories.asStateFlow()
 
     private val _usage = MutableStateFlow(readUsage())
     val usage: StateFlow<Map<String, Int>> = _usage.asStateFlow()
@@ -70,6 +75,10 @@ class Prefs private constructor(context: Context) {
     private val _voronoiSites = MutableStateFlow(readVoronoiSites())
     /** Accueil « Voronoï » : sites déplacés par l'utilisateur (repère de la figure) ; les autres restent à leur place. */
     val voronoiSites: StateFlow<Map<PaperSlot, Offset>> = _voronoiSites.asStateFlow()
+
+    private val _glyphChoices = MutableStateFlow(readMap(KEY_GLYPHS))
+    /** Motifs choisis (accueils papier, sommaire) : clé d'app -> [GlyphChoice.spec]. */
+    val glyphChoices: StateFlow<Map<String, String>> = _glyphChoices.asStateFlow()
 
     private val _gestureApps = MutableStateFlow(readGestureApps())
     /** App ouverte par un geste réglé sur « Ouvrir une app ». */
@@ -228,22 +237,61 @@ class Prefs private constructor(context: Context) {
 
     // ---------------------------------------------------------------- Catégories
 
-    fun setCategoryOverride(key: String, category: AppCategory?) {
+    fun setCategoryOverride(key: String, category: String?) {
         val map = _categoryOverrides.value.toMutableMap()
         if (category == null) map.remove(key) else map[key] = category
-        _categoryOverrides.value = map
-        writeList(KEY_CATEGORIES, map.map { (k, v) -> "$k=${v.name}" })
+        writeOverrides(map)
     }
 
-    private fun readOverrides(): Map<String, AppCategory> {
-        val result = HashMap<String, AppCategory>()
+    private fun writeOverrides(map: Map<String, String>) {
+        _categoryOverrides.value = map
+        writeList(KEY_CATEGORIES, map.map { (k, v) -> "$k=$v" })
+    }
+
+    private fun readOverrides(): Map<String, String> {
+        val result = HashMap<String, String>()
         for (line in readList(KEY_CATEGORIES)) {
             val idx = line.lastIndexOf('=')
-            if (idx <= 0) continue
-            val cat = AppCategory.entries.firstOrNull { it.name == line.substring(idx + 1) } ?: continue
-            result[line.substring(0, idx)] = cat
+            if (idx <= 0 || idx == line.lastIndex) continue
+            result[line.substring(0, idx)] = line.substring(idx + 1)
         }
         return result
+    }
+
+    /**
+     * Remplace la liste des catégories (ordre des onglets). « Autres » y reste toujours ; les apps
+     * rangées dans une catégorie disparue reviennent au classement automatique.
+     */
+    fun setCategories(list: List<Category>) {
+        val clean = list.filter { it.id.isNotBlank() }
+            .map { it.copy(label = it.label.replace('\n', ' ').trim().ifEmpty { it.id }) }
+            .distinctBy { it.id }
+            .let { if (it.none { c -> c.id == Category.OTHER_ID }) it + Category.defaults.first { c -> c.id == Category.OTHER_ID } else it }
+        _categories.value = clean
+        if (clean == Category.defaults) {
+            sp.edit().remove(KEY_CATEGORY_LIST).apply()
+        } else {
+            val array = JSONArray(clean.map { JSONObject().put("id", it.id).put("label", it.label) })
+            sp.edit().putString(KEY_CATEGORY_LIST, array.toString()).apply()
+        }
+        val ids = clean.mapTo(HashSet()) { it.id }
+        val overrides = _categoryOverrides.value
+        if (overrides.values.any { it !in ids }) writeOverrides(overrides.filterValues { it in ids })
+    }
+
+    private fun readCategories(): List<Category> {
+        val raw = sp.getString(KEY_CATEGORY_LIST, null) ?: return Category.defaults
+        return try {
+            val array = JSONArray(raw)
+            val list = (0 until array.length()).mapNotNull { i ->
+                val o = array.optJSONObject(i) ?: return@mapNotNull null
+                val id = o.optString("id").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                Category(id, o.optString("label").ifBlank { id })
+            }.distinctBy { it.id }
+            if (list.none { it.id == Category.OTHER_ID }) list + Category.defaults.first { it.id == Category.OTHER_ID } else list
+        } catch (e: Exception) {
+            Category.defaults
+        }
     }
 
     // ---------------------------------------------------------------- Usage (tri par utilisation)
@@ -376,9 +424,11 @@ class Prefs private constructor(context: Context) {
             _hidden.value = it
             writeList(KEY_HIDDEN, it.toList())
         }
-        categoryOverrides?.let {
-            _categoryOverrides.value = it
-            writeList(KEY_CATEGORIES, it.map { (k, v) -> "$k=${v.name}" })
+        categoryOverrides?.let { overrides ->
+            // Une catégorie prédéfinie supprimée revient si l'import y range des apps.
+            val missing = overrides.values.toSet().filter { cat -> _categories.value.none { it.id == cat.name } }
+            if (missing.isNotEmpty()) setCategories(_categories.value + missing.map { Category(it.name, it.label) })
+            writeOverrides(overrides.mapValues { it.value.name })
         }
         usage?.let {
             val e = usageSp.edit().clear()
@@ -409,6 +459,14 @@ class Prefs private constructor(context: Context) {
         if (targetKey == null) map.remove(key) else map[key] = targetKey
         _iconSwipeActions.value = map
         writeMap(KEY_ICON_SWIPES, map)
+    }
+
+    /** [choice] null : motif automatique (celui de la place, sinon la silhouette de l'app). */
+    fun setGlyphChoice(key: String, choice: GlyphChoice?) {
+        val map = _glyphChoices.value.toMutableMap()
+        if (choice == null) map.remove(key) else map[key] = choice.spec.replace('\n', ' ')
+        _glyphChoices.value = map
+        writeMap(KEY_GLYPHS, map)
     }
 
     fun setGestureApp(gesture: Gesture, appKey: String?) {
@@ -514,9 +572,11 @@ class Prefs private constructor(context: Context) {
         _favorites.value = readList(KEY_FAVORITES)
         _hidden.value = readList(KEY_HIDDEN).toSet()
         _categoryOverrides.value = readOverrides()
+        _categories.value = readCategories()
         _usage.value = readUsage()
         _customLabels.value = readMap(KEY_LABELS)
         _iconSwipeActions.value = readMap(KEY_ICON_SWIPES)
+        _glyphChoices.value = readMap(KEY_GLYPHS)
         _gestureApps.value = readGestureApps()
         _paperSlots.value = readPaperSlots()
         _voronoiSites.value = readVoronoiSites()
@@ -563,11 +623,13 @@ class Prefs private constructor(context: Context) {
         private const val KEY_FAVORITES = "favorites"
         private const val KEY_HIDDEN = "hidden"
         private const val KEY_CATEGORIES = "categoryOverrides"
+        private const val KEY_CATEGORY_LIST = "categoryList"
         private const val KEY_WIDGETS = "widgets"
         private const val KEY_PIN = "pinHash"
         private const val KEY_LABELS = "customLabels"
         private const val KEY_ICON_SWIPES = "iconSwipeActions"
         private const val KEY_GESTURE_APPS = "gestureApps"
+        private const val KEY_GLYPHS = "glyphChoices"
         private const val KEY_PAPER_SLOTS = "paperSlots"
         private const val KEY_VORONOI_SITES = "voronoiSites"
         private const val KEY_HOME_ICONS = "homeIcons"

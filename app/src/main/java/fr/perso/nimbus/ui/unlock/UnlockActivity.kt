@@ -77,7 +77,7 @@ class UnlockActivity : ComponentActivity() {
         val feed = UnlockFeed.get(this)
         setContent {
             val state by feed.state.collectAsStateWithLifecycle()
-            // Ce que la page lance (horloge, agenda de l'en-tête) attend le déverrouillage.
+            // Ce que la page lance (horloge, agenda du haut de la page) attend le déverrouillage.
             val context = remember { LockedContext(this) }
             CompositionLocalProvider(LocalContext provides context) {
                 MaterialTheme(colorScheme = paperColorScheme(), typography = PaperTypography, shapes = PaperShapes) {

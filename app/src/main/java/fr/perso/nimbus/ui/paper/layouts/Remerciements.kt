@@ -89,7 +89,7 @@ private val SlotRef = Regex("""\{(\w+)\}""")
 
 @Composable
 fun RemerciementsPage() {
-    PaperPage("Avant-propos", "7") {
+    PaperPage {
         Text(
             "À mes vingt-sept applis,\nsans qui cet écran serait vide.",
             style = Paper.text(14.5f, 20f).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.End),

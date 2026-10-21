@@ -4,7 +4,10 @@ import android.content.ComponentName
 import android.os.UserHandle
 import androidx.compose.ui.graphics.ImageBitmap
 
-/** Catégories du tiroir d'applications (l'ordre ici = l'ordre des onglets). */
+/**
+ * Catégories prédéfinies du tiroir, celles du classement automatique (l'ordre ici = l'ordre des
+ * onglets tant que l'utilisateur ne l'a pas changé, voir [Category]).
+ */
 enum class AppCategory(val label: String) {
     COMMUNICATION("Communication"),
     SOCIAL("Social"),
@@ -21,6 +24,19 @@ enum class AppCategory(val label: String) {
     /** Jamais attribuée automatiquement : choix manuel ou import Smart Launcher (« Paramètres »). */
     SYSTEM("Système"),
     OTHER("Autres"),
+}
+
+/**
+ * Catégorie du tiroir telle que l'utilisateur l'a réglée : une prédéfinie ([id] = nom d'une
+ * [AppCategory], renommable, supprimable sauf « Autres ») ou une qu'il a créée ([id] « c… »).
+ */
+data class Category(val id: String, val label: String) {
+    companion object {
+        /** Catégorie de repli : celle des apps sans catégorie ou dont la catégorie a été supprimée. */
+        val OTHER_ID = AppCategory.OTHER.name
+
+        val defaults: List<Category> get() = AppCategory.entries.map { Category(it.name, it.label) }
+    }
 }
 
 /** Profil Android auquel appartient une app. */
@@ -52,7 +68,8 @@ data class AppEntry(
     val label: String,
     val icon: ImageBitmap,
     val autoCategory: AppCategory,
-    val category: AppCategory = autoCategory,
+    /** Identifiant de sa [Category] : choix de l'utilisateur, sinon classement automatique. */
+    val category: String = autoCategory.name,
     val isWorkProfile: Boolean = false,
     val profile: ProfileType = if (isWorkProfile) ProfileType.WORK else ProfileType.MAIN,
     /** App d'un profil pro en pause : affichée grisée, la lancer propose de réactiver le profil. */
@@ -201,7 +218,7 @@ data class LauncherSettings(
     val homeRows: Int = 6,
     val homeShowLabels: Boolean = true,
     val showSearchBar: Boolean = true,
-    /** Boutons de navigation masqués quand l'accueil est affiché (un glissé depuis le bas les fait revenir). */
+    /** Boutons de navigation de la couleur du fond quand l'accueil est affiché : cachés, mais utilisables. */
     val hideNavigationOnHome: Boolean = true,
     /** Ligne des apps les plus utilisées en haut du tiroir. */
     val showFrequentApps: Boolean = true,

@@ -102,7 +102,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import fr.perso.nimbus.data.AppCategory
+import fr.perso.nimbus.data.Category
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.ContactResult
 import fr.perso.nimbus.data.LauncherSettings
@@ -375,8 +375,8 @@ private fun CategoryPager(
     vm: LauncherViewModel,
 ) {
     // null = « Toutes ». Un seul onglet de catégorie n'apporterait rien : on les masque alors.
-    val tabs: List<AppCategory?> = remember(apps.categories) {
-        if (apps.categories.size > 1) listOf<AppCategory?>(null) + apps.categories else listOf(null)
+    val tabs: List<Category?> = remember(apps.categories) {
+        if (apps.categories.size > 1) listOf<Category?>(null) + apps.categories else listOf(null)
     }
     val pagerState = rememberPagerState { tabs.size }
     val scope = rememberCoroutineScope()
@@ -413,7 +413,7 @@ private fun CategoryPager(
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
             val category = tabs.getOrNull(page)
             val list = remember(apps.visible, category) {
-                if (category == null) apps.visible else apps.visible.filter { it.category == category }
+                if (category == null) apps.visible else apps.visible.filter { it.category == category.id }
             }
             AppPage(
                 list = list,

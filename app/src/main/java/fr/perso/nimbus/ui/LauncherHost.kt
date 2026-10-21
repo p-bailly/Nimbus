@@ -23,11 +23,11 @@ interface LauncherHost {
     /** Demande à devenir le launcher par défaut (RoleManager, sinon réglages Accueil). */
     fun requestDefaultLauncher()
 
-    /** Icônes sombres dans les barres système (true) ou claires (false). */
-    fun setLightSystemBars(light: Boolean)
-
-    /** Masque les boutons de navigation (un glissé depuis le bas les montre un instant) ou les réaffiche. */
-    fun setNavigationBarHidden(hidden: Boolean)
+    /**
+     * Icônes sombres (true) ou claires (false) de la barre d'état et des boutons de navigation.
+     * Des boutons de la couleur du fond sont quasi invisibles, mais toujours utilisables.
+     */
+    fun setSystemBars(statusLight: Boolean, navigationLight: Boolean)
 
     /** Enregistre la configuration dans un fichier choisi par l'utilisateur. */
     fun exportBackup()

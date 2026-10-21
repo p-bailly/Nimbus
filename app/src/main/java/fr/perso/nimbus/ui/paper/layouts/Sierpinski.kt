@@ -139,7 +139,7 @@ private val KEY = listOf(
 
 @Composable
 fun SierpinskiPage() {
-    PaperPage("Sierpiński", "4") {
+    PaperPage {
         Definition()
         Figure()
         Caption()

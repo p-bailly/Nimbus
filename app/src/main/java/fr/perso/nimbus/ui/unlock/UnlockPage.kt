@@ -162,8 +162,6 @@ fun UnlockPage(
     val unlock by rememberUpdatedState(onUnlock)
 
     PaperPage(
-        "Déverrouillage",
-        "8",
         // Glisser vers le haut, n'importe où : déverrouiller.
         modifier = Modifier.pointerInput(Unit) {
             val threshold = 64.dp.toPx()

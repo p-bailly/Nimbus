@@ -33,7 +33,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import fr.perso.nimbus.data.AppCategory
+import fr.perso.nimbus.data.Category
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.BadgeStyle
 import fr.perso.nimbus.data.LauncherSettings
@@ -41,7 +41,9 @@ import fr.perso.nimbus.data.ProfileState
 import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherViewModel
+import fr.perso.nimbus.ui.components.AppGlyph
 import fr.perso.nimbus.ui.components.drawerAppGestures
+import fr.perso.nimbus.ui.components.rememberAppColor
 import fr.perso.nimbus.ui.theme.PaperColors
 import fr.perso.nimbus.ui.theme.PaperMargin
 import fr.perso.nimbus.ui.theme.PaperStyle
@@ -81,7 +83,7 @@ private const val APPS_PER_PAGE = 4
  */
 internal fun tableOfContents(
     apps: List<AppEntry>,
-    categories: List<AppCategory>,
+    categories: List<Category>,
     frequent: List<AppEntry> = emptyList(),
     privateApps: List<AppEntry>? = null,
 ): List<TocLine> {
@@ -103,10 +105,10 @@ internal fun tableOfContents(
         val byCategory = apps.groupBy { it.category }
         var n = 0
         for (category in categories) {
-            val members = byCategory[category].orEmpty()
+            val members = byCategory[category.id].orEmpty()
             if (members.isEmpty()) continue
             n++
-            lines += TocLine.Section("$n", category.label, "$page", key = "section:${category.name}")
+            lines += TocLine.Section("$n", category.label, "$page", key = "section:${category.id}")
             section("$n", members)
         }
     } else {
@@ -146,6 +148,10 @@ private val EntryIndent = 28.dp
 private val EntryNumberWidth = 44.dp
 private val SectionNumberWidth = 28.dp
 private val PageWidth = 34.dp
+
+/** Motif de l'app devant son nom, et l'espace qui le suit. */
+private val GlyphSize = 19.dp
+private val GlyphGap = 9.dp
 
 /** Pas des points de conduite, en em, et marge avant le numéro de page. */
 private const val DOT_PITCH = 0.55f
@@ -234,7 +240,8 @@ private fun PrivateSpaceActions(state: ProfileState, onToggleLock: () -> Unit, o
 }
 
 /**
- * Une app : numéro, nom (et appel de note s'il y a des notifications), points de conduite, page.
+ * Une app : numéro, motif en couleur, nom (et appel de note s'il y a des notifications), points de
+ * conduite, page.
  * Appui : ouvrir ; appui long : actions, ou glisser vers l'accueil. [indent] : retrait d'une sous-section.
  */
 @Composable
@@ -274,6 +281,15 @@ internal fun TocEntry(
             if (line.number != null) {
                 Text(line.number, style = TocText, modifier = Modifier.alignByBaseline().width(EntryNumberWidth))
             }
+            // Le motif de l'app (celui des pages papier), à sa propre couleur.
+            AppGlyph(
+                app,
+                GlyphSize,
+                tint = rememberAppColor(app),
+                modifier = Modifier
+                    .align(Alignment.CenterVertically)
+                    .padding(end = GlyphGap),
+            )
             Box(
                 Modifier
                     .alignByBaseline()

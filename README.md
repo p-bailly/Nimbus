@@ -21,8 +21,9 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Dock (favoris) de 4 à 6 icônes par rangée.
 - Horloge (appui : alarmes), date (appui : agenda), batterie, barre de recherche :
   chacun peut être masqué.
-- Boutons de navigation masqués sur l'accueil (réglable : Paramètres › Page d'accueil) : un glissé
-  depuis le bas de l'écran les montre un instant ; le tiroir et les paramètres les gardent.
+- Boutons de navigation cachés sur l'accueil (réglable : Paramètres › Page d'accueil) : dessinés de la
+  couleur du fond, ils restent à leur place et répondent au premier appui ; le tiroir et les
+  paramètres les gardent lisibles.
 - Glisser-déposer depuis le tiroir : appui long sur une app puis glisser, le tiroir
   s'efface et l'app se pose sur la case où on la lâche.
 - Widgets dans la grille (appui long sur l'accueil › Ajouter un widget) : posés sur la
@@ -48,14 +49,18 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   carré Ω ; les cellules suivent le doigt, et les pastilles ne sortent pas du carré, ne se touchent
   pas et laissent le « Ω » libre. Appui long sur le fond › « Sites d'origine » pour tout remettre.
 - Les applis sont dessinées avec leur silhouette monochrome (calque des icônes à thème du Pixel,
-  sinon premier plan de l'icône, sinon l'initiale), teintée de la couleur de leur famille.
+  sinon premier plan de l'icône, sinon l'initiale), teintée de la couleur de leur famille. La
+  silhouette est redessinée à sa taille finale (nette même quand le motif est petit dans l'icône).
+- Motif au choix (appui long › Plus › « Motif ») : silhouette de l'app, logo YouTube, lettres
+  (« +x », « πr »…) ou silhouette d'une autre app. Par défaut, la place YouTube prend YouTube ReVanced
+  avec le logo de YouTube, Banque Populaire s'écrit « +x » et la place πr (Prof de maths) « πr ».
 - Le thème « Papier (LaTeX) » (choisi avec un accueil papier) met toute l'interface en Computer
   Modern sur fond crème. La page est dessinée sur un repère de 412 × 916 mis à l'échelle de l'écran.
-- En tête de page, seulement le titre courant et le numéro : l'heure et la date sont déjà dans la
-  barre d'état. La page grandit de la place gagnée, jusqu'à la largeur de l'écran.
+- Pas d'en-tête (ni titre courant, ni numéro, ni heure : elle est dans la barre d'état) : la page
+  grandit de la place gagnée, et ses marges latérales sont rognées (8 unités au lieu de 22).
 
 **Page de déverrouillage (papier)**
-- Au réveil, par-dessus l'écran verrouillé : une page d'article (titre courant « Déverrouillage »,
+- Au réveil, par-dessus l'écran verrouillé : une page d'article (sans en-tête :
   heure, date), puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
   ressenti, ciel, maximum en orange et minimum en bleu, et son coloriage en figure), les matchs
   en direct des équipes favorites de l'appli Basket Live (trois au plus, mi-temps et fin de période
@@ -90,9 +95,15 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Sous le thème « Papier (LaTeX) », une table des matières : chaque catégorie est une section
   numérotée, chaque app une sous-section avec points de conduite et numéro de page ; les fréquentes
   viennent avant (pages en chiffres romains), l'espace privé en annexe A, et les notifications d'une
-  app sont un appel de note. Appui : ouvrir ; appui long : actions ou glisser vers l'accueil.
+  app sont un appel de note. Devant chaque nom, le motif de l'app (le même que sur les pages
+  papier) à sa propre couleur, la teinte dominante de son icône. Appui : ouvrir ; appui long :
+  actions ou glisser vers l'accueil.
   Réglable (Paramètres › Page des applications › « Table des matières ») pour revenir à la grille.
-- Onglets de catégories automatiques, balayables (catégorie modifiable par app).
+- Onglets de catégories automatiques, balayables (catégorie modifiable par app, ou nouvelle
+  catégorie créée depuis ce choix).
+- Catégories personnalisables (Paramètres › Page des applications › Catégories) : renommer,
+  réordonner, supprimer (sauf « Autres » : les apps reviennent au classement automatique), en
+  créer ; « Catégories d'origine » rétablit tout. Elles font partie de la sauvegarde.
 - Ligne « Fréquentes », défilement rapide A–Z, tri alphabétique ou par usage.
 - Recherche insensible aux accents (« eco » trouve « École »), par initiales
   (« gm » → « Google Maps »), par ancien nom d'une app renommée, dans les
@@ -103,7 +114,7 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 **Icônes**
 - Formes : squircle, cercle, carré arrondi, goutte, carré, forme du système.
 - Icônes à thème façon Pixel (Android 13+), packs d'icônes ADW / Nova.
-- Par app : nom et icône personnalisés (image de la galerie).
+- Par app : nom et icône personnalisés (image de la galerie, ou icône d'une autre app).
 - Pastilles de notification (nombre ou simple point).
 - Appui long sur une app : petit pop-up (raccourcis de l'app, Infos, Accueil,
   Désinstaller) ; « Plus » ouvre le reste (dock, glissé, renommer, icône, catégorie, masquer).

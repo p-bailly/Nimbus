@@ -109,7 +109,7 @@ private val Discs: List<Triple<PaperSlot, Float, Float>> = listOf(
 
 @Composable
 fun EnsemblesPage() {
-    PaperPage("Ensembles", "3") {
+    PaperPage {
         Text(
             tex {
                 bf("Notations.")

@@ -122,7 +122,7 @@ private fun rememberFigureTime(): State<Float> {
 @Composable
 fun FourierPage() {
     val time = rememberFigureTime()
-    PaperPage("Fourier", "5") {
+    PaperPage {
         Text(
             tex {
                 bold { +"Définition." }

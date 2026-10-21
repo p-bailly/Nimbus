@@ -43,8 +43,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import fr.perso.nimbus.data.AppCategory
+import fr.perso.nimbus.data.Category
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.GlyphChoice
+import fr.perso.nimbus.data.PaperLogo
 import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherHost
@@ -58,7 +60,23 @@ import fr.perso.nimbus.ui.theme.PaperStyle
 import fr.perso.nimbus.ui.theme.inkClickable
 import kotlinx.coroutines.launch
 
-private enum class SheetDialog { CATEGORY, RENAME, SWIPE }
+private enum class SheetDialog { CATEGORY, NEW_CATEGORY, RENAME, SWIPE, ICON_APP, GLYPH, GLYPH_TEXT, GLYPH_APP }
+
+/** Option « Nouvelle catégorie… » du choix de catégorie. */
+private const val NEW_CATEGORY = "+new"
+
+/** Choix du dialogue « Motif » ; les lettres et l'autre app ouvrent un second dialogue. */
+private const val GLYPH_AUTO = "auto"
+private const val GLYPH_TEXT = "text"
+private const val GLYPH_APP = "app"
+
+/** Description d'un motif : « logo YouTube », « lettres +x », « silhouette de Drive ». */
+private fun describe(choice: GlyphChoice?, apps: AppsState): String = when (choice) {
+    is GlyphChoice.Logo -> choice.logo.label.replaceFirstChar { it.lowercase() }
+    is GlyphChoice.Text -> "lettres ${choice.text}"
+    is GlyphChoice.OfApp -> "silhouette de ${apps.byKey[choice.key]?.label ?: "l'app choisie"}"
+    GlyphChoice.Own, null -> "sa silhouette"
+}
 
 /**
  * Feuille d'actions d'une app (appui long) : raccourcis de l'app, accueil, dock,
@@ -78,6 +96,8 @@ fun AppActionSheet(
     val customLabels by vm.customLabels.collectAsStateWithLifecycle()
     val customIcons by vm.customIconKeys.collectAsStateWithLifecycle()
     val swipeActions by vm.iconSwipeActions.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val glyphs by vm.glyphChoices.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<SheetDialog?>(null) }
 
     val isPrivate = app.profile == ProfileType.PRIVATE
@@ -103,7 +123,7 @@ fun AppActionSheet(
                 .padding(bottom = 16.dp),
         ) {
             val detail = buildString {
-                append(if (isPrivate) "Espace privé" else app.category.label)
+                append(if (isPrivate) "Espace privé" else apps.categoryLabel(app.category))
                 if (app.profile == ProfileType.WORK) append(" · Profil professionnel")
                 if (app.isPaused) append(" (en pause)")
             }
@@ -172,11 +192,20 @@ fun AppActionSheet(
                     icon = Icons.Filled.Face,
                     onClick = { closeThen { host.pickCustomIcon(app) } },
                 )
+                SheetRow(label = "Icône d'une autre app", icon = Icons.Filled.Face, onClick = { dialog = SheetDialog.ICON_APP })
                 if (app.key in customIcons) {
                     SheetRow(label = "Icône d'origine", icon = Icons.Filled.Refresh, onClick = { closeThen { vm.resetCustomIcon(app) } })
                 }
+                // Motif des pages papier et du sommaire (silhouette monochrome, logo ou lettres).
+                if (paper || settings.homeStyle.paper) {
+                    SheetRow(
+                        label = "Motif : ${describe(glyphs[app.key], apps)}",
+                        icon = Icons.Filled.Face,
+                        onClick = { dialog = SheetDialog.GLYPH },
+                    )
+                }
                 SheetRow(
-                    label = "Catégorie : ${app.category.label}",
+                    label = "Catégorie : ${apps.categoryLabel(app.category)}",
                     icon = Icons.AutoMirrored.Filled.List,
                     onClick = { dialog = SheetDialog.CATEGORY },
                 )
@@ -192,14 +221,38 @@ fun AppActionSheet(
     }
 
     when (dialog) {
-        SheetDialog.CATEGORY -> ChoiceDialog(
-            title = "Catégorie de ${app.label}",
-            options = listOf<AppCategory?>(null) + AppCategory.entries,
-            selected = overrides[app.key],
-            label = { it?.label ?: "Automatique (${app.autoCategory.label})" },
-            onSelect = {
+        SheetDialog.CATEGORY -> {
+            val automatic = apps.allCategories.firstOrNull { it.id == app.autoCategory.name }?.label ?: apps.categoryLabel(Category.OTHER_ID)
+            ChoiceDialog(
+                title = "Catégorie de ${app.label}",
+                options = listOf<String?>(null) + apps.allCategories.map { it.id } + NEW_CATEGORY,
+                selected = overrides[app.key]?.takeIf { id -> apps.allCategories.any { it.id == id } },
+                label = {
+                    when (it) {
+                        null -> "Automatique ($automatic)"
+                        NEW_CATEGORY -> "Nouvelle catégorie…"
+                        else -> apps.categoryLabel(it)
+                    }
+                },
+                onSelect = {
+                    if (it == NEW_CATEGORY) {
+                        dialog = SheetDialog.NEW_CATEGORY
+                    } else {
+                        dialog = null
+                        closeThen { vm.setCategory(app, it) }
+                    }
+                },
+                onDismiss = { dialog = null },
+                footer = "Les catégories se créent, se renomment et se réordonnent aussi dans Paramètres › Page des applications.",
+            )
+        }
+        SheetDialog.NEW_CATEGORY -> TextInputDialog(
+            title = "Nouvelle catégorie",
+            initial = "",
+            placeholder = "Nom de la catégorie",
+            onConfirm = { name ->
                 dialog = null
-                closeThen { vm.setCategory(app, it) }
+                closeThen { vm.addCategory(name)?.let { vm.setCategory(app, it.id) } }
             },
             onDismiss = { dialog = null },
         )
@@ -228,6 +281,75 @@ fun AppActionSheet(
             onPick = { target ->
                 dialog = null
                 closeThen { vm.setIconSwipeAction(app, target) }
+            },
+            onDismiss = { dialog = null },
+        )
+        SheetDialog.ICON_APP -> AppPickerDialog(
+            title = "Icône de ${app.label}",
+            apps = apps.visible.filter { it.key != app.key },
+            onPick = { source ->
+                dialog = null
+                if (source != null) closeThen { vm.setIconFromApp(app, source) }
+            },
+            onDismiss = { dialog = null },
+        )
+        SheetDialog.GLYPH -> {
+            val user = vm.userGlyphChoice(app)
+            val options = listOf(GLYPH_AUTO, GlyphChoice.Own.spec) +
+                PaperLogo.entries.map { GlyphChoice.Logo(it).spec } + listOf(GLYPH_TEXT, GLYPH_APP)
+            ChoiceDialog(
+                title = "Motif de ${app.label}",
+                options = options,
+                selected = when (user) {
+                    null -> GLYPH_AUTO
+                    is GlyphChoice.Text -> GLYPH_TEXT
+                    is GlyphChoice.OfApp -> GLYPH_APP
+                    else -> user.spec
+                },
+                label = { option ->
+                    when (option) {
+                        GLYPH_AUTO -> "Automatique"
+                        GlyphChoice.Own.spec -> "Silhouette de l'app"
+                        GLYPH_TEXT -> "Lettres…" + ((user as? GlyphChoice.Text)?.let { " (${it.text})" } ?: "")
+                        GLYPH_APP -> "Silhouette d'une autre app…" +
+                            ((user as? GlyphChoice.OfApp)?.let { " (${apps.byKey[it.key]?.label ?: "?"})" } ?: "")
+                        else -> (GlyphChoice.parse(option) as? GlyphChoice.Logo)?.logo?.label ?: option
+                    }
+                },
+                onSelect = { option ->
+                    when (option) {
+                        GLYPH_TEXT -> dialog = SheetDialog.GLYPH_TEXT
+                        GLYPH_APP -> dialog = SheetDialog.GLYPH_APP
+                        else -> {
+                            dialog = null
+                            closeThen { vm.setGlyphChoice(app, if (option == GLYPH_AUTO) null else GlyphChoice.parse(option)) }
+                        }
+                    }
+                },
+                onDismiss = { dialog = null },
+                footer = "Automatique : le motif de la place de l'app sur l'accueil (logo YouTube, +x, πr), sinon sa silhouette.",
+            )
+        }
+        SheetDialog.GLYPH_TEXT -> {
+            val current = (vm.userGlyphChoice(app) as? GlyphChoice.Text)?.text ?: app.label.take(2)
+            TextInputDialog(
+                title = "Lettres du motif",
+                initial = current,
+                placeholder = "+x, πr…",
+                onConfirm = { text ->
+                    dialog = null
+                    val clean = text.trim().take(4)
+                    closeThen { vm.setGlyphChoice(app, if (clean.isEmpty()) null else GlyphChoice.Text(clean)) }
+                },
+                onDismiss = { dialog = null },
+            )
+        }
+        SheetDialog.GLYPH_APP -> AppPickerDialog(
+            title = "Silhouette pour ${app.label}",
+            apps = apps.visible.filter { it.key != app.key },
+            onPick = { source ->
+                dialog = null
+                if (source != null) closeThen { vm.setGlyphChoice(app, GlyphChoice.OfApp(source.key)) }
             },
             onDismiss = { dialog = null },
         )

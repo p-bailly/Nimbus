@@ -242,7 +242,7 @@ fun VoronoiPage() {
     var dragged by remember { mutableStateOf<Pair<PaperSlot, Offset>?>(null) }
     val sites = remember(placed, dragged) { sites(dragged?.let { placed + it } ?: placed) }
     val diagram = remember(sites) { diagram(sites) }
-    PaperPage("Voronoï", "2") {
+    PaperPage {
         Text(
             tex { bf("Définition."); +" Pour "; it("a"); +" ∈ "; it("A"); +" = {applis}, la cellule de "; it("a"); +" est" },
             style = Paper.body,

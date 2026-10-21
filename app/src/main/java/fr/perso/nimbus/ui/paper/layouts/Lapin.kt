@@ -132,7 +132,7 @@ private fun String.nowrap() = replace(' ', Typography.nbsp)
 
 @Composable
 fun LapinPage() {
-    PaperPage("Julia · lapin de Douady", "6") {
+    PaperPage {
         Text(
             tex {
                 bf("Définition.")

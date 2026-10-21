@@ -6,15 +6,18 @@ import android.app.WallpaperColors
 import android.app.WallpaperManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.pm.ShortcutInfo
+import android.graphics.Bitmap
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import fr.perso.nimbus.data.AppCategory
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.Category
 import fr.perso.nimbus.data.PaperSlot
 import fr.perso.nimbus.data.HomeStyle
 import fr.perso.nimbus.data.ThemeMode
@@ -27,6 +30,8 @@ import fr.perso.nimbus.data.FilesSearch
 import fr.perso.nimbus.data.CustomIcons
 import fr.perso.nimbus.data.Gesture
 import fr.perso.nimbus.data.GestureAction
+import fr.perso.nimbus.data.GlyphChoice
+import fr.perso.nimbus.data.GlyphChoices
 import fr.perso.nimbus.data.HomeCell
 import fr.perso.nimbus.data.HomeIcon
 import fr.perso.nimbus.data.HomeWidget
@@ -65,6 +70,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.text.Collator
 import java.util.Locale
 import kotlin.math.ceil
@@ -134,7 +140,9 @@ data class AppsState(
     val favoriteKeys: Set<String> = emptySet(),
     val hiddenKeys: Set<String> = emptySet(),
     /** Catégories qui contiennent au moins une app visible, dans l'ordre des onglets. */
-    val categories: List<AppCategory> = emptyList(),
+    val categories: List<Category> = emptyList(),
+    /** Toutes les catégories réglées (vides comprises), dans l'ordre des onglets. */
+    val allCategories: List<Category> = Category.defaults,
     /** Apps de l'espace privé (vide s'il est verrouillé). */
     val privateApps: List<AppEntry> = emptyList(),
     val privateSpace: ProfileState? = null,
@@ -151,7 +159,13 @@ data class AppsState(
     val homePage: Int = 0,
     /** Toutes les apps connues (masquées comprises), par clé. */
     val byKey: Map<String, AppEntry> = emptyMap(),
-)
+) {
+    private val labels: Map<String, String> by lazy { allCategories.associate { it.id to it.label } }
+
+    /** Nom affiché de la catégorie [id]. */
+    fun categoryLabel(id: String): String =
+        labels[id] ?: AppCategory.entries.firstOrNull { it.name == id }?.label ?: id
+}
 
 data class SearchResults(
     val query: String = "",
@@ -186,7 +200,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val wallpaperManager = WallpaperManager.getInstance(application)
 
     val settings: StateFlow<LauncherSettings> = prefs.settings
-    val categoryOverrides: StateFlow<Map<String, AppCategory>> = prefs.categoryOverrides
+    val categoryOverrides: StateFlow<Map<String, String>> = prefs.categoryOverrides
     val customLabels: StateFlow<Map<String, String>> = prefs.customLabels
     val iconSwipeActions: StateFlow<Map<String, String>> = prefs.iconSwipeActions
     val gestureApps: StateFlow<Map<Gesture, String>> = prefs.gestureApps
@@ -234,16 +248,23 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             .sortedWith(compareBy(collator) { it.label })
     }
 
-    /** Apps avec leur catégorie finale : choix manuel, sinon classement automatique. */
+    /**
+     * Apps avec leur catégorie finale : choix manuel, sinon classement automatique ; « Autres » si la
+     * catégorie automatique a été supprimée. Avec la liste des catégories réglées.
+     */
     private val categorized = combine(
         labeled,
         prefs.categoryOverrides,
         settings.map { it.autoCategories }.distinctUntilChanged(),
-    ) { apps, overrides, auto ->
-        apps.map { app ->
-            val category = overrides[app.key] ?: if (auto) app.autoCategory else AppCategory.OTHER
+        prefs.categories,
+    ) { apps, overrides, auto, categories ->
+        val ids = categories.mapTo(HashSet()) { it.id }
+        val list = apps.map { app ->
+            val automatic = if (auto && app.autoCategory.name in ids) app.autoCategory.name else Category.OTHER_ID
+            val category = overrides[app.key]?.takeIf { it in ids } ?: automatic
             if (category == app.category) app else app.copy(category = category)
         }
+        list to categories
     }
 
     private val homeLayout = combine(prefs.homeIcons, prefs.homeWidgets, prefs.homePage) { icons, widgets, page ->
@@ -270,14 +291,25 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
         .distinctUntilChanged()
 
-    val apps: StateFlow<AppsState> = combine(categorized, userLists, appsConfig, repository.profiles) { all, lists, config, profiles ->
-        buildAppsState(all, lists, config, profiles)
+    val apps: StateFlow<AppsState> = combine(categorized, userLists, appsConfig, repository.profiles) { (all, categories), lists, config, profiles ->
+        buildAppsState(all, categories, lists, config, profiles)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppsState())
 
     /** App de chaque place des accueils « papier » (choix de l'utilisateur, sinon automatique). */
     val paperApps: StateFlow<Map<PaperSlot, AppEntry?>> = combine(apps, prefs.paperSlots) { state, chosen ->
         PaperSlot.resolve(state.visible, chosen, state.byKey)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /** Motifs des apps : choix de l'utilisateur, sinon motif de la place qu'occupe l'app (logo YouTube…). */
+    val glyphChoices: StateFlow<GlyphChoices> = combine(prefs.glyphChoices, paperApps, apps) { chosen, slots, state ->
+        val map = HashMap<String, GlyphChoice>()
+        for ((slot, app) in slots) {
+            val glyph = slot.glyph
+            if (app != null && glyph != null) map[app.key] = glyph
+        }
+        for ((key, spec) in chosen) GlyphChoice.parse(spec)?.let { map[key] = it }
+        GlyphChoices(map, state.byKey)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, GlyphChoices())
 
     private val searchIndex = combine(apps, repository.apps, prefs.customLabels) { state, raw, labels ->
         // Une app renommée se trouve aussi par son nom d'origine.
@@ -382,6 +414,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private fun buildAppsState(
         all: List<AppEntry>,
+        categories: List<Category>,
         lists: UserLists,
         config: AppsConfig,
         profiles: List<ProfileState>,
@@ -410,7 +443,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             favorites = lists.favorites.mapNotNull { byKey[it] }.filter(::showable),
             favoriteKeys = lists.favorites.toSet(),
             hiddenKeys = hidden,
-            categories = AppCategory.entries.filter { cat -> visible.any { it.category == cat } },
+            categories = categories.filter { cat -> visible.any { it.category == cat.id } },
+            allCategories = categories,
             privateApps = sorted.filter { it.profile == ProfileType.PRIVATE && it.key !in hidden },
             privateSpace = profiles.firstOrNull { it.type == ProfileType.PRIVATE },
             workProfile = profiles.firstOrNull { it.type == ProfileType.WORK },
@@ -684,7 +718,47 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun toggleFavorite(app: AppEntry) = prefs.toggleFavorite(app.key)
 
-    fun setCategory(app: AppEntry, category: AppCategory?) = prefs.setCategoryOverride(app.key, category)
+    /** [category] : identifiant d'une [Category] ; null : classement automatique. */
+    fun setCategory(app: AppEntry, category: String?) = prefs.setCategoryOverride(app.key, category)
+
+    // ---------------------------------------------------------------- Catégories (réglages)
+
+    val categories: StateFlow<List<Category>> = prefs.categories
+
+    /** Nouvelle catégorie, à la fin des onglets (avant « Autres »). */
+    fun addCategory(label: String): Category? {
+        val clean = label.trim().ifEmpty { return null }
+        val list = prefs.categories.value
+        list.firstOrNull { it.label.equals(clean, ignoreCase = true) }?.let { return it }
+        val category = Category("c" + System.currentTimeMillis().toString(36), clean)
+        val other = list.indexOfFirst { it.id == Category.OTHER_ID }
+        prefs.setCategories(if (other == list.lastIndex) list.dropLast(1) + category + list.last() else list + category)
+        return category
+    }
+
+    fun renameCategory(id: String, label: String) {
+        val clean = label.trim().ifEmpty { return }
+        prefs.setCategories(prefs.categories.value.map { if (it.id == id) it.copy(label = clean) else it })
+    }
+
+    /** Supprime une catégorie (sauf « Autres ») : ses apps reviennent au classement automatique. */
+    fun deleteCategory(id: String) {
+        if (id == Category.OTHER_ID) return
+        prefs.setCategories(prefs.categories.value.filterNot { it.id == id })
+    }
+
+    /** Déplace une catégorie d'un cran ([delta] = -1 : vers le début des onglets). */
+    fun moveCategory(id: String, delta: Int) {
+        val list = prefs.categories.value.toMutableList()
+        val from = list.indexOfFirst { it.id == id }
+        val to = from + delta
+        if (from < 0 || to !in list.indices) return
+        list.add(to, list.removeAt(from))
+        prefs.setCategories(list)
+    }
+
+    /** Catégories prédéfinies, avec leur nom et leur ordre d'origine (les apps rangées à la main le restent si possible). */
+    fun resetCategories() = prefs.setCategories(Category.defaults)
 
     fun setHidden(app: AppEntry, hidden: Boolean) {
         prefs.setHidden(app.key, hidden)
@@ -716,6 +790,22 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
+
+    /** L'icône de [source] devient celle de [app] (icône personnalisée, comme une image de la galerie). */
+    fun setIconFromApp(app: AppEntry, source: AppEntry) {
+        viewModelScope.launch {
+            val png = withContext(Dispatchers.Default) {
+                ByteArrayOutputStream().also { source.icon.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+            }
+            setCustomIcon(app, png)
+        }
+    }
+
+    /** Motif de [app] sur les pages papier et dans le sommaire ; null : automatique. */
+    fun setGlyphChoice(app: AppEntry, choice: GlyphChoice?) = prefs.setGlyphChoice(app.key, choice)
+
+    /** Motif choisi par l'utilisateur pour [app] (null : automatique). */
+    fun userGlyphChoice(app: AppEntry): GlyphChoice? = prefs.glyphChoices.value[app.key]?.let(GlyphChoice::parse)
 
     fun resetCustomIcon(app: AppEntry) {
         viewModelScope.launch {
