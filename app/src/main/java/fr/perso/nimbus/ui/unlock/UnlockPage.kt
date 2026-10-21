@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -71,6 +72,7 @@ import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -196,6 +198,11 @@ fun UnlockPage(
     onUnlock: () -> Unit,
     /** Solution d'hier montrée d'emblée (captures). */
     solutionShown: Boolean = false,
+    /**
+     * Le texte de la météo posé sur le coloriage, en fractions de l'image de Météo (gauche, haut, droite,
+     * bas) : à lui demander de dessiner autour.
+     */
+    onSketchText: (List<Rect>) -> Unit = {},
 ) {
     val now by rememberPaperTime()
     val today = now.toLocalDate()
@@ -228,7 +235,7 @@ fun UnlockPage(
         PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE)
         var y = FIRST
         state.meteo?.let { meteo ->
-            val end = MeteoSection(meteo, state.sketch, now.hour, onMeteo)
+            val end = MeteoSection(meteo, state.sketch, now.hour, onMeteo, onSketchText)
             HRule(22, end + RULE_GAP, 368, 0.6f)
             y = end + RULE_GAP + AFTER_RULE
         }
@@ -245,10 +252,18 @@ fun UnlockPage(
 
 /** Le bloc météo ; rend le bas de son contenu. */
 @Composable
-private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpen: () -> Unit): Float {
+private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpen: () -> Unit, onSketchText: (List<Rect>) -> Unit): Float {
     val t = METEO
 
-    if (sketch != null) Sketch(sketch, Modifier.at(0, t + SKETCH_TOP).size(PAPER_WIDTH.dp, SKETCH_H.dp))
+    // Le texte posé sur le coloriage, mesuré là où sera le dessin (même avant qu'il n'arrive) : Météo
+    // dessine autour, et on gomme ici ce qui le toucherait encore.
+    val text = remember { SketchText() }
+    val frame = Modifier.at(0, t + SKETCH_TOP).size(PAPER_WIDTH.dp, SKETCH_H.dp)
+    Spacer(frame.then(text.frame))
+    val density = LocalDensity.current
+    val zones = text.zones
+    LaunchedEffect(zones, density) { onSketchText(with(density) { imageZones(zones) }) }
+    if (sketch != null) Sketch(sketch, zones, frame)
 
     // À gauche : le lieu en petites capitales, la température (« °C » plus petit, en haut), le ressenti.
     val placeStyle = style(17f, 20f, color = PaperColors.Soft).smallCaps(0.06f)
@@ -257,34 +272,43 @@ private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpe
         style = placeStyle,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.at(22, top(t + 18, 17f, 20f)).widthIn(max = 200.dp),
+        onTextLayout = text.layout("place"),
+        modifier = Modifier.at(22, top(t + 18, 17f, 20f)).widthIn(max = 200.dp).then(text.of("place")),
     )
     val tempTop = top(t + 88, 72f)
     Row(Modifier.at(20, tempTop)) {
-        Text(degrees(meteo.temperature), style = style(72f), softWrap = false)
+        Text(
+            degrees(meteo.temperature),
+            style = style(72f),
+            softWrap = false,
+            onTextLayout = text.layout("temperature"),
+            modifier = text.of("temperature"),
+        )
         // « °C » : 26 unités, sa ligne de base 29 au-dessus de celle de la température.
         Text(
             "°C",
             style = style(26f),
             softWrap = false,
-            modifier = Modifier.padding(start = 3.dp, top = (top(t + 59, 26f) - tempTop).dp),
+            onTextLayout = text.layout("unit"),
+            modifier = Modifier.padding(start = 3.dp, top = (top(t + 59, 26f) - tempTop).dp).then(text.of("unit")),
         )
     }
     Text(
         "ressenti ${degrees(meteo.feelsLike)}\u00A0°C",
         style = style(18f, 22f, Face.ITALIC),
         softWrap = false,
-        modifier = Modifier.at(22, top(t + 113, 18f, 22f, Face.ITALIC)),
+        onTextLayout = text.layout("feels"),
+        modifier = Modifier.at(22, top(t + 113, 18f, 22f, Face.ITALIC)).then(text.of("feels")),
     )
 
     // À droite : le ciel en gras (sur deux lignes s'il est long, pour laisser le milieu au dessin),
     // puis les extrêmes du jour, en gras, en orange et en bleu.
     val skyStyle = style(21f, 26f, Face.BOLD).copy(textAlign = TextAlign.End, lineBreak = LineBreak.Heading)
     val skyLines = lineCount(AnnotatedString(meteo.sky), skyStyle, SKY_WIDTH)
-    RightText(meteo.sky, skyStyle, top(t + 23, 21f, 26f, Face.BOLD), Modifier.widthIn(max = SKY_WIDTH.dp))
+    RightText(meteo.sky, skyStyle, top(t + 23, 21f, 26f, Face.BOLD), Modifier.widthIn(max = SKY_WIDTH.dp), over = text, key = "sky")
     val extremes = t + 55 + 26f * (skyLines - 1)
-    RightText("max ${degrees(meteo.todayMax)}\u00A0°C", style(21f, 26f, Face.BOLD, Maxi), top(extremes, 21f, 26f, Face.BOLD))
-    RightText("min ${degrees(meteo.todayMin)}\u00A0°C", style(21f, 26f, Face.BOLD, Mini), top(extremes + 26, 21f, 26f, Face.BOLD))
+    RightText("max ${degrees(meteo.todayMax)}\u00A0°C", style(21f, 26f, Face.BOLD, Maxi), top(extremes, 21f, 26f, Face.BOLD), over = text, key = "max")
+    RightText("min ${degrees(meteo.todayMin)}\u00A0°C", style(21f, 26f, Face.BOLD, Mini), top(extremes + 26, 21f, 26f, Face.BOLD), over = text, key = "min")
 
     val end: Float
     if (sketch != null) {
@@ -320,7 +344,7 @@ private const val SKY_WIDTH = 165f
  * plus : seul le dessin est redessiné pendant ce temps, rien n'est recomposé.
  */
 @Composable
-private fun Sketch(image: ImageBitmap, modifier: Modifier) {
+private fun Sketch(image: ImageBitmap, text: List<Rect>, modifier: Modifier) {
     val animate = LocalPaper.current.animate
     val progress = remember { Animatable(if (animate) 0f else 1f) }
     if (animate) {
@@ -353,6 +377,9 @@ private fun Sketch(image: ImageBitmap, modifier: Modifier) {
                     Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, startY = 0f, endY = FADE.dp.toPx()),
                     blendMode = BlendMode.DstIn,
                 )
+                // Le texte ne monte pas avec le dessin : la gomme reste en face de lui.
+                val rise = (1f - progress.value) * RISE.dp.toPx()
+                clearText(text.map { it.translate(0f, -rise) })
             },
     ) {
         val p = progress.value
@@ -372,12 +399,32 @@ private fun Sketch(image: ImageBitmap, modifier: Modifier) {
 
 private const val FADE = 10f
 
+/**
+ * Les zones de texte [zones] (en pixels du cadre du coloriage) en fractions de l'image de Météo, telle
+ * que [Sketch] la pose : [SKETCH_WIDTH] unités de large au milieu de la page, le bas seulement
+ * ([SKETCH_SHOWN] de sa hauteur). Et, en plus, le haut coupé jusqu'au milieu du fondu (moins la marge
+ * de la gomme) : le soleil, la lune et les nuages descendent là où on les voit bien.
+ */
+internal fun Density.imageZones(zones: List<Rect>): List<Rect> {
+    val page = PAPER_WIDTH.dp.toPx()
+    val w = SKETCH_WIDTH.dp.toPx()
+    val h = SKETCH_H.dp.toPx()
+    val left = (page - w) / 2f
+    val hidden = 1f - SKETCH_SHOWN
+    fun x(px: Float) = (px - left) / w
+    fun y(px: Float) = hidden + px / h * SKETCH_SHOWN
+    val full = SKETCH_WIDTH * MeteoShare.SKETCH_RATIO
+    val cut = Rect(0f, 0f, 1f, (hidden + (FADE / 2 - TEXT_MARGIN) / full).coerceAtLeast(0.01f))
+    return listOf(cut) + zones.map { Rect(x(it.left), y(it.top), x(it.right), y(it.bottom)) }
+        .filter { it.right > 0f && it.left < 1f && it.bottom > 0f && it.top < 1f }
+}
+
 /** Montée du dessin au réveil, en unités, et durée de l'animation. */
 private const val RISE = 12f
 private const val SKETCH_ANIMATION = 1600
 
 /** Saturation des couleurs du coloriage, une fois coloré. */
-private const val SATURATION = 1.9f
+private const val SATURATION = 1.45f
 
 /**
  * Filtre du coloriage, à [p] de l'animation : en gris au début, puis de plus en plus coloré ; les
@@ -385,7 +432,7 @@ private const val SATURATION = 1.9f
  */
 private fun vivid(p: Float): ColorFilter {
     val m = ColorMatrix().apply { setToSaturation(SATURATION * p) }
-    m *= ColorMatrix().apply { setToScale(0.9f, 0.9f, 0.9f, 1.35f) }
+    m *= ColorMatrix().apply { setToScale(0.92f, 0.92f, 0.92f, 1.2f) }
     return ColorFilter.colorMatrix(m)
 }
 
@@ -779,9 +826,14 @@ private val Inline: Map<String, InlineTextContent> = mapOf(
 
 /** Texte calé à droite sur la marge (x = 390), son haut en [top]. */
 @Composable
-private fun RightText(text: String, style: TextStyle, top: Float, modifier: Modifier = Modifier) {
+private fun RightText(text: String, style: TextStyle, top: Float, modifier: Modifier = Modifier, over: SketchText? = null, key: String = "") {
     Box(Modifier.at(22, top).width(368.dp)) {
-        Text(text, style = style, modifier = modifier.align(Alignment.TopEnd))
+        Text(
+            text,
+            style = style,
+            onTextLayout = over?.layout(key) ?: {},
+            modifier = modifier.align(Alignment.TopEnd).then(over?.of(key) ?: Modifier),
+        )
     }
 }
 

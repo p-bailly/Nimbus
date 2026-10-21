@@ -5,6 +5,7 @@ import android.content.Context
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.SystemClock
+import androidx.compose.ui.geometry.Rect
 import fr.perso.nimbus.data.BasketShare
 import fr.perso.nimbus.data.FavoriteTeam
 import fr.perso.nimbus.data.Game
@@ -47,9 +48,12 @@ class UnlockFeed private constructor(context: Context) {
     private val meteoLock = Mutex()
     private val basketLock = Mutex()
 
-    /** Ce qui décide du coloriage (lieu, temps, prévision, taille) et le moment où il a été lu. */
+    /** Ce qui décide du coloriage (lieu, temps, prévision, taille, texte posé dessus) et le moment où il a été lu. */
     @Volatile private var sketchKey: List<Any>? = null
     @Volatile private var sketchAt = 0L
+
+    /** Le texte de la page posé sur le coloriage, en fractions de l'image : Météo dessine autour. */
+    @Volatile private var sketchText: List<Rect> = emptyList()
 
     @Volatile private var favorites: List<FavoriteTeam> = emptyList()
     @Volatile private var games: List<Game> = emptyList()
@@ -78,6 +82,17 @@ class UnlockFeed private constructor(context: Context) {
         }
     }
 
+    /**
+     * La page a mesuré le texte posé sur le coloriage ([zones], en fractions de l'image) : s'il a
+     * changé, on redemande le dessin à Météo, qui le fera autour.
+     */
+    fun sketchText(zones: List<Rect>) {
+        val rounded = zones.map { Rect(round3(it.left), round3(it.top), round3(it.right), round3(it.bottom)) }
+        if (rounded == sketchText) return
+        sketchText = rounded
+        scope.launch { refreshMeteo() }
+    }
+
     /** À l'extinction de l'écran : la page sera à jour au réveil. */
     fun prefetch() {
         scope.launch { refreshMeteo() }
@@ -104,11 +119,12 @@ class UnlockFeed private constructor(context: Context) {
             _state.update { it.copy(meteo = now) }
 
             val (w, h) = sketchSize()
-            val key = listOf(now.place, now.weatherCode, now.isDay, now.fetchedAt, w, h)
+            val text = sketchText
+            val key = listOf(now.place, now.weatherCode, now.isDay, now.fetchedAt, w, h, text)
             val fresh = SystemClock.elapsedRealtime() - sketchAt < SKETCH_AGE
             if (!forceSketch && key == sketchKey && fresh && _state.value.sketch != null) return@withContext
             try {
-                val sketch = MeteoShare.readSketch(resolver, w, h)
+                val sketch = MeteoShare.readSketch(resolver, w, h, text)
                 sketchKey = key
                 sketchAt = SystemClock.elapsedRealtime()
                 _state.update { it.copy(sketch = sketch) }
@@ -181,6 +197,9 @@ class UnlockFeed private constructor(context: Context) {
     }.conflate()
 
     companion object {
+        /** Au millième : une différence d'un pixel ne redemande pas le dessin. */
+        private fun round3(v: Float) = (v * 1000).roundToInt() / 1000f
+
         private const val LIVE_POLL = 15_000L
         private const val IDLE_POLL = 5 * 60_000L
 

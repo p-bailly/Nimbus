@@ -87,6 +87,7 @@ class UnlockActivity : ComponentActivity() {
                         onMeteo = { openApp(MeteoShare.PACKAGE) },
                         onBasket = { openApp(BasketShare.PACKAGE) },
                         onUnlock = { unlock() },
+                        onSketchText = feed::sketchText,
                     )
                 }
             }
