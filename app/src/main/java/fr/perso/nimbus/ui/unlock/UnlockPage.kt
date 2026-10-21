@@ -1,5 +1,8 @@
 package fr.perso.nimbus.ui.unlock
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,28 +20,34 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -66,14 +75,19 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import fr.perso.nimbus.data.BasketShare
 import fr.perso.nimbus.data.DailyExercise
 import fr.perso.nimbus.data.Exercise
+import fr.perso.nimbus.data.GameTeam
 import fr.perso.nimbus.data.LiveLine
 import fr.perso.nimbus.data.MeteoNow
 import fr.perso.nimbus.data.MeteoShare
 import fr.perso.nimbus.data.Seg
 import fr.perso.nimbus.ui.paper.HRule
+import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.PAPER_HEIGHT
 import fr.perso.nimbus.ui.paper.PAPER_WIDTH
 import fr.perso.nimbus.ui.paper.Paper
@@ -88,8 +102,9 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 // Page de déverrouillage (maquette H8a, sans en-tête et en plus gros) : sous l'heure, la météo comme l'écran Aujourd'hui de l'appli
-// Météo (et son coloriage), les matchs en direct des équipes favorites de Basket Live, puis l'exercice
-// du jour et la solution de celui d'hier. Une section sans données disparaît, la suite remonte.
+// Météo (et son coloriage, agrandi et ravivé), les matchs en direct et les résultats de la nuit des équipes
+// favorites de Basket Live, puis l'exercice du jour et la solution de celui d'hier, cachée sous un bandeau.
+// Une section sans données disparaît, la suite remonte.
 //
 // Chaque texte est posé par sa ligne de base, relevée dans la maquette (Chrome arrondit ascendante et
 // descendante au pixel, et pose la ligne de base en conséquence) : haut = base − interligne / 2 − k × taille,
@@ -106,11 +121,21 @@ data class UnlockState(
     val results: List<LiveLine> = emptyList(),
 )
 
-/** Couleurs de Météo (extrêmes du jour) et de Basket Live (direct, étoile des favoris). */
+/** Couleurs de Météo (extrêmes du jour) et de Basket Live (direct, victoire, défaite). */
 private val Maxi = Color(0xFFE8711C)
 private val Mini = Color(0xFF1F5FA8)
 private val Live = Color(0xFFD92D2D)
-private val Star = Color(0xFFE0560C)
+private val Win = Color(0xFF2E8540)
+private val Loss = Color(0xFFB0413E)
+
+/** Titres des sections (Basket, Exercice du jour, Solution d'hier), en gras. */
+private const val TITLE = 19f
+
+/** Étiquettes à droite des titres, en petites capitales. */
+private const val LABEL = 13.5f
+
+/** Texte courant, le même pour les matchs et pour l'exercice. */
+private const val BODY = 19f
 
 /** Face de la police, et son k = (ascendante − descendante) / 2, en em. */
 private enum class Face(val k: Float) {
@@ -147,19 +172,21 @@ private const val FIRST = 154f
 private const val METEO = 142f
 
 /**
- * Coloriage : 368 × 199 unités, [SKETCH_TOP] sous le haut du bloc ; on en montre le bas (le ciel le plus
- * haut est coupé).
+ * Coloriage : dessiné sur [SKETCH_WIDTH] unités, centré et coupé aux bords de la page (ce n'est que de
+ * l'herbe), [SKETCH_TOP] sous le haut du bloc ; on en montre le bas, [SKETCH_SHOWN] de sa hauteur (le
+ * ciel le plus haut est coupé).
  */
-private const val SKETCH_W = 368f
-private const val SKETCH_H = 199f
+internal const val SKETCH_WIDTH = 460f
+private const val SKETCH_SHOWN = 0.68f
+private val SKETCH_H = SKETCH_WIDTH * MeteoShare.SKETCH_RATIO * SKETCH_SHOWN
 private const val SKETCH_TOP = 24f
 
 /** Entre deux sections : filet 14 sous la fin de l'une, l'autre 16 sous le filet. */
 private const val RULE_GAP = 14f
 private const val AFTER_RULE = 16f
 
-/** Lignes des matchs : 23 unités l'une sous l'autre (20 d'interligne, l'étoile en ajoute 1, puis 2 d'écart). */
-private const val ROW_PITCH = 23f
+/** Lignes des matchs : 27 unités l'une sous l'autre. */
+private const val ROW_PITCH = 27f
 
 @Composable
 fun UnlockPage(
@@ -167,6 +194,8 @@ fun UnlockPage(
     onMeteo: () -> Unit,
     onBasket: () -> Unit,
     onUnlock: () -> Unit,
+    /** Solution d'hier montrée d'emblée (captures). */
+    solutionShown: Boolean = false,
 ) {
     val now by rememberPaperTime()
     val today = now.toLocalDate()
@@ -208,7 +237,7 @@ fun UnlockPage(
             HRule(22, end + RULE_GAP, 368, 0.6f)
             y = end + RULE_GAP + AFTER_RULE
         }
-        ExerciseSection(y, exercise, yesterday, onUnlock)
+        ExerciseSection(y, exercise, yesterday, solutionShown, onUnlock)
     }
 }
 
@@ -219,57 +248,57 @@ fun UnlockPage(
 private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpen: () -> Unit): Float {
     val t = METEO
 
-    if (sketch != null) Sketch(sketch, Modifier.at(22, t + SKETCH_TOP).size(SKETCH_W.dp, SKETCH_H.dp))
+    if (sketch != null) Sketch(sketch, Modifier.at(0, t + SKETCH_TOP).size(PAPER_WIDTH.dp, SKETCH_H.dp))
 
     // À gauche : le lieu en petites capitales, la température (« °C » plus petit, en haut), le ressenti.
-    val placeStyle = style(15f, 18f, color = PaperColors.Soft).smallCaps(0.06f)
+    val placeStyle = style(17f, 20f, color = PaperColors.Soft).smallCaps(0.06f)
     Text(
         meteo.place.lowercase(Locale.FRENCH),
         style = placeStyle,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.at(22, top(t + 17, 15f, 18f)).widthIn(max = 200.dp),
+        modifier = Modifier.at(22, top(t + 18, 17f, 20f)).widthIn(max = 200.dp),
     )
-    val tempTop = top(t + 80, 64f)
+    val tempTop = top(t + 88, 72f)
     Row(Modifier.at(20, tempTop)) {
-        Text(degrees(meteo.temperature), style = style(64f), softWrap = false)
-        // « °C » : 23 unités, sa ligne de base 26 au-dessus de celle de la température.
+        Text(degrees(meteo.temperature), style = style(72f), softWrap = false)
+        // « °C » : 26 unités, sa ligne de base 29 au-dessus de celle de la température.
         Text(
             "°C",
-            style = style(23f),
+            style = style(26f),
             softWrap = false,
-            modifier = Modifier.padding(start = 3.dp, top = (top(t + 54, 23f) - tempTop).dp),
+            modifier = Modifier.padding(start = 3.dp, top = (top(t + 59, 26f) - tempTop).dp),
         )
     }
     Text(
         "ressenti ${degrees(meteo.feelsLike)}\u00A0°C",
-        style = style(16f, 20f, Face.ITALIC),
+        style = style(18f, 22f, Face.ITALIC),
         softWrap = false,
-        modifier = Modifier.at(22, top(t + 102, 16f, 20f, Face.ITALIC)),
+        modifier = Modifier.at(22, top(t + 113, 18f, 22f, Face.ITALIC)),
     )
 
     // À droite : le ciel en gras (sur deux lignes s'il est long, pour laisser le milieu au dessin),
-    // puis les extrêmes du jour en orange et en bleu.
-    val skyStyle = style(19f, 24f, Face.BOLD).copy(textAlign = TextAlign.End, lineBreak = LineBreak.Heading)
+    // puis les extrêmes du jour, en gras, en orange et en bleu.
+    val skyStyle = style(21f, 26f, Face.BOLD).copy(textAlign = TextAlign.End, lineBreak = LineBreak.Heading)
     val skyLines = lineCount(AnnotatedString(meteo.sky), skyStyle, SKY_WIDTH)
-    RightText(meteo.sky, skyStyle, top(t + 21, 19f, 24f, Face.BOLD), Modifier.widthIn(max = SKY_WIDTH.dp))
-    val extremes = t + 50 + 24f * (skyLines - 1)
-    RightText("max ${degrees(meteo.todayMax)}\u00A0°C", style(17f, 23f, color = Maxi), top(extremes, 17f, 23f))
-    RightText("min ${degrees(meteo.todayMin)}\u00A0°C", style(17f, 23f, color = Mini), top(extremes + 23, 17f, 23f))
+    RightText(meteo.sky, skyStyle, top(t + 23, 21f, 26f, Face.BOLD), Modifier.widthIn(max = SKY_WIDTH.dp))
+    val extremes = t + 55 + 26f * (skyLines - 1)
+    RightText("max ${degrees(meteo.todayMax)}\u00A0°C", style(21f, 26f, Face.BOLD, Maxi), top(extremes, 21f, 26f, Face.BOLD))
+    RightText("min ${degrees(meteo.todayMin)}\u00A0°C", style(21f, 26f, Face.BOLD, Mini), top(extremes + 26, 21f, 26f, Face.BOLD))
 
     val end: Float
     if (sketch != null) {
         // Légende de la figure, comme sur les autres pages.
         val caption = buildAnnotatedString {
             withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure 1") }
-            append(" – ${meteo.place} ${moment(hour)}, dessiné par l'appli Météo.")
+            append(" – ${meteo.place}${moment(hour)?.let { " $it" }.orEmpty()}, dessiné par l'appli Météo.")
         }
         val captionStyle = Paper.caption.copy(lineBreak = LineBreak.Heading)
         val below = t + SKETCH_TOP + SKETCH_H
         Text(caption, style = captionStyle, modifier = Modifier.at(22, top(below + 16, 12.5f, 16f)).width(368.dp))
         end = below + 4 + 16f * lineCount(caption, captionStyle, 368f)
     } else {
-        end = maxOf(t + 107, extremes + 23 + 6)
+        end = maxOf(t + 119, extremes + 26 + 6)
     }
 
     TapZone(
@@ -282,17 +311,42 @@ private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpe
 }
 
 /** Largeur au plus du ciel, à droite : le milieu reste au dessin. */
-private const val SKY_WIDTH = 150f
+private const val SKY_WIDTH = 165f
 
 /**
- * Le coloriage : composé par Météo pour 411 × 287 dp, posé sur la largeur du texte et coupé en haut
- * (la maquette n'en montre que le bas, 199 unités sur 257) ; un fondu de quelques unités adoucit la coupe.
+ * Le coloriage : composé par Météo pour 411 × 287 dp, agrandi au-delà des marges et coupé en haut ; un
+ * fondu de quelques unités adoucit la coupe. Ses couleurs sont ravivées (saturation, opacité des
+ * hachures). À chaque réveil, il monte doucement et se colore, en [SKETCH_ANIMATION] ms, puis ne bouge
+ * plus : seul le dessin est redessiné pendant ce temps, rien n'est recomposé.
  */
 @Composable
 private fun Sketch(image: ImageBitmap, modifier: Modifier) {
+    val animate = LocalPaper.current.animate
+    val progress = remember { Animatable(if (animate) 0f else 1f) }
+    if (animate) {
+        val lifecycle = LocalLifecycleOwner.current.lifecycle
+        val state by lifecycle.currentStateAsState()
+        val resumed = state.isAtLeast(Lifecycle.State.RESUMED)
+        LaunchedEffect(resumed, image) {
+            if (resumed) {
+                progress.snapTo(0f)
+                progress.animateTo(1f, tween(SKETCH_ANIMATION, easing = FastOutSlowInEasing))
+            } else {
+                // Écran éteint : prêt pour le prochain réveil.
+                progress.snapTo(0f)
+            }
+        }
+    }
+    val vivid = remember { vivid(1f) }
     Canvas(
         modifier
-            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+            .clipToBounds()
+            .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
+                val p = progress.value
+                alpha = (p * 2.5f).coerceAtMost(1f)
+                translationY = (1f - p) * RISE.dp.toPx()
+            }
             .drawWithContent {
                 drawContent()
                 drawRect(
@@ -301,26 +355,46 @@ private fun Sketch(image: ImageBitmap, modifier: Modifier) {
                 )
             },
     ) {
-        val shown = SKETCH_H / (SKETCH_W * MeteoShare.SKETCH_RATIO)
-        val srcTop = (image.height * (1f - shown)).roundToInt().coerceIn(0, image.height - 1)
+        val p = progress.value
+        val srcTop = (image.height * (1f - SKETCH_SHOWN)).roundToInt().coerceIn(0, image.height - 1)
+        val w = SKETCH_WIDTH.dp.toPx()
         drawImage(
             image,
             srcOffset = IntOffset(0, srcTop),
             srcSize = IntSize(image.width, image.height - srcTop),
-            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+            dstOffset = IntOffset(((size.width - w) / 2f).roundToInt(), 0),
+            dstSize = IntSize(w.roundToInt(), size.height.roundToInt()),
             filterQuality = FilterQuality.Medium,
+            colorFilter = if (p >= 1f) vivid else vivid(p),
         )
     }
 }
 
 private const val FADE = 10f
 
-/** Moment de la journée de la légende. */
-private fun moment(hour: Int): String = when (hour) {
+/** Montée du dessin au réveil, en unités, et durée de l'animation. */
+private const val RISE = 12f
+private const val SKETCH_ANIMATION = 1600
+
+/** Saturation des couleurs du coloriage, une fois coloré. */
+private const val SATURATION = 1.9f
+
+/**
+ * Filtre du coloriage, à [p] de l'animation : en gris au début, puis de plus en plus coloré ; les
+ * hachures, un peu transparentes, sont rendues plus franches.
+ */
+private fun vivid(p: Float): ColorFilter {
+    val m = ColorMatrix().apply { setToSaturation(SATURATION * p) }
+    m *= ColorMatrix().apply { setToScale(0.9f, 0.9f, 0.9f, 1.35f) }
+    return ColorFilter.colorMatrix(m)
+}
+
+/** Moment de la journée de la légende ; rien la nuit. */
+private fun moment(hour: Int): String? = when (hour) {
     in 5..11 -> "ce matin"
     in 12..17 -> "cet après-midi"
     in 18..22 -> "ce soir"
-    else -> "cette nuit"
+    else -> null
 }
 
 /** Température arrondie ; au-dessous de zéro, un tiret demi-cadratin, comme le veut la typographie française. */
@@ -336,26 +410,18 @@ private fun spoken(t: Double): String = "${t.roundToInt()}"
 /** Les matchs en direct, puis les résultats de la nuit (matchs terminés) ; rend le bas de la section. */
 @Composable
 private fun BasketSection(y0: Float, lines: List<LiveLine>, onOpen: () -> Unit): Float {
-    val b = y0 + 15
-    Text("Basket", style = style(15f, face = Face.BOLD), modifier = Modifier.at(22, top(b, 15f, face = Face.BOLD)))
-    val live = lines.any { it.game.live }
-    val done = lines.any { it.game.finished }
-    RightText(
-        when {
-            live && done -> "en direct · cette nuit"
-            live -> "en direct"
-            else -> "cette nuit"
-        },
-        style(12f).smallCaps(0.06f),
-        top(b, 12f),
-    )
+    val b = y0 + 17
+    Text("Basket", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(b, TITLE, face = Face.BOLD)))
+    if (lines.any { it.game.live }) RightText("en direct", style(LABEL, color = Live).smallCaps(0.06f), top(b, LABEL))
 
     val rows = rememberRows(lines)
-    rows.forEachIndexed { i, row -> GameRow(y0 + 38 + ROW_PITCH * i, row) }
-    val end = y0 + 21 + ROW_PITCH * lines.size
+    rows.forEachIndexed { i, row -> GameRow(y0 + 45 + ROW_PITCH * i, row) }
+    val end = y0 + 45 + ROW_PITCH * (lines.size - 1) + 7
     TapZone(
         "Ouvrir Basket Live : " + lines.joinToString(" ; ") { l ->
-            "${l.game.away.name} ${l.game.away.score ?: 0}, ${l.game.home.name} ${l.game.home.score ?: 0}, ${BasketShare.spokenStatus(l.game)}"
+            val winner = BasketShare.winner(l.game)?.let { ", victoire des ${it.name}" }.orEmpty()
+            "${l.game.away.name} ${l.game.away.score ?: 0}, ${l.game.home.name} ${l.game.home.score ?: 0}, " +
+                BasketShare.spokenStatus(l.game) + winner
         },
         Modifier.at(22, y0).size(368.dp, (end - y0 + 4).dp),
         onOpen,
@@ -363,19 +429,46 @@ private fun BasketSection(y0: Float, lines: List<LiveLine>, onOpen: () -> Unit):
     return end
 }
 
-/** Une ligne prête à poser : noms affichés (le sigle si le nom ne tient pas), décalage des colonnes. */
-private class GameLine(val line: LiveLine, val away: String, val home: String, val status: AnnotatedString, val dx: Float)
+/** Une équipe d'une ligne : nom affiché (le sigle si le nom ne tient pas), face et couleur. */
+private class TeamLook(val name: String, val face: Face, val color: Color)
 
-/** Colonnes de la maquette : l'équipe à l'extérieur finit à 114, l'équipe à domicile commence à 184. */
-private const val AWAY_END = 114f
-private const val AWAY_CELL = 92f
-private const val HOME_START = 184f
+/** Une ligne prête à poser : les deux équipes, l'état du match (et sa couleur), le décalage des colonnes. */
+private class GameLine(
+    val line: LiveLine,
+    val away: TeamLook,
+    val home: TeamLook,
+    val status: AnnotatedString,
+    val statusFace: Face,
+    val statusColor: Color,
+    val dx: Float,
+)
 
-/** Étoile : 2 unités après le nom, puis sa chasse (1,045 em de 11,2). */
-private const val STAR_W = 2f + 11.2f * 2140f / 2048f
+/**
+ * Colonnes : l'équipe à l'extérieur finit à [AWAY_END] (sa case commence à 22), puis, après [GAP], son
+ * score dans [SCORE_W], le tiret dans [DASH_W], le score à domicile, et l'équipe à domicile dès [HOME_START].
+ */
+private const val AWAY_END = 116f
+private const val AWAY_CELL = AWAY_END - 22f
+private const val GAP = 8f
+private const val SCORE_W = 31f
+private const val DASH_W = 20f
+private const val SCORES = AWAY_END + GAP
+private const val HOME_START = SCORES + SCORE_W + DASH_W + SCORE_W + GAP
 
-/** Point du direct : 6, et 5 avant le texte. */
-private const val DOT_W = 11f
+/** État du match : sa taille, et la place du point du direct (7, et 5 avant le texte). */
+private const val STATUS = 14.5f
+private const val DOT_W = 12f
+
+/**
+ * Faces des équipes : pendant le match, la favorite en gras ; une fois terminé, la gagnante en gras
+ * et la perdante à l'encre pâle. L'état d'un match terminé dit, pour la favorite, « victoire » (en vert)
+ * ou « défaite » (en rouge sombre).
+ */
+private fun look(line: LiveLine, team: GameTeam, favorite: Boolean): Pair<Face, Color> {
+    if (!line.game.finished) return (if (favorite) Face.BOLD else Face.ROMAN) to PaperColors.Ink
+    val winner = BasketShare.winner(line.game) ?: return Face.ROMAN to PaperColors.Ink
+    return if (winner.id == team.id) Face.BOLD to PaperColors.Ink else Face.ROMAN to PaperColors.Soft
+}
 
 /**
  * Noms et décalage : un nom trop long pour sa colonne (« Timberwolves ») pousse toutes les colonnes vers
@@ -389,64 +482,81 @@ private fun rememberRows(lines: List<LiveLine>): List<GameLine> {
     return remember(lines, density) {
         fun width(text: AnnotatedString, style: TextStyle) =
             with(density) { measurer.measure(text, style, softWrap = false).size.width.toDp().value }
-        fun team(name: String, favorite: Boolean) =
-            width(AnnotatedString(name), style(14f, face = if (favorite) Face.BOLD else Face.ROMAN)) + if (favorite) STAR_W else 0f
-        val dx = lines.maxOfOrNull { team(it.game.away.name, it.awayFavorite) - AWAY_CELL }?.coerceIn(0f, 30f) ?: 0f
-        lines.map { line ->
+        fun team(name: String, face: Face) = width(AnnotatedString(name), style(BODY, face = face))
+        val looks = lines.map { look(it, it.game.away, it.awayFavorite) to look(it, it.game.home, it.homeFavorite) }
+        val dx = lines.indices.maxOfOrNull { team(lines[it].game.away.name, looks[it].first.first) - AWAY_CELL }
+            ?.coerceIn(0f, 30f) ?: 0f
+        lines.mapIndexed { i, line ->
             val game = line.game
-            val status = segs(BasketShare.status(game), supRatio = 0.7f, nowrap = true)
-            val statusStart = 390f - DOT_W - width(status, style(12.5f))
-            val away = if (team(game.away.name, line.awayFavorite) <= AWAY_CELL + dx) game.away.name else game.away.abbr
-            val fits = HOME_START + dx + team(game.home.name, line.homeFavorite) <= statusStart - 6f
-            GameLine(line, away, if (fits) game.home.name else game.home.abbr, status, dx)
+            val (awayLook, homeLook) = looks[i]
+            val won = BasketShare.favoriteWon(line)
+            val status = buildAnnotatedString {
+                if (won != null) append(if (won) "victoire" else "défaite")
+                val rest = BasketShare.status(game)
+                if (won != null && rest.isNotEmpty()) append(" · ")
+                append(segs(rest, supRatio = 0.7f, nowrap = true))
+            }
+            val statusFace = if (won != null) Face.BOLD else Face.ROMAN
+            val statusColor = when (won) {
+                true -> Win
+                false -> Loss
+                null -> if (game.finished) PaperColors.Soft else Live
+            }
+            val dot = if (game.finished) 0f else DOT_W
+            val statusStart = 390f - dot - width(status, style(STATUS, face = statusFace))
+            val away = if (team(game.away.name, awayLook.first) <= AWAY_CELL + dx) game.away.name else game.away.abbr
+            val fits = HOME_START + dx + team(game.home.name, homeLook.first) <= statusStart - 6f
+            GameLine(
+                line,
+                TeamLook(away, awayLook.first, awayLook.second),
+                TeamLook(if (fits) game.home.name else game.home.abbr, homeLook.first, homeLook.second),
+                status,
+                statusFace,
+                statusColor,
+                dx,
+            )
         }
     }
 }
 
 /**
- * Une ligne, en colonnes comme un tableau : l'équipe à l'extérieur calée à droite (jusqu'à 114), son
- * score (jusqu'à 140), le tiret (centré sur 149), le score à domicile (dès 158), l'équipe à domicile (dès 184),
- * et l'état du match calé à droite, en rouge avec un point.
+ * Une ligne, en colonnes comme un tableau : l'équipe à l'extérieur calée à droite, son score, le
+ * tiret, le score à domicile, l'équipe à domicile, et l'état du match calé à droite (en rouge avec un
+ * point pendant le direct ; victoire ou défaite de la favorite une fois terminé).
  */
 @Composable
 private fun GameRow(baseline: Float, row: GameLine) {
     val game = row.line.game
     val dx = row.dx
-    TeamCell(row.away, row.line.awayFavorite, baseline, right = AWAY_END + dx)
-    Score(game.away.score?.toString(), Modifier.at(114 + dx, top(baseline, 14f)).width(26.dp), Alignment.TopEnd)
-    Score("–", Modifier.at(140 + dx, top(baseline, 14f)).width(18.dp), Alignment.TopCenter)
-    Score(game.home.score?.toString(), Modifier.at(158 + dx, top(baseline, 14f)).width(40.dp), Alignment.TopStart)
-    TeamCell(row.home, row.line.homeFavorite, baseline, left = HOME_START + dx)
+    TeamCell(row.away, baseline, right = AWAY_END + dx)
+    Score(game.away.score?.toString(), row.away, baseline, SCORES + dx, SCORE_W, Alignment.TopEnd)
+    Score("–", TeamLook("", Face.ROMAN, PaperColors.Ink), baseline, SCORES + SCORE_W + dx, DASH_W, Alignment.TopCenter)
+    Score(game.home.score?.toString(), row.home, baseline, SCORES + SCORE_W + DASH_W + dx, 40f, Alignment.TopStart)
+    TeamCell(row.home, baseline, left = HOME_START + dx)
 
-    // État : point de 6 (5 avant le texte, son bas 1 au-dessus de la ligne de base), puis le texte, en
-    // rouge ; un résultat de la nuit (« fin ») est à l'encre pâle, sans point.
-    val statusTop = top(baseline, 12.5f)
-    val live = !game.finished
+    if (row.status.isEmpty()) return
+    val statusTop = top(baseline, STATUS, face = row.statusFace)
     Box(Modifier.at(22, statusTop).width(368.dp)) {
         Row(Modifier.align(Alignment.TopEnd)) {
-            if (live) {
+            if (!game.finished) {
                 Box(
                     Modifier
-                        .padding(top = (baseline - 7 - statusTop).dp, end = 5.dp)
-                        .size(6.dp)
+                        .padding(top = (baseline - 8 - statusTop).dp, end = 5.dp)
+                        .size(7.dp)
                         .background(Live, CircleShape),
                 )
             }
-            PaperText(row.status, style = style(12.5f, color = if (live) Live else Paper.Soft), softWrap = false)
+            PaperText(row.status, style = style(STATUS, face = row.statusFace, color = row.statusColor), softWrap = false)
         }
     }
 }
 
-/** Nom d'équipe (gras et étoilé pour une favorite), calé à droite sur [right] ou à gauche sur [left]. */
+/** Nom d'équipe, calé à droite sur [right] ou à gauche sur [left]. */
 @Composable
-private fun TeamCell(name: String, favorite: Boolean, baseline: Float, right: Float? = null, left: Float? = null) {
-    val face = if (favorite) Face.BOLD else Face.ROMAN
-    val y = top(baseline, 14f, face = face)
+private fun TeamCell(team: TeamLook, baseline: Float, right: Float? = null, left: Float? = null) {
+    val y = top(baseline, BODY, face = team.face)
     val content: @Composable () -> Unit = {
-        Row {
-            Text(name, style = style(14f, face = face), softWrap = false, maxLines = 1)
-            if (favorite) FavoriteStar(baseline - y)
-        }
+        Text(team.name, style = style(BODY, face = team.face, color = team.color), softWrap = false, maxLines = 1)
     }
     if (right != null) {
         Box(Modifier.at(0, y).width(right.dp)) { Box(Modifier.align(Alignment.TopEnd)) { content() } }
@@ -455,43 +565,14 @@ private fun TeamCell(name: String, favorite: Boolean, baseline: Float, right: Fl
     }
 }
 
-/**
- * Étoile des favoris : celle de la police de repli de la maquette (Inter, 0,8 em = 11,2 unités, chasse
- * 1,045 em), 2 unités après le nom, posée sur la ligne de base ([baseline] depuis le haut de la case).
- * Le nom est en gras et Inter n'y a servi qu'en romain : le navigateur l'a grossie de 1/24 em (gras
- * synthétique de FreeType), d'où le trait autour du contour.
- */
+/** Score (chiffres à chasse fixe, dans la face de son équipe) ou tiret, calé dans sa colonne ; rien avant le match. */
 @Composable
-private fun FavoriteStar(baseline: Float) {
-    val em = 11.2f
-    Canvas(Modifier.padding(start = 2.dp).size((em * 2140f / 2048f).dp, (baseline + 4).dp)) {
-        val s = em.dp.toPx() / 2048f
-        val base = baseline.dp.toPx()
-        val path = Path()
-        STAR.forEachIndexed { i, (x, y) ->
-            val p = Offset(x * s, base - y * s)
-            if (i == 0) path.moveTo(p.x, p.y) else path.lineTo(p.x, p.y)
-        }
-        path.close()
-        drawPath(path, Star)
-        drawPath(path, Star, style = Stroke(width = em.dp.toPx() / 24f, miter = 4f, join = StrokeJoin.Miter))
-    }
-}
-
-/** Contour de ★ dans Inter (unités de 1/2048 em, origine sur la ligne de base). */
-private val STAR = listOf(
-    1070f to 382f, 1620f to -14f, 1404f to 632f, 1954f to 1030f, 1280f to 1030f,
-    1070f to 1676f, 862f to 1030f, 186f to 1030f, 738f to 632f, 520f to -14f,
-)
-
-/** Score (chiffres à chasse fixe) ou tiret, calé dans sa colonne ; rien avant le match. */
-@Composable
-private fun Score(text: String?, modifier: Modifier, alignment: Alignment) {
+private fun Score(text: String?, look: TeamLook, baseline: Float, x: Float, width: Float, alignment: Alignment) {
     if (text == null) return
-    Box(modifier) {
+    Box(Modifier.at(x, top(baseline, BODY, face = look.face)).width(width.dp)) {
         Text(
             text,
-            style = style(14f).copy(fontFeatureSettings = "tnum"),
+            style = style(BODY, face = look.face, color = look.color).copy(fontFeatureSettings = "tnum"),
             softWrap = false,
             modifier = Modifier.align(alignment),
         )
@@ -501,46 +582,53 @@ private fun Score(text: String?, modifier: Modifier, alignment: Alignment) {
 // ---------------------------------------------------------------- Exercice
 
 @Composable
-private fun ExerciseSection(e0: Float, exercise: Exercise, yesterday: Exercise, onUnlock: () -> Unit) {
+private fun ExerciseSection(e0: Float, exercise: Exercise, yesterday: Exercise, solutionShown: Boolean, onUnlock: () -> Unit) {
     // Titre et numéro, sur la même ligne de base.
-    Text("Exercice du jour", style = style(18f, face = Face.BOLD), modifier = Modifier.at(22, top(e0 + 17, 18f, face = Face.BOLD)))
-    RightText("n° ${exercise.number} · niveau : ${exercise.level}", style(13f).smallCaps(0.06f), top(e0 + 17, 13f))
+    Text("Exercice du jour", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(e0 + 18, TITLE, face = Face.BOLD)))
+    RightText("n° ${exercise.number} · niveau : ${exercise.level}", style(LABEL).smallCaps(0.06f), top(e0 + 18, LABEL))
 
     // Énoncé, formule, puis l'avis : chacun sous le précédent, selon le nombre de lignes de l'énoncé.
     val statement = fine(exercise.statement)
-    val statementStyle = style(18f, 25f).copy(textIndent = TextIndent(firstLine = 1.2.em), lineBreak = LineBreak.Simple)
+    val statementStyle = style(BODY, 26f).copy(textIndent = TextIndent(firstLine = 1.2.em), lineBreak = LineBreak.Simple)
     Text(
         statement,
         style = statementStyle,
-        modifier = Modifier.at(22, top(e0 + 50, 18f, 25f)).width(368.dp),
+        modifier = Modifier.at(22, top(e0 + 52, BODY, 26f)).width(368.dp),
     )
-    var last = e0 + 50 + 25f * (lineCount(statement, statementStyle, 368f) - 1)
+    var last = e0 + 52 + 26f * (lineCount(statement, statementStyle, 368f) - 1)
     if (exercise.formula.isNotEmpty()) {
-        last += 56
+        last += 54
         PaperText(
             segs(exercise.formula, supRatio = 0.62f, nowrap = false),
-            style = style(32f, 32f * NORMAL).copy(textAlign = TextAlign.Center),
+            style = style(34f, 34f * NORMAL).copy(textAlign = TextAlign.Center),
             softWrap = false,
             inlineContent = Inline,
-            modifier = Modifier.at(22, top(last, 32f, 32f * NORMAL)).width(368.dp),
+            modifier = Modifier.at(22, top(last, 34f, 34f * NORMAL)).width(368.dp),
         )
     }
-    last += 42
+    last += 40
     Text(
         "La solution sera donnée demain.",
-        style = style(14.5f, 18f, Face.ITALIC, PaperColors.Soft).copy(textAlign = TextAlign.Center),
-        modifier = Modifier.at(22, top(last, 14.5f, 18f, Face.ITALIC)).width(368.dp),
+        style = style(15.5f, 19f, Face.ITALIC, PaperColors.Soft).copy(textAlign = TextAlign.Center),
+        modifier = Modifier.at(22, top(last, 15.5f, 19f, Face.ITALIC)).width(368.dp),
     )
 
     val rule = last + 26
     HRule(22, rule, 368, 0.6f)
-    Text("Solution d'hier", style = style(16f, face = Face.BOLD), modifier = Modifier.at(22, top(rule + 30, 16f, face = Face.BOLD)))
-    RightText("n° ${yesterday.number}", style(13f).smallCaps(0.06f), top(rule + 30, 13f))
+    Text("Solution d'hier", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(rule + 30, TITLE, face = Face.BOLD)))
+    RightText("n° ${yesterday.number}", style(LABEL).smallCaps(0.06f), top(rule + 30, LABEL))
 
-    // L'énoncé d'hier en italique, sa formule à la suite (insécable) ; puis l'explication et la réponse.
+    // L'énoncé d'hier en italique, sa formule à la suite (insécable) ; l'explication et la réponse restent
+    // sous un bandeau hachuré tant qu'on ne l'a pas touché (de nouveau caché à chaque réveil).
     // Sous le texte, le bas de la page : un appui déverrouille.
-    val body = style(14.5f, 20f).copy(lineBreak = LineBreak.Simple)
-    val solution = rule + 40
+    var revealed by remember(yesterday.date) { mutableStateOf(solutionShown) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val lifecycleState by lifecycle.currentStateAsState()
+    val awake = lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
+    LaunchedEffect(awake) { if (!awake) revealed = false }
+
+    val body = style(BODY, 25f).copy(lineBreak = LineBreak.Simple)
+    val solution = rule + 42
     Column(Modifier.at(0, solution).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - solution).dp)) {
         PaperText(
             buildAnnotatedString {
@@ -554,22 +642,71 @@ private fun ExerciseSection(e0: Float, exercise: Exercise, yesterday: Exercise, 
             inlineContent = Inline,
             modifier = Modifier.padding(horizontal = 22.dp).fillMaxWidth(),
         )
-        Spacer(Modifier.height(5.dp))
-        PaperText(
-            buildAnnotatedString {
-                appendInlineContent(INDENT, " ")
-                append(WJ)
-                append(segs(yesterday.explanation, supRatio = 0.68f, nowrap = false))
-                append(" ")
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendFine("Réponse : ${yesterday.answer}.") }
-            },
-            style = body,
-            inlineContent = Inline,
-            modifier = Modifier.padding(horizontal = 22.dp).fillMaxWidth(),
-        )
+        Spacer(Modifier.height(8.dp))
+        if (revealed) {
+            PaperText(
+                buildAnnotatedString {
+                    appendInlineContent(INDENT, " ")
+                    append(WJ)
+                    append(segs(yesterday.explanation, supRatio = 0.68f, nowrap = false))
+                    append(" ")
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendFine("Réponse : ${yesterday.answer}.") }
+                },
+                style = body,
+                inlineContent = Inline,
+                modifier = Modifier.padding(horizontal = 22.dp).fillMaxWidth(),
+            )
+        } else {
+            SolutionBanner { revealed = true }
+        }
         TapZone("Déverrouiller", Modifier.fillMaxWidth().weight(1f), onUnlock)
     }
 }
+
+/** Hauteur du bandeau qui cache la solution d'hier. */
+private const val BANNER = 42f
+
+/** Le bandeau qui cache la solution : des hachures, comme un coloriage, et l'invitation à toucher. */
+@Composable
+private fun SolutionBanner(onReveal: () -> Unit) {
+    Box(
+        Modifier
+            .padding(horizontal = 22.dp)
+            .fillMaxWidth()
+            .height(BANNER.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(BannerFill)
+            .drawBehind {
+                val step = 9.dp.toPx()
+                var x = -size.height
+                while (x < size.width) {
+                    drawLine(BannerHatch, Offset(x, size.height), Offset(x + size.height, 0f), strokeWidth = 1.2.dp.toPx())
+                    x += step
+                }
+            }
+            .clickable(
+                remember { MutableInteractionSource() },
+                indication = null,
+                onClickLabel = "Afficher",
+                role = Role.Button,
+                onClick = onReveal,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "Toucher pour voir la solution",
+            style = style(16f, 20f, Face.ITALIC, PaperColors.Ink),
+            softWrap = false,
+            modifier = Modifier
+                .background(BannerFill, RoundedCornerShape(4.dp))
+                .padding(horizontal = 10.dp, vertical = 2.dp),
+        )
+    }
+}
+
+/** Couleurs du bandeau : un jaune pâle, hachuré d'ocre. */
+private val BannerFill = Color(0xFFFBEFC8)
+private val BannerHatch = Color(0xFFE2BE62)
 
 /**
  * Morceaux de texte : exposants (à [supRatio] em, posés par [PaperText]), variables en italique, « ⋯ »

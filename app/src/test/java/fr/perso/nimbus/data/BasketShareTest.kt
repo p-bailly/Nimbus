@@ -133,7 +133,12 @@ class BasketShareTest {
         // Celtics et Knicks dans le même match : une ligne ; Lakers : leur match a 54 h.
         assertEquals(listOf("2"), results.map { it.game.id })
         assertTrue(results[0].homeFavorite && results[0].awayFavorite)
-        assertEquals(listOf(Seg("fin · prol.")), BasketShare.status(results[0].game))
+        assertEquals(listOf(Seg("prol.")), BasketShare.status(results[0].game))
+        // Deux favorites : ni victoire ni défaite, mais les Celtics (à domicile) ont gagné.
+        assertEquals(null, BasketShare.favoriteWon(results[0]))
+        assertEquals("2", BasketShare.winner(results[0].game)?.id)
+        assertEquals(true, BasketShare.favoriteWon(results[0].copy(awayFavorite = false)))
+        assertEquals(false, BasketShare.favoriteWon(results[0].copy(homeFavorite = false)))
         assertEquals("terminé après prolongation", BasketShare.spokenStatus(results[0].game))
     }
 

@@ -130,6 +130,8 @@ data class SystemStatus(
     val filesPermission: Boolean = false,
     val dictationService: Boolean = false,
     val hasPin: Boolean = false,
+    /** Xiaomi : la page de déverrouillage a le droit de passer devant l'écran verrouillé (toujours vrai ailleurs). */
+    val lockScreenAllowed: Boolean = true,
 )
 
 /** Icône de la grille d'accueil, à sa case d'affichage. */
@@ -1178,6 +1180,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             filesPermission = FilesSearch.hasPermission(context),
             dictationService = DictationService.isEnabled,
             hasPin = prefs.hasPin(),
+            lockScreenAllowed = SystemActions.xiaomiLockScreenAllowed(context),
         )
     }
 

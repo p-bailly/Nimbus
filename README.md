@@ -74,10 +74,13 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 **Page de déverrouillage (papier)**
 - Au réveil, par-dessus l'écran verrouillé : une page d'article sans en-tête (l'heure en grand, la
   date), puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
-  ressenti, ciel, maximum en orange et minimum en bleu, et son coloriage en figure), les matchs
-  en direct des équipes favorites de l'appli Basket Live (trois au plus, mi-temps et fin de période
-  comprises) puis leurs résultats de la nuit (« fin », « fin · prol. », quatre lignes en tout), l'exercice du jour (calcul de tête, huit familles à tour de rôle) et la solution de
-  celui de la veille. Une section sans données (appli absente, rien en direct) disparaît.
+  ressenti, ciel, maximum en orange et minimum en bleu, en gras, et son coloriage en figure, agrandi,
+  ravivé, qui monte et se colore en 1,6 s à chaque réveil), les matchs en direct des équipes favorites
+  de l'appli Basket Live (trois au plus, mi-temps et fin de période comprises) puis leurs résultats
+  de la nuit (gagnante en gras, perdante en gris, « victoire » ou « défaite » de la favorite ; quatre
+  lignes en tout), l'exercice du jour (calcul de tête niveau lycée, huit familles à tour de rôle) et
+  la solution de celui de la veille, cachée sous un bandeau hachuré : la toucher la montre (cachée de
+  nouveau au réveil suivant). Une section sans données (appli absente, rien en direct) disparaît.
 - Glisser vers le haut, toucher le bas de la page ou Retour : le système demande l'empreinte, le
   visage ou le code, puis la page s'efface. Toucher la météo ouvre Météo, toucher les matchs ouvre
   Basket Live (après le déverrouillage). Un appel, une alarme ou l'appareil photo passent devant.
@@ -90,6 +93,10 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Activer : Paramètres › Sécurité et confidentialité › « Page de déverrouillage », avec le service
   d'accessibilité « Gestes Nimbus » (il pose la page à l'extinction de l'écran) et un verrouillage
   (code, schéma ou mot de passe). Désactivée par défaut ; le réglage est dans la sauvegarde.
+- Xiaomi (MIUI, HyperOS) : il faut aussi cocher, dans Paramètres › Applications › Nimbus › Autres
+  autorisations, « Afficher sur l'écran de verrouillage » et « Ouvrir de nouvelles fenêtres en
+  arrière-plan » (refusées par défaut : l'écran verrouillé du système reste seul) ; les réglages de
+  Nimbus le signalent et y mènent.
 - Données : Météo et Basket Live (applis personnelles) les partagent avec Nimbus seul, en lecture
   (`content://io.github.pbailly.meteo.nimbus` : `now` et le coloriage `sketch` ;
   `content://com.pbailly.superfanbasket.nimbus/favorites`), et préviennent à chaque changement. Les

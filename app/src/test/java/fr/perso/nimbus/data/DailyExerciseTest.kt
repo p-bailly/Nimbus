@@ -1,7 +1,6 @@
 package fr.perso.nimbus.data
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.math.BigInteger
@@ -26,50 +25,53 @@ class DailyExerciseTest {
     private fun family(f: Int): List<Exercise> = days.filter { it.family == f }.also { assertEquals(400, it.size) }
 
     @Test
-    fun sumOfIntegers() = family(0).forEach { e ->
-        val n = int("""de 1 à (\d+)\.""", e.statement)
-        assertEquals("1 + 2 + 3 + ⋯ + $n", e.formula.single().text)
+    fun powersOfTwo() = family(0).forEach { e ->
+        val n = e.formula.single().sup.toInt()
         var sum = 0L
-        for (k in 1..n) sum += k
+        var term = 1L
+        repeat(n + 1) {
+            sum += term
+            term *= 2
+        }
         assertEquals(e.toString(), sum, answer(e))
     }
 
     @Test
-    fun handshakes() = family(1).forEach { e ->
-        val n = int("""(\d+) personnes""", e.statement)
-        var pairs = 0L
-        for (i in 0 until n) for (j in i + 1 until n) pairs++
-        assertEquals(e.toString(), pairs, answer(e))
+    fun arithmeticSum() = family(1).forEach { e ->
+        val terms = Regex("""\d+""").findAll(e.formula.single().text).map { it.value.toInt() }.toList()
+        val (a, b, c, last) = terms
+        val r = b - a
+        assertEquals(r, c - b)
+        assertEquals(0, (last - a) % r)
+        var sum = 0L
+        for (x in a..last step r) sum += x
+        assertEquals(e.toString(), sum, answer(e))
+    }
+
+    @Test
+    fun committees() = family(2).forEach { e ->
+        val n = int("""parmi (\d+) élèves""", e.statement)
+        var trios = 0L
+        for (i in 0 until n) for (j in i + 1 until n) for (k in j + 1 until n) trios++
+        assertEquals(e.toString(), trios, answer(e))
         assertTrue(e.formula.isEmpty())
     }
 
     @Test
-    fun differenceOfSquares() = family(2).forEach { e ->
-        val (a, b) = e.formula.map { it.text.filter(Char::isDigit).toInt() }
-        assertEquals(listOf("2", "2"), e.formula.map { it.sup })
-        // a² − b² par additions répétées.
-        var value = 0L
-        repeat(a) { value += a }
-        repeat(b) { value -= b }
-        assertEquals(e.toString(), value, answer(e))
+    fun sumOfSquares() = family(3).forEach { e ->
+        assertTrue(e.formula.all { it.sup == "2" })
+        val n = int("""(\d+)$""", e.formula.last().text)
+        var sum = 0L
+        for (k in 1..n) sum += k.toLong() * k
+        assertEquals(e.toString(), sum, answer(e))
     }
 
     @Test
-    fun sumOfOddNumbers() = family(3).forEach { e ->
-        val n = int("""des (\d+) premiers""", e.statement)
-        val last = int("""⋯ \+ (\d+)$""", e.formula.single().text)
-        val odds = (1..last step 2).toList()
-        assertEquals(n, odds.size)
-        assertEquals(e.toString(), odds.sumOf { it.toLong() }, answer(e))
-    }
-
-    @Test
-    fun diagonals() = family(4).forEach { e ->
-        val n = int("""à (\d+) côtés""", e.statement)
-        // Paires de sommets non voisins sur le polygone.
-        var count = 0L
-        for (i in 0 until n) for (j in i + 1 until n) if (j - i != 1 && j - i != n - 1) count++
-        assertEquals(e.toString(), count, answer(e))
+    fun digitsOfPowerOfTwo() = family(4).forEach { e ->
+        val seg = e.formula.single()
+        assertEquals("2", seg.text)
+        val digits = BigInteger.TWO.pow(seg.sup.toInt()).toString().length
+        assertEquals(e.toString(), digits.toLong(), answer(e))
     }
 
     @Test
@@ -83,14 +85,17 @@ class DailyExerciseTest {
     }
 
     @Test
-    fun squareEndingInFive() = family(6).forEach { e ->
-        val seg = e.formula.single()
-        assertEquals("2", seg.sup)
-        val x = seg.text.toInt()
-        assertEquals(5, x % 10)
-        var square = 0L
-        repeat(x) { square += x }
-        assertEquals(e.toString(), square, answer(e))
+    fun geometricSeries() = family(6).forEach { e ->
+        val q = int("""1/(\d+)""", e.formula.first().text)
+        val (num, den) = e.answer.split("/").map { it.toLong() }
+        var sum = 0.0
+        var term = 1.0
+        repeat(80) {
+            sum += term
+            term /= q
+        }
+        assertEquals(e.toString(), num.toDouble() / den, sum, 1e-12)
+        assertEquals(1L, BigInteger.valueOf(num).gcd(BigInteger.valueOf(den)).toLong())
     }
 
     @Test
@@ -112,7 +117,7 @@ class DailyExerciseTest {
         for (e in days) {
             assertEquals(e.date.dayOfYear, e.number)
             assertEquals(Math.floorMod(DailyExercise.dayIndex(e.date), 8L).toInt(), e.family)
-            assertTrue(e.level == "collège" || e.level == "lycée")
+            assertEquals("lycée", e.level)
             // L'explication est une phrase : majuscule (sauf variable en tête) et point final.
             val first = e.explanation.first()
             assertTrue(first.italic || first.text.first().isUpperCase())
@@ -127,7 +132,7 @@ class DailyExerciseTest {
 
     @Test
     fun mockupDay() {
-        // Maquette : 20 octobre 2026, n° 293, 7²⁰²⁶ ; solution d'hier n° 292, 12 côtés, 54.
+        // 20 octobre 2026, n° 293, 7²⁰²⁶ ; solution d'hier n° 292, le nombre de chiffres d'une puissance de 2.
         val today = DailyExercise.of(LocalDate.of(2026, 10, 20))
         assertEquals(293, today.number)
         assertEquals("lycée", today.level)
@@ -135,20 +140,15 @@ class DailyExerciseTest {
         assertEquals("9", today.answer)
         val yesterday = DailyExercise.of(LocalDate.of(2026, 10, 19))
         assertEquals(292, yesterday.number)
-        assertEquals("Combien de diagonales a un polygone convexe à 12 côtés\u202F?", yesterday.statement)
-        assertEquals(
-            "Chaque sommet est relié à 9 autres par une diagonale, et chaque diagonale a deux extrémités : 12 × 9 / 2.",
-            yesterday.explanation.single().text,
-        )
-        assertEquals("54", yesterday.answer)
+        assertEquals("Combien de chiffres a ce nombre\u202F?", yesterday.statement)
+        assertEquals(listOf(Seg("2", "132")), yesterday.formula)
+        assertEquals(Seg(" = 132 × log 2 ≈ 39,74 : le nombre est entre 10", "39"), yesterday.explanation[1])
+        assertEquals("40", yesterday.answer)
         // Pourcentages (n° 295) : « 9 % », et 1 − 0,3² = 0,91.
         val percent = DailyExercise.of(LocalDate.of(2026, 10, 22))
         assertEquals("9\u00A0%", percent.answer)
         assertEquals(" = 0,91.", percent.explanation.last().text)
-        // Carrés : la phrase commence par la variable a, sans majuscule.
-        val squares = days.first { it.family == 2 }
-        assertFalse(squares.explanation.first().text.first().isUpperCase())
-        // Milliers : 2 415 avec une espace fine insécable.
-        assertEquals("2\u202F415", DailyExercise.of(LocalDate.of(2026, 10, 23)).answer)
+        // Milliers : 1 048 575 avec une espace fine insécable.
+        assertEquals("1\u202F048\u202F575", DailyExercise.of(LocalDate.of(2026, 10, 23)).answer)
     }
 }

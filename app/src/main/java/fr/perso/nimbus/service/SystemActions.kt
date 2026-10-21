@@ -3,6 +3,7 @@ package fr.perso.nimbus.service
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
 import android.app.ActivityOptions
+import android.app.AppOpsManager
 import android.app.StatusBarManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
@@ -15,6 +16,7 @@ import android.content.pm.ShortcutInfo
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
+import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
 import android.provider.AlarmClock
@@ -269,6 +271,42 @@ object SystemActions {
 
     fun openAccessibilitySettings(context: Context) {
         start(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    }
+
+    // ------------------------------------------------------------ Xiaomi
+
+    /** Téléphone Xiaomi (MIUI, HyperOS ; Redmi et POCO compris). */
+    val isXiaomi: Boolean get() = Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+
+    /** Opérations propres à Xiaomi : « Afficher sur l'écran de verrouillage », « Ouvrir de nouvelles fenêtres en arrière-plan ». */
+    private val XIAOMI_LOCK_SCREEN_OPS = intArrayOf(10020, 10021)
+
+    /**
+     * Les autorisations de Xiaomi sans lesquelles la page de déverrouillage ne s'affiche jamais (l'écran
+     * verrouillé du système reste) : refusées par défaut, elles ne se demandent pas, elles se cochent
+     * dans « Autres autorisations ». Vrai ailleurs que chez Xiaomi, ou si on ne peut pas les lire.
+     */
+    fun xiaomiLockScreenAllowed(context: Context): Boolean {
+        if (!isXiaomi) return true
+        val ops = context.getSystemService(AppOpsManager::class.java) ?: return true
+        return try {
+            val check = AppOpsManager::class.java.getMethod(
+                "checkOpNoThrow", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, String::class.java,
+            )
+            XIAOMI_LOCK_SCREEN_OPS.all { op ->
+                check.invoke(ops, op, Process.myUid(), context.packageName) == AppOpsManager.MODE_ALLOWED
+            }
+        } catch (e: Exception) {
+            true
+        }
+    }
+
+    /** « Autres autorisations » de Nimbus dans la Sécurité de Xiaomi ; à défaut, la fiche de l'appli. */
+    fun openXiaomiPermissions(context: Context) {
+        val editor = Intent("miui.intent.action.APP_PERM_EDITOR").putExtra("extra_pkgname", context.packageName)
+        val security = Intent(editor).setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
+        if (start(context, security) || start(context, editor)) return
+        start(context, Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
     }
 
     fun openNotificationAccessSettings(context: Context) {

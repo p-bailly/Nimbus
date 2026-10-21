@@ -152,12 +152,12 @@ class UnlockFeed private constructor(context: Context) {
     }
 
     /**
-     * Taille du coloriage en pixels : la largeur du texte de la page (368 unités sur 412) et le rapport
+     * Taille du coloriage en pixels : sa largeur sur la page ([SKETCH_WIDTH] unités sur 412) et le rapport
      * 287 / 411 du dessin de Météo.
      */
     private fun sketchSize(): Pair<Int, Int> {
         val m = app.resources.displayMetrics
-        val w = (min(m.widthPixels, m.heightPixels) * 368f / PAPER_WIDTH).roundToInt().coerceIn(64, 2048)
+        val w = (min(m.widthPixels, m.heightPixels) * SKETCH_WIDTH / PAPER_WIDTH).roundToInt().coerceIn(64, 2048)
         return w to (w * MeteoShare.SKETCH_RATIO).roundToInt().coerceIn(64, 2048)
     }
 

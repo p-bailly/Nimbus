@@ -62,7 +62,12 @@ class UnlockScreenshot {
         homeFavorite = false,
     )
 
-    private fun shoot(name: String, state: UnlockState, time: LocalDateTime = LocalDateTime.of(2026, 10, 20, 20, 35)) {
+    private fun shoot(
+        name: String,
+        state: UnlockState,
+        time: LocalDateTime = LocalDateTime.of(2026, 10, 20, 20, 35),
+        solutionShown: Boolean = false,
+    ) {
         val base = PaperFixture.env()
         val env = PaperEnv(
             apps = base.apps,
@@ -73,7 +78,7 @@ class UnlockScreenshot {
         )
         captureRoboImage("build/outputs/roborazzi/paper/$name.png") {
             CompositionLocalProvider(LocalPaper provides env) {
-                UnlockPage(state, onMeteo = {}, onBasket = {}, onUnlock = {})
+                UnlockPage(state, onMeteo = {}, onBasket = {}, onUnlock = {}, solutionShown = solutionShown)
             }
         }
     }
@@ -91,6 +96,10 @@ class UnlockScreenshot {
         )
         shoot("h8_cette_nuit", UnlockState(meteo, sketch, results = results), LocalDateTime.of(2026, 10, 21, 7, 40))
     }
+
+    /** Solution d'hier montrée (bandeau touché), sous un match en direct. */
+    @Test
+    fun solutionShown() = shoot("h8_solution", UnlockState(meteo, sketch, listOf(spurs)), solutionShown = true)
 
     /** Aucun match en direct : la section « Basket » disparaît, l'exercice remonte. */
     @Test

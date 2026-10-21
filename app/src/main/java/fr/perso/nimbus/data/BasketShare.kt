@@ -42,7 +42,7 @@ data class Game(
     val finished: Boolean get() = state == "post"
 }
 
-/** Une ligne de la page : le match, et les équipes favorites (en gras, étoilées). */
+/** Une ligne de la page : le match, et les équipes favorites (en gras pendant le direct). */
 data class LiveLine(val game: Game, val awayFavorite: Boolean, val homeFavorite: Boolean)
 
 object BasketShare {
@@ -204,16 +204,43 @@ object BasketShare {
         return lines
     }
 
+    /** Équipe gagnante d'un match terminé (null avant la fin, ou à égalité). */
+    fun winner(game: Game): GameTeam? {
+        if (!game.finished) return null
+        val home = game.home.score ?: return null
+        val away = game.away.score ?: return null
+        return when {
+            home > away -> game.home
+            away > home -> game.away
+            else -> null
+        }
+    }
+
     /**
-     * État d'un match en cours, en morceaux (l'ordinal en exposant) : « 3ᵉ qt · 4:12 », « mi-temps »,
-     * « fin du 3ᵉ qt », « prol. · 2:31 », « 2ᵉ prol. · 0:45 ».
+     * Pour un match terminé avec une seule favorite : true si elle a gagné, false si elle a perdu ; null
+     * sinon (match en cours, deux favorites l'une contre l'autre, score inconnu).
+     */
+    fun favoriteWon(line: LiveLine): Boolean? {
+        if (line.awayFavorite == line.homeFavorite) return null
+        val winner = winner(line.game) ?: return null
+        return (winner.id == line.game.home.id) == line.homeFavorite
+    }
+
+    /**
+     * État d'un match, en morceaux (l'ordinal en exposant) : en cours, « 3ᵉ qt · 4:12 », « mi-temps »,
+     * « fin du 3ᵉ qt », « prol. · 2:31 », « 2ᵉ prol. · 0:45 » ; terminé, seulement la prolongation
+     * (« prol. », « 2 prol. »), rien sinon : la page dit plutôt qui a gagné.
      */
     fun status(game: Game): List<Seg> {
         val p = game.period
         val clock = game.displayClock.trim().takeIf { it.isNotEmpty() }?.let { " · $it" }.orEmpty()
         fun ordinal(n: Int) = Seg("$n", if (n == 1) "er" else "e")
         return when {
-            game.finished -> listOf(Seg(if (p > 5) "fin · ${p - 4} prol." else if (p == 5) "fin · prol." else "fin"))
+            game.finished -> when {
+                p > 5 -> listOf(Seg("${p - 4} prol."))
+                p == 5 -> listOf(Seg("prol."))
+                else -> emptyList()
+            }
             game.statusName == "STATUS_HALFTIME" -> listOf(Seg("mi-temps"))
             p <= 0 -> listOf(Seg("en cours"))
             game.statusName == "STATUS_END_PERIOD" -> when {

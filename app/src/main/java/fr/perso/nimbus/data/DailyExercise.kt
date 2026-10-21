@@ -3,8 +3,8 @@ package fr.perso.nimbus.data
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-// Exercice du jour de la page de déverrouillage : huit familles de calcul de tête (celles de la
-// maquette H8), une par jour à tour de rôle ; les nombres changent d'un tour à l'autre.
+// Exercice du jour de la page de déverrouillage : huit familles de calcul de tête, toutes du niveau
+// lycée (suites, dénombrement, logarithme…), une par jour à tour de rôle ; les nombres changent d'un tour à l'autre.
 
 /** Morceau de texte : [text], puis l'exposant [sup] (vide : aucun) ; [italic] pour une variable. */
 data class Seg(val text: String, val sup: String = "", val italic: Boolean = false)
@@ -16,7 +16,7 @@ data class Exercise(
     val number: Int,
     /** Famille (0 à 7). */
     val family: Int,
-    /** « collège » ou « lycée ». */
+    /** Toujours « lycée ». */
     val level: String,
     val statement: String,
     /** Formule centrée sous l'énoncé (vide pour certaines familles). */
@@ -46,13 +46,13 @@ object DailyExercise {
         // Tour : il fait varier les nombres d'une semaine (de huit jours) à l'autre.
         val c = Math.floorDiv(d, 8L)
         val p = when (family) {
-            0 -> sumTo(n = 30 + mod(c * 37, 70))
-            1 -> handshakes(n = 12 + mod(c * 17, 30))
-            2 -> squares(q = 2 + mod(c * 7, 18))
-            3 -> odds(n = 15 + mod(c * 13, 40))
-            4 -> diagonals(n = 8 + mod(c * 9, 20))
+            0 -> powersOfTwo(n = 10 + mod(c * 5, 11))
+            1 -> arithmetic(a = 2 + mod(c * 3, 8), r = 3 + mod(c * 5, 9), n = 20 + mod(c * 7, 21))
+            2 -> committees(n = 10 + mod(c * 7, 21))
+            3 -> squaresSum(n = 10 + mod(c * 11, 31))
+            4 -> digits(k = 60 + mod(c * 37, 140))
             5 -> unitsDigit(base = intArrayOf(7, 3, 8, 2)[mod(c, 4)], exponent = date.year)
-            6 -> endsWithFive(m = 3 + mod(c * 3, 7))
+            6 -> geometricSeries(q = 2 + mod(c * 3, 8))
             else -> percent(p = 10 * (1 + mod(c * 2, 5)))
         }
         return Exercise(
@@ -75,61 +75,74 @@ object DailyExercise {
         val answer: String,
     )
 
-    private fun sumTo(n: Int) = Parts(
-        "collège",
-        "Calculer la somme de tous les entiers de 1 à $n.",
-        listOf(Seg("1 + 2 + 3 + ⋯ + $n")),
-        listOf(Seg("en écrivant la somme dans les deux sens, chaque colonne vaut ${n + 1}, d’où $n × ${n + 1} / 2.")),
-        spaced(n.toLong() * (n + 1) / 2),
+    private fun powersOfTwo(n: Int) = Parts(
+        "lycée",
+        "Calculer la somme des puissances de 2 :",
+        listOf(Seg("1 + 2 + 4 + ⋯ + 2", "$n")),
+        listOf(
+            Seg("c’est une suite géométrique de raison 2 : en ajoutant 1, chaque terme double le total (1 + 1 = 2, 2 + 2 = 4…), d’où 2", "${n + 1}"),
+            Seg(" − 1."),
+        ),
+        spaced((1L shl (n + 1)) - 1),
     )
 
-    private fun handshakes(n: Int) = Parts(
-        "collège",
-        "À une fête, $n personnes se serrent toutes la main, une seule fois par paire. Combien y a-t-il de poignées de main$THIN?",
-        emptyList(),
-        listOf(Seg("chacun serre ${n - 1} mains et chaque poignée relie deux personnes : $n × ${n - 1} / 2.")),
-        spaced(n.toLong() * (n - 1) / 2),
-    )
-
-    private fun squares(q: Int): Parts {
-        val a = 50 + q
-        val b = 50 - q
+    private fun arithmetic(a: Int, r: Int, n: Int): Parts {
+        val last = a + (n - 1) * r
         return Parts(
-            "collège",
-            "Calculer, sans poser de multiplication :",
-            listOf(Seg("$a", "2"), Seg(" − $b", "2")),
+            "lycée",
+            "Calculer la somme de ces termes d’une suite arithmétique :",
+            listOf(Seg("$a + ${a + r} + ${a + 2 * r} + ⋯ + $last")),
             listOf(
-                Seg("a", "2", italic = true), Seg(" − "), Seg("b", "2", italic = true), Seg(" = ("),
-                Seg("a", italic = true), Seg(" − "), Seg("b", italic = true), Seg(")("),
-                Seg("a", italic = true), Seg(" + "), Seg("b", italic = true), Seg(") = ${a - b} × 100."),
+                Seg(
+                    "il y a ($last − $a) / $r + 1 = $n termes, et la somme vaut le nombre de termes fois la moyenne " +
+                        "du premier et du dernier : $n × ${a + last} / 2.",
+                ),
             ),
-            spaced(200L * q),
+            spaced(n.toLong() * (a + last) / 2),
         )
     }
 
-    private fun odds(n: Int) = Parts(
-        "collège",
-        "Calculer la somme des $n premiers nombres impairs :",
-        listOf(Seg("1 + 3 + 5 + ⋯ + ${2 * n - 1}")),
-        listOf(
-            Seg("les sommes 1, 1 + 3, 1 + 3 + 5… valent 1, 4, 9… : la somme des "), Seg("n", italic = true),
-            Seg(" premiers impairs est "), Seg("n", "2", italic = true), Seg("."),
-        ),
-        spaced(n.toLong() * n),
-    )
-
-    private fun diagonals(n: Int) = Parts(
-        "collège",
-        "Combien de diagonales a un polygone convexe à $n côtés$THIN?",
+    private fun committees(n: Int) = Parts(
+        "lycée",
+        "De combien de façons peut-on choisir 3 délégués parmi $n élèves$THIN?",
         emptyList(),
         listOf(
             Seg(
-                "chaque sommet est relié à ${n - 3} autres par une diagonale, et chaque diagonale a deux extrémités : " +
-                    "$n × ${n - 3} / 2.",
+                "on compte les listes ordonnées, $n × ${n - 1} × ${n - 2}, puis on divise par les 3 × 2 × 1 = 6 ordres " +
+                    "d’un même trio.",
             ),
         ),
-        spaced(n.toLong() * (n - 3) / 2),
+        spaced(n.toLong() * (n - 1) * (n - 2) / 6),
     )
+
+    private fun squaresSum(n: Int) = Parts(
+        "lycée",
+        "Calculer la somme des carrés :",
+        listOf(Seg("1", "2"), Seg(" + 2", "2"), Seg(" + 3", "2"), Seg(" + ⋯ + $n", "2")),
+        listOf(
+            Seg("par récurrence, 1", "2"), Seg(" + ⋯ + "), Seg("n", "2", italic = true), Seg(" = "),
+            Seg("n", italic = true), Seg("("), Seg("n", italic = true), Seg(" + 1)(2"), Seg("n", italic = true),
+            Seg(" + 1) / 6, ici $n × ${n + 1} × ${2 * n + 1} / 6."),
+        ),
+        spaced(n.toLong() * (n + 1) * (2 * n + 1) / 6),
+    )
+
+    private fun digits(k: Int): Parts {
+        val log = k * Math.log10(2.0)
+        val exponent = Math.floor(log).toInt()
+        return Parts(
+            "lycée",
+            "Combien de chiffres a ce nombre$THIN?",
+            listOf(Seg("2", "$k")),
+            listOf(
+                Seg("avec le logarithme décimal, log 2", "$k"),
+                Seg(" = $k × log 2 ≈ ${decimal2(log)} : le nombre est entre 10", "$exponent"),
+                Seg(" et 10", "${exponent + 1}"),
+                Seg(", il a ${exponent + 1} chiffres."),
+            ),
+            "${exponent + 1}",
+        )
+    }
 
     private fun unitsDigit(base: Int, exponent: Int): Parts {
         // Chiffres des unités de base¹ à base⁴ : le cycle se répète ensuite.
@@ -152,21 +165,17 @@ object DailyExercise {
         )
     }
 
-    private fun endsWithFive(m: Int): Parts {
-        val x = 10 * m + 5
-        return Parts(
-            "collège",
-            "Calculer de tête :",
-            listOf(Seg("$x", "2")),
-            listOf(
-                Seg(
-                    "pour un nombre qui finit par 5, on multiplie ses dizaines $m par ${m + 1} et l’on écrit 25 derrière : " +
-                        "$m × ${m + 1} = ${m * (m + 1)}.",
-                ),
-            ),
-            spaced(m.toLong() * (m + 1) * 100 + 25),
-        )
-    }
+    private fun geometricSeries(q: Int) = Parts(
+        "lycée",
+        "Calculer la somme infinie :",
+        listOf(Seg("1 + 1/$q + 1/$q", "2"), Seg(" + ⋯")),
+        listOf(
+            Seg("pour une raison "), Seg("r", italic = true), Seg(" entre −1 et 1, 1 + "), Seg("r", italic = true),
+            Seg(" + "), Seg("r", "2", italic = true), Seg(" + ⋯ = 1 / (1 − "), Seg("r", italic = true),
+            Seg(") ; ici 1 / (1 − 1/$q) = $q/${q - 1}."),
+        ),
+        "$q/${q - 1}",
+    )
 
     private fun percent(p: Int): Parts {
         // En centièmes : p % = p / 100 ; le prix final vaut (10 000 − p²) / 10 000 du prix de départ.
@@ -193,6 +202,9 @@ object DailyExercise {
 
     /** [n] avec ses milliers séparés par une espace fine insécable : 2 415. */
     private fun spaced(n: Long): String = n.toString().reversed().chunked(3).joinToString("$THIN").reversed()
+
+    /** [x] à deux décimales, à la française : 41,24. */
+    private fun decimal2(x: Double): String = String.format(java.util.Locale.FRENCH, "%.2f", x)
 
     /** [num] / [den] en écriture décimale à la française, sans zéro inutile : 0,3 ; 0,91. */
     private fun decimal(num: Int, den: Int): String =

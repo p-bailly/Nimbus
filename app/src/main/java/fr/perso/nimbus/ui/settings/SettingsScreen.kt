@@ -692,7 +692,11 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     ) {
                         val enable = !settings.unlockPage
                         update { it.copy(unlockPage = enable) }
-                        if (enable && !status.gestureService) SystemActions.openAccessibilitySettings(context)
+                        when {
+                            !enable -> Unit
+                            !status.gestureService -> SystemActions.openAccessibilitySettings(context)
+                            !status.lockScreenAllowed -> SystemActions.openXiaomiPermissions(context)
+                        }
                     }
                 }
                 if (settings.unlockPage && !status.gestureService) {
@@ -700,6 +704,16 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                         SettingsBanner(R.drawable.ms_accessibility_new, "Activer le service « Gestes Nimbus »") {
                             SystemActions.openAccessibilitySettings(context)
                         }
+                    }
+                }
+                if (settings.unlockPage && !status.lockScreenAllowed) {
+                    item {
+                        SettingsBanner(
+                            R.drawable.ms_lock,
+                            "Xiaomi : autoriser « Afficher sur l'écran de verrouillage » et « Ouvrir de nouvelles fenêtres " +
+                                "en arrière-plan »",
+                            mark = if (!status.gestureService) 2 else 1,
+                        ) { SystemActions.openXiaomiPermissions(context) }
                     }
                 }
                 item {
@@ -836,6 +850,14 @@ private fun LazyListScope.mainBanners(
         item {
             SettingsBanner(R.drawable.ms_accessibility_new, "Activer les gestes système (verrouillage…)", mark = n, rule = n == 1) {
                 SystemActions.openAccessibilitySettings(context)
+            }
+        }
+    }
+    if (settings.unlockPage && !status.lockScreenAllowed) {
+        val n = ++mark
+        item {
+            SettingsBanner(R.drawable.ms_lock, "Laisser la page de déverrouillage passer devant l'écran verrouillé (Xiaomi)", mark = n, rule = n == 1) {
+                SystemActions.openXiaomiPermissions(context)
             }
         }
     }
