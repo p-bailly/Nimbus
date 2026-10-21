@@ -11,19 +11,23 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -69,12 +73,10 @@ import androidx.lifecycle.compose.currentStateAsState
 import fr.perso.nimbus.R
 import fr.perso.nimbus.data.BasketShare
 import fr.perso.nimbus.data.CrayonLogos
-import fr.perso.nimbus.data.DailyFigure
-import fr.perso.nimbus.data.DailyFigures
 import fr.perso.nimbus.data.GameTeam
 import fr.perso.nimbus.data.LiveLine
-import fr.perso.nimbus.data.MeteoNow
 import fr.perso.nimbus.data.MessageApps
+import fr.perso.nimbus.data.MeteoNow
 import fr.perso.nimbus.data.MeteoShare
 import fr.perso.nimbus.data.Seg
 import fr.perso.nimbus.data.UnlockNote
@@ -196,6 +198,8 @@ fun UnlockPage(
     onUnlock: () -> Unit,
     /** Ouvrir une notification (après le déverrouillage). */
     onNote: (UnlockNote) -> Unit = {},
+    /** Explication de la figure montrée d'emblée (captures). */
+    infoShown: Boolean = false,
 ) {
     val now by rememberPaperTime()
     val today = now.toLocalDate()
@@ -238,8 +242,8 @@ fun UnlockPage(
             y = BasketSection(y, state.lines + state.results, onBasket) + AFTER_BANNER
         }
         // La figure du jour, numérotée après le coloriage de Météo s'il est là ; sous elle, un appui déverrouille.
-        FigureSection(y, figure, if (state.meteo != null && state.sketch != null) 2 else 1)
         TapZone("Déverrouiller", Modifier.at(0, y).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - y).coerceAtLeast(0f).dp), onUnlock)
+        FigureSection(y, figure, if (state.meteo != null && state.sketch != null) 2 else 1, infoShown)
     }
 }
 
@@ -720,24 +724,106 @@ private const val PAGE_BOTTOM = 884f
 /** En dessous de cette hauteur, la figure ne se lit plus : la page s'en passe. */
 private const val FIGURE_MIN = 110f
 
+/** Légende de la figure : « Figure 2 – Nom », puis le (i). */
+private const val CAPTION = 14f
+private const val CAPTION_H = 20f
+private const val INFO_MARK = 15f
+
 /**
- * La figure du jour dessinée au crayon, et sa légende dessous comme celle du coloriage de Météo,
- * centrées dans la place qui reste sous les sections.
+ * La figure du jour dessinée au crayon, et sa légende dessous, « Figure 2 – Nom » suivie d'un petit (i),
+ * centrées dans la place qui reste sous les sections. Toucher la légende montre l'explication
+ * mathématique sur une fiche posée sur la figure ; la toucher de nouveau (ou la fiche) la range. Elle
+ * est rangée à chaque réveil.
  */
 @Composable
-private fun FigureSection(y0: Float, figure: DailyFigure, number: Int) {
+private fun FigureSection(y0: Float, figure: DailyFigure, number: Int, infoShown: Boolean) {
+    var open by remember(figure.spec.key, figure.variant) { mutableStateOf(infoShown) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val lifecycleState by lifecycle.currentStateAsState()
+    val awake = lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
+    LaunchedEffect(awake) { if (!awake && !infoShown) open = false }
+
+    val room = PAGE_BOTTOM - y0
+    val h = minOf(FIGURE_MAX, room - CAPTION_H - 10f)
+    if (h < FIGURE_MIN) return
+    val top = y0 + (room - (h + 10f + CAPTION_H)) / 2f
+    FigureArt(figure, Modifier.at(22, top).size(368.dp, h.dp))
+
     val caption = buildAnnotatedString {
         withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure $number") }
-        append(" – ${figure.kind.title} : ${figure.caption}")
+        append(" – ${figure.title}")
     }
-    val captionStyle = Paper.caption.copy(lineBreak = LineBreak.Heading)
-    val captionH = 16f * lineCount(caption, captionStyle, 368f)
-    val room = PAGE_BOTTOM - y0
-    val h = minOf(FIGURE_MAX, room - captionH - 12f)
-    if (h < FIGURE_MIN) return
-    val top = y0 + (room - (h + 12f + captionH)) / 2f
-    FigureArt(figure, Modifier.at(22, top).size(368.dp, h.dp))
-    Text(caption, style = captionStyle, modifier = Modifier.at(22, top(top + h + 12f + 12f, 12.5f, 16f)).width(368.dp))
+    val toggle = { open = !open }
+    Box(Modifier.at(22, top + h + 10f).size(368.dp, CAPTION_H.dp), contentAlignment = Alignment.Center) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .semantics { contentDescription = if (open) "Ranger l'explication" else "Explication : ${figure.title}" }
+                .clickable(remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClick = toggle),
+        ) {
+            Text(caption, style = style(CAPTION, 18f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 340.dp))
+            Spacer(Modifier.width(7.dp))
+            InfoMark(open)
+        }
+    }
+    if (open) InfoCard(figure.info, top, h, toggle)
+}
+
+/** Le petit (i) : un cercle au crayon fin et un i italique ; plein d'encre quand l'explication est ouverte. */
+@Composable
+private fun InfoMark(open: Boolean) {
+    Box(
+        Modifier
+            .size(INFO_MARK.dp)
+            .background(if (open) PaperColors.Ink else Color.Transparent, CircleShape)
+            .drawBehind { drawCircle(PaperColors.Ink, radius = size.minDimension / 2 - 0.6.dp.toPx(), style = Stroke(1.1.dp.toPx())) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "i",
+            style = style(11.5f, 12f, Face.ITALIC, if (open) PaperColors.Paper else PaperColors.Ink).copy(fontWeight = FontWeight.Bold),
+            softWrap = false,
+        )
+    }
+}
+
+/** L'explication, sur une fiche de papier posée sur la figure ; sa taille se règle pour qu'elle tienne. */
+@Composable
+private fun InfoCard(text: String, top: Float, height: Float, onClose: () -> Unit) {
+    val pad = 14f
+    val size = fittingSize(text, 368f - 2 * pad, height - 2 * pad)
+    Box(
+        Modifier
+            .at(22, top)
+            .size(368.dp, height.dp)
+            .background(PaperColors.Paper, RoundedCornerShape(10.dp))
+            .crayonBanner(InfoBlue, seed = 3, radius = 10f)
+            .clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = "Ranger", onClick = onClose)
+            .padding(pad.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, style = style(size, size * 1.32f).copy(textAlign = TextAlign.Start, lineBreak = LineBreak.Paragraph))
+    }
+}
+
+/** Bleu pâle de la fiche d'explication. */
+private val InfoBlue = Color(0xFF4A8BD6)
+
+/** La plus grande taille, de 15,5 à 10 unités, à laquelle [text] tient dans [width] × [height]. */
+@Composable
+private fun fittingSize(text: String, width: Float, height: Float): Float {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    return remember(text, width, height, density) {
+        val px = with(density) { width.dp.roundToPx() }
+        var size = 15.5f
+        while (size > 10f) {
+            val laid = measurer.measure(AnnotatedString(text), style(size, size * 1.32f), constraints = Constraints(maxWidth = px))
+            if (with(density) { laid.size.height.toDp().value } <= height) break
+            size -= 0.5f
+        }
+        size
+    }
 }
 
 /**

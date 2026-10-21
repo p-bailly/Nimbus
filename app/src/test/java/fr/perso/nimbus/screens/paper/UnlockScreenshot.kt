@@ -67,6 +67,7 @@ class UnlockScreenshot {
         name: String,
         state: UnlockState,
         time: LocalDateTime = LocalDateTime.of(2026, 10, 20, 20, 35),
+        infoShown: Boolean = false,
     ) {
         val base = PaperFixture.env()
         val env = PaperEnv(
@@ -78,7 +79,7 @@ class UnlockScreenshot {
         )
         captureRoboImage("build/outputs/roborazzi/paper/$name.png") {
             CompositionLocalProvider(LocalPaper provides env) {
-                UnlockPage(state, onMeteo = {}, onBasket = {}, onUnlock = {})
+                UnlockPage(state, onMeteo = {}, onBasket = {}, onUnlock = {}, infoShown = infoShown)
             }
         }
     }
@@ -126,6 +127,10 @@ class UnlockScreenshot {
     /** Ni Météo ni match : la figure suit la date (Figure 1). */
     @Test
     fun noSections() = shoot("h8_sans_sections", UnlockState())
+
+    /** L'explication de la figure, ouverte par le (i). */
+    @Test
+    fun figureInfo() = shoot("h8_figure_info", UnlockState(meteo, sketch, emptyList()), infoShown = true)
 
     /** Un autre jour, une autre figure : samedi 24 octobre. */
     @Test
