@@ -174,7 +174,8 @@ fun PaperHeader(runningHead: String, pageNumber: String) {
     val context = LocalContext.current
     val now by rememberPaperTime()
     val locale = Locale.FRANCE
-    val is24h = remember { DateFormat.is24HourFormat(context) }
+    val fixed = LocalPaper.current.fixedTime != null
+    val is24h = remember(fixed) { fixed || DateFormat.is24HourFormat(context) }
     val time = now.format(DateTimeFormatter.ofPattern(if (is24h) "HH:mm" else "h:mm", locale))
     val date = now.format(DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", locale))
 
