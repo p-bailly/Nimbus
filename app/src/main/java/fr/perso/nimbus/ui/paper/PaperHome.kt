@@ -6,19 +6,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.Gesture
+import fr.perso.nimbus.data.GlyphFactory
 import fr.perso.nimbus.data.GestureAction
 import fr.perso.nimbus.data.HomeStyle
 import fr.perso.nimbus.data.LauncherSettings
+import fr.perso.nimbus.data.PaperSlot
 import fr.perso.nimbus.ui.LauncherViewModel
+import fr.perso.nimbus.ui.components.LocalGlyphChoices
 import fr.perso.nimbus.ui.home.homeBackground
 import fr.perso.nimbus.ui.home.multiTouchGestures
 import fr.perso.nimbus.ui.paper.layouts.EnsemblesPage
@@ -28,6 +35,8 @@ import fr.perso.nimbus.ui.paper.layouts.LapinPage
 import fr.perso.nimbus.ui.paper.layouts.RemerciementsPage
 import fr.perso.nimbus.ui.paper.layouts.SierpinskiPage
 import fr.perso.nimbus.ui.paper.layouts.VoronoiPage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Accueil « papier » : une page d'article où les 27 applis des places sont posées sur une figure.
@@ -41,7 +50,8 @@ fun PaperHome(vm: LauncherViewModel, settings: LauncherSettings, onLongPress: (O
     val paperApps by vm.paperApps.collectAsStateWithLifecycle()
     val badges by vm.badges.collectAsStateWithLifecycle()
     val sites by vm.voronoiSites.collectAsStateWithLifecycle()
-    val env = remember(paperApps, badges, sites) {
+    val colors = rememberSlotColors(paperApps, settings.paperAppColors)
+    val env = remember(paperApps, badges, sites, colors) {
         PaperEnv(
             apps = paperApps,
             badges = badges,
@@ -53,6 +63,7 @@ fun PaperHome(vm: LauncherViewModel, settings: LauncherSettings, onLongPress: (O
             clock = false,
             sites = sites,
             onSites = vm::setVoronoiSites,
+            colors = colors,
         )
     }
     val doubleTapEnabled = settings.doubleTapAction != GestureAction.NONE
@@ -97,6 +108,30 @@ fun PaperHome(vm: LauncherViewModel, settings: LauncherSettings, onLongPress: (O
         )
         CompositionLocalProvider(LocalPaper provides env) { PaperLayout(settings.homeStyle) }
     }
+}
+
+/**
+ * Couleur propre de l'app de chaque place (voir [GlyphFactory.color], celle du sommaire), calculée en
+ * arrière-plan ; vide si [enabled] est faux (couleurs des familles) ou en attendant.
+ */
+@Composable
+private fun rememberSlotColors(apps: Map<PaperSlot, AppEntry?>, enabled: Boolean): Map<PaperSlot, Color> {
+    val context = LocalContext.current
+    val choices = LocalGlyphChoices.current
+    return produceState(emptyMap(), apps, enabled, choices) {
+        value = if (!enabled) {
+            emptyMap()
+        } else {
+            withContext(Dispatchers.Default) {
+                val factory = GlyphFactory.get(context)
+                apps.mapNotNull { (slot, app) ->
+                    app ?: return@mapNotNull null
+                    val (choice, other) = choices.resolve(app)
+                    runCatching { slot to Color(factory.color(app, choice, other)) }.getOrNull()
+                }.toMap()
+            }
+        }
+    }.value
 }
 
 /** La page d'un style « papier ». */

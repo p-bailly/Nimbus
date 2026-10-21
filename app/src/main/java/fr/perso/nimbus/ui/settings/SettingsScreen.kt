@@ -309,6 +309,14 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     }
                 }
                 if (settings.homeStyle.paper) {
+                    item {
+                        SettingsEntry(
+                            R.drawable.ms_palette, SettingsColors.Blue, "Couleurs des applis",
+                            if (settings.paperAppColors) "Chaque appli à sa couleur, comme dans le sommaire"
+                            else "Couleurs des familles (Échanges, Écran, Trajets…)",
+                            checked = settings.paperAppColors,
+                        ) { update { it.copy(paperAppColors = !it.paperAppColors) } }
+                    }
                     settingsSection("Applis de la page")
                     items(PaperSlot.entries, key = { "slot:${it.name}" }) { slot ->
                         val app = paperApps[slot]
@@ -636,6 +644,19 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                 }
             }
             SettingsSection.NOTIFICATIONS -> SettingsPage("Notifications", onBack = back, folio = folio(page)) {
+                if (paper) {
+                    item {
+                        SettingsEntry(
+                            R.drawable.ms_swipe_down, SettingsColors.Purple, "Bandeau papier",
+                            "Glisser vers le bas sur l'accueil : réglages rapides et notifications en page d'article",
+                            checked = settings.paperPanel,
+                        ) {
+                            val enable = !settings.paperPanel
+                            update { it.copy(paperPanel = enable) }
+                            if (enable && !status.notificationAccess) SystemActions.openNotificationAccessSettings(context)
+                        }
+                    }
+                }
                 if (settings.badgesEnabled && !status.notificationAccess) {
                     item {
                         SettingsBanner(R.drawable.ms_app_badging, "Autoriser « Pastilles de notification Nimbus »") {

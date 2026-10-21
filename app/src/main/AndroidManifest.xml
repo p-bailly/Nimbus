@@ -19,6 +19,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- Ouvrir le volet de notifications par geste -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+    <!-- Bandeau papier : état du Wi-Fi et du Bluetooth, rotation automatique. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <!-- Désinstaller une app depuis l'appui long -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <!-- Espace privé (Android 15+) : visible pour le launcher par défaut qui déclare cette permission -->

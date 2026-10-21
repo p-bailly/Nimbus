@@ -177,6 +177,7 @@ private fun Definition() {
 /** T₀ en filet léger, les 27 triangles pleins de T₃, et une place touchable par triangle. */
 @Composable
 private fun Figure() {
+    val env = LocalPaper.current
     Canvas(Modifier.size(412.dp, 916.dp)) {
         val u = 1.dp.toPx()
         val outline = Path().apply {
@@ -193,7 +194,7 @@ private fun Figure() {
                 lineTo(c.x * u, (c.y + c.height) * u)
                 close()
             }
-            drawPath(p, c.color)
+            drawPath(p, env.colorOf(c.slot, c.color))
         }
     }
     for (c in CELLS) TriangleSlot(c)

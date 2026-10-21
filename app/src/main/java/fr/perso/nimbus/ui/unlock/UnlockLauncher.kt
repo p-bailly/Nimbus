@@ -16,7 +16,9 @@ import fr.perso.nimbus.data.Prefs
  * d'accessibilité lié par le système peut démarrer une activité depuis l'arrière-plan. La page n'est
  * posée que si le réglage est actif, si le téléphone a un verrouillage (code, schéma, mot de passe),
  * s'il est bien verrouillé, et si rien ne doit rester devant : appel, sonnerie ou alarme. Si l'écran se
- * rallume avant (verrouillage un peu en retard), la page est posée au réveil, par-dessus l'écran verrouillé.
+ * rallume avant (verrouillage un peu en retard), la page est posée au réveil, par-dessus l'écran verrouillé ;
+ * de même à chaque réveil où le téléphone est verrouillé sans page (elle a été fermée par le système, ou
+ * n'a pas pu être posée), pour que l'écran verrouillé du système ne se montre pas.
  */
 object UnlockLauncher {
     private val handler = Handler(Looper.getMainLooper())
@@ -62,9 +64,13 @@ object UnlockLauncher {
      * si le téléphone est verrouillé, la page arrive par-dessus l'écran verrouillé.
      */
     fun onScreenOn(context: Context) {
-        val late = waiting && SystemClock.elapsedRealtime() - offAt >= CAMERA_GESTURE
+        val camera = SystemClock.elapsedRealtime() - offAt < CAMERA_GESTURE
+        val late = waiting && !camera
         cancel()
-        if (late) attempt(context, 0, LATE_TRIES, interactive = true)
+        // Pas de page alors que le téléphone est verrouillé : posée au réveil (sauf appareil photo).
+        val missing = !camera && !UnlockActivity.shown && Prefs.get(context).settings.value.unlockPage &&
+            context.getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true
+        if (late || missing) attempt(context, 0, LATE_TRIES, interactive = true)
     }
 
     /** Plus rien à poser (service arrêté, écran rallumé). */

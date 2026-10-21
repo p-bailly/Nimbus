@@ -40,6 +40,7 @@ import fr.perso.nimbus.ui.components.LocalGlyphChoices
 import fr.perso.nimbus.ui.components.WidgetPicker
 import fr.perso.nimbus.ui.drawer.AppDrawer
 import fr.perso.nimbus.ui.home.HomeScreen
+import fr.perso.nimbus.ui.panel.PaperPanel
 import fr.perso.nimbus.ui.settings.HiddenAppsScreen
 import fr.perso.nimbus.ui.settings.SettingsScreen
 import fr.perso.nimbus.ui.theme.LocalPaperUi
@@ -58,11 +59,12 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     val apps by vm.apps.collectAsStateWithLifecycle()
     val importResult by vm.importResult.collectAsStateWithLifecycle()
     val glyphChoices by vm.glyphChoices.collectAsStateWithLifecycle()
+    val status by vm.status.collectAsStateWithLifecycle()
 
     val drawerNight = settings.drawerTheme != DrawerTheme.FOLLOW
     val drawerOnTop = ui.drawerOpen && ui.screen == Screen.HOME
     val dark = (drawerNight && drawerOnTop) || isDarkTheme(settings.themeMode, isSystemInDarkTheme())
-    val onWallpaper = !ui.drawerOpen && ui.screen == Screen.HOME
+    val onWallpaper = !ui.drawerOpen && !ui.panelOpen && ui.screen == Screen.HOME
     val paperHome = settings.homeStyle.paper
     // Sur le fond d'écran les icônes système restent claires (foncées sur un accueil « papier ») ;
     // ailleurs elles suivent le thème.
@@ -102,6 +104,15 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                     DrawerColors(settings, wallpaperColor) {
                         AppDrawer(vm = vm, ui = ui, settings = settings, apps = apps, host = host)
                     }
+                }
+
+                // Bandeau papier : descend du haut de l'écran, comme celui du système.
+                AnimatedVisibility(
+                    visible = ui.panelOpen && ui.screen == Screen.HOME,
+                    enter = slideInVertically { -it } + fadeIn(),
+                    exit = slideOutVertically { -it } + fadeOut(),
+                ) {
+                    PaperPanel(vm = vm, apps = apps, hasNotificationAccess = status.notificationAccess)
                 }
 
                 AnimatedVisibility(

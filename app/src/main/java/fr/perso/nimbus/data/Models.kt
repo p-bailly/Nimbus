@@ -222,6 +222,13 @@ data class LauncherSettings(
     val hideNavigationOnHome: Boolean = true,
     /** Ligne des apps les plus utilisées en haut du tiroir. */
     val showFrequentApps: Boolean = true,
+    /**
+     * Thème papier : « Ouvrir les notifications » (glisser vers le bas sur l'accueil) ouvre le bandeau
+     * papier de Nimbus (réglages rapides et notifications) plutôt que celui du système.
+     */
+    val paperPanel: Boolean = true,
+    /** Accueils papier aux couleurs des applis (celles du sommaire) plutôt qu'à celles des familles. */
+    val paperAppColors: Boolean = true,
     /** Thème papier : tiroir en table des matières plutôt qu'en grille d'icônes. */
     val drawerToc: Boolean = true,
     val webSearchEngine: SearchEngine = SearchEngine.SYSTEM,

@@ -49,7 +49,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   carré Ω ; les cellules suivent le doigt, et les pastilles ne sortent pas du carré, ne se touchent
   pas et laissent le « Ω » libre. Appui long sur le fond › « Sites d'origine » pour tout remettre.
 - Les applis sont dessinées avec leur silhouette monochrome (calque des icônes à thème du Pixel,
-  sinon premier plan de l'icône, sinon l'initiale), teintée de la couleur de leur famille. La
+  sinon premier plan de l'icône, sinon l'initiale), à la couleur propre de l'appli comme dans le
+  sommaire (réglable : Paramètres › Page d'accueil › « Couleurs des applis », sinon couleur de la famille). La
   silhouette est redessinée à sa taille finale (nette même quand le motif est petit dans l'icône).
 - Motif au choix (appui long › Plus › « Motif ») : silhouette de l'app, logo YouTube, lettres
   (« +x », « πr »…) ou silhouette d'une autre app. Par défaut, la place YouTube prend YouTube ReVanced
@@ -59,18 +60,33 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Pas d'en-tête (ni titre courant, ni numéro, ni heure : elle est dans la barre d'état) : la page
   grandit de la place gagnée, et ses marges latérales sont rognées (8 unités au lieu de 22).
 
+**Bandeau papier**
+- Sous le thème papier, glisser vers le bas sur l'accueil ouvre un bandeau composé comme une page
+  d'article : l'heure et la date, les réglages rapides en cases à cocher (Wi-Fi, données mobiles,
+  Bluetooth, mode avion, portefeuille, lampe torche, réveil, rotation automatique) et les notifications
+  (motif de l'appli à sa couleur, titre en gras ; appui : ouvrir ; « effacer » ou appui long : effacer ;
+  « Tout effacer »). Glisser vers le haut ou Retour : refermer.
+- Le Wi-Fi, les données, le Bluetooth et le mode avion ouvrent le panneau du système (une appli ne peut
+  plus les changer seule) ; la lampe se change directement, la rotation avec l'autorisation « Modifier
+  les paramètres système ». Deux liens mènent au bandeau du système, qu'une appli ne peut pas redessiner.
+- Réglable : Paramètres › Notifications › « Bandeau papier » (accès aux notifications requis).
+
 **Page de déverrouillage (papier)**
 - Au réveil, par-dessus l'écran verrouillé : une page d'article sans en-tête (l'heure en grand, la
   date), puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
   ressenti, ciel, maximum en orange et minimum en bleu, et son coloriage en figure), les matchs
   en direct des équipes favorites de l'appli Basket Live (trois au plus, mi-temps et fin de période
-  comprises), l'exercice du jour (calcul de tête, huit familles à tour de rôle) et la solution de
+  comprises) puis leurs résultats de la nuit (« fin », « fin · prol. », quatre lignes en tout), l'exercice du jour (calcul de tête, huit familles à tour de rôle) et la solution de
   celui de la veille. Une section sans données (appli absente, rien en direct) disparaît.
 - Glisser vers le haut, toucher le bas de la page ou Retour : le système demande l'empreinte, le
   visage ou le code, puis la page s'efface. Toucher la météo ouvre Météo, toucher les matchs ouvre
   Basket Live (après le déverrouillage). Un appel, une alarme ou l'appareil photo passent devant.
-- Écran rallumé aussitôt après l'extinction, avant que le verrouillage n'arrive : la page est posée au
-  réveil, par-dessus l'écran verrouillé (sauf double appui sur Marche/Arrêt, pour l'appareil photo).
+- Écran rallumé aussitôt après l'extinction, avant que le verrouillage n'arrive, ou réveil sans page
+  (fermée par le système) : la page est posée au réveil, par-dessus l'écran verrouillé (sauf double
+  appui sur Marche/Arrêt, pour l'appareil photo).
+- L'écran verrouillé du système reste dessous : Android ne laisse aucune appli le remplacer quand un
+  code est réglé. Il se montre encore pendant un appel, une alarme, l'appareil photo, et au moment de
+  l'empreinte ou du code.
 - Activer : Paramètres › Sécurité et confidentialité › « Page de déverrouillage », avec le service
   d'accessibilité « Gestes Nimbus » (il pose la page à l'extinction de l'écran) et un verrouillage
   (code, schéma ou mot de passe). Désactivée par défaut ; le réglage est dans la sauvegarde.

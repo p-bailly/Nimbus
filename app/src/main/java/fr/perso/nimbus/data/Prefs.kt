@@ -128,6 +128,8 @@ class Prefs private constructor(context: Context) {
         e.putInt("dockColumns", s.dockColumns)
         e.putBoolean("showFrequentApps", s.showFrequentApps)
         e.putBoolean("drawerToc", s.drawerToc)
+        e.putBoolean("paperAppColors", s.paperAppColors)
+        e.putBoolean("paperPanel", s.paperPanel)
         e.putString("webSearchEngine", s.webSearchEngine.name)
         e.putBoolean("hidePrivateSpaceWhenLocked", s.hidePrivateSpaceWhenLocked)
         e.putInt("homeColumns", s.homeColumns)
@@ -177,6 +179,8 @@ class Prefs private constructor(context: Context) {
             dockColumns = sp.getInt("dockColumns", d.dockColumns).coerceIn(3, 7),
             showFrequentApps = sp.getBoolean("showFrequentApps", d.showFrequentApps),
             drawerToc = sp.getBoolean("drawerToc", d.drawerToc),
+            paperAppColors = sp.getBoolean("paperAppColors", d.paperAppColors),
+            paperPanel = sp.getBoolean("paperPanel", d.paperPanel),
             webSearchEngine = enumPref("webSearchEngine", d.webSearchEngine),
             hidePrivateSpaceWhenLocked = sp.getBoolean("hidePrivateSpaceWhenLocked", d.hidePrivateSpaceWhenLocked),
             // Bornées : un fichier importé modifié à la main ne doit pas casser l'accueil.

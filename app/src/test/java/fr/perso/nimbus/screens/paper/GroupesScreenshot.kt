@@ -13,4 +13,8 @@ import org.robolectric.annotation.GraphicsMode
 class GroupesScreenshot {
     @Test
     fun page() = PaperFixture.shoot("h1_groupes") { GroupesPage() }
+
+    /** Aux couleurs des applis (réglage par défaut) : chaque pastille à la couleur de son appli. */
+    @Test
+    fun ownColors() = PaperFixture.shoot("h1_groupes_couleurs", PaperFixture.ownColors) { GroupesPage() }
 }

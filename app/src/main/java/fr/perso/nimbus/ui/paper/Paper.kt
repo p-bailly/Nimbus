@@ -130,8 +130,19 @@ class PaperEnv(
     val sites: Map<PaperSlot, Offset> = emptyMap(),
     /** Un site vient d'être posé : nouvelle carte de tous les sites déplacés. */
     val onSites: (Map<PaperSlot, Offset>) -> Unit = {},
+    /**
+     * Couleur propre de l'app de chaque place (celle du sommaire), si la page est aux couleurs des
+     * applis ; vide : couleurs des familles.
+     */
+    val colors: Map<PaperSlot, Color> = emptyMap(),
 ) {
     fun app(slot: PaperSlot): AppEntry? = apps[slot]
+
+    /** Page aux couleurs des applis (motifs du sommaire) plutôt qu'à celles des familles. */
+    val ownColors: Boolean get() = colors.isNotEmpty()
+
+    /** Encre d'une place : la couleur de son app si la page est aux couleurs des applis, sinon [family]. */
+    fun colorOf(slot: PaperSlot, family: Color = slot.family.color): Color = colors[slot] ?: family
 
     /** Nom affiché d'une place : celui de l'app (renommage compris), sinon celui de la maquette. */
     fun name(slot: PaperSlot): String = apps[slot]?.label ?: slot.title
@@ -386,7 +397,7 @@ fun SlotDisc(
     cy: Float,
     size: Float = 36f,
     style: DiscStyle = DiscStyle.FILL,
-    color: Color = slot.family.color,
+    color: Color = LocalPaper.current.colorOf(slot),
     ring: Float = 1.5f,
     glyphScale: Float = 0.48f,
     glyphColor: Color? = null,
@@ -425,7 +436,9 @@ fun SlotDisc(
                     overflow = TextOverflow.Visible,
                 )
             } else {
-                SlotGlyph(slot, size * glyphScale, glyphColor ?: if (style == DiscStyle.FILL) Color.White else color, own = ownColors)
+                // Disque cerclé d'une page aux couleurs des applis : le motif du sommaire (Google en couleur).
+                val own = ownColors || (env.ownColors && style == DiscStyle.RING && glyphColor == null)
+                SlotGlyph(slot, size * glyphScale, glyphColor ?: if (style == DiscStyle.FILL) Color.White else color, own = own)
             }
         }
         if (badge > 0) {

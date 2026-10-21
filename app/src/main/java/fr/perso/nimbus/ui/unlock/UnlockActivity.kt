@@ -59,6 +59,7 @@ class UnlockActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        shown = true
         setShowWhenLocked(true)
         // Jamais setTurnScreenOn : l'activité arrive écran éteint et doit le rester.
         val bars = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
@@ -105,6 +106,7 @@ class UnlockActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        shown = false
         unregisterReceiver(events)
         super.onDestroy()
     }
@@ -170,6 +172,13 @@ class UnlockActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             overridePendingTransition(0, 0)
         }
+    }
+
+    companion object {
+        /** Une page existe (au premier plan ou derrière une alarme, un appel…). */
+        @Volatile
+        var shown = false
+            private set
     }
 
     /** Contexte de la page : une activité lancée depuis la page (horloge, agenda…) attend le déverrouillage. */

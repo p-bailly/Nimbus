@@ -5,6 +5,7 @@ import android.app.Application
 import android.app.WallpaperColors
 import android.app.WallpaperManager
 import android.appwidget.AppWidgetProviderInfo
+import android.content.Intent
 import android.content.pm.ShortcutInfo
 import android.graphics.Bitmap
 import android.os.Build
@@ -45,7 +46,10 @@ import fr.perso.nimbus.data.ProfileState
 import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.data.SortMode
 import fr.perso.nimbus.dictation.ClaudeDictation
+import fr.perso.nimbus.service.BadgeService
 import fr.perso.nimbus.service.BadgeStore
+import fr.perso.nimbus.service.NotificationItem
+import fr.perso.nimbus.service.QuickToggles
 import fr.perso.nimbus.service.DictationService
 import fr.perso.nimbus.service.GestureService
 import fr.perso.nimbus.service.SystemActions
@@ -113,6 +117,8 @@ data class UiState(
     val pageRequest: PageRequest = PageRequest(0, 0),
     /** Place d'un accueil « papier » dont on choisit l'app. */
     val paperSlotPicker: PaperSlot? = null,
+    /** Bandeau papier (réglages rapides et notifications) ouvert. */
+    val panelOpen: Boolean = false,
 )
 
 /** État des autorisations et services système, relu à chaque retour au premier plan. */
@@ -528,6 +534,42 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun closeDrawer() = _ui.update { it.copy(drawerOpen = false, focusSearch = false, query = "") }
 
+    // ---------------------------------------------------------------- Bandeau papier
+
+    /** Notifications du bandeau papier, les plus récentes d'abord. */
+    val notifications: StateFlow<List<NotificationItem>> = BadgeStore.notifications
+
+    fun openPanel() = _ui.update { it.copy(panelOpen = true, homeMenu = null, drawerOpen = false) }
+
+    fun closePanel() = _ui.update { it.copy(panelOpen = false) }
+
+    /** Ouvre une notification (puis l'efface si elle le demande) et referme le bandeau. */
+    fun openNotification(item: NotificationItem) {
+        closePanel()
+        val intent = item.intent
+        if (intent == null || !QuickToggles.send(context, intent)) {
+            context.packageManager.getLaunchIntentForPackage(item.packageName)?.let {
+                runCatching { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
+        }
+        if (item.autoCancel && item.clearable) BadgeService.dismiss(item.key)
+    }
+
+    fun dismissNotification(item: NotificationItem) {
+        if (item.clearable) BadgeService.dismiss(item.key)
+    }
+
+    fun dismissAllNotifications() {
+        BadgeService.dismissAll()
+    }
+
+    /** Le bandeau du système, pour ce que le bandeau papier ne montre pas. */
+    fun openSystemPanel(quickSettings: Boolean) {
+        closePanel()
+        val ok = if (quickSettings) SystemActions.expandQuickSettings(context) else SystemActions.expandNotifications(context)
+        if (!ok) askForGestureService()
+    }
+
     fun setQuery(query: String) = _ui.update { it.copy(query = query) }
 
     fun consumeSearchFocus() = _ui.update { it.copy(focusSearch = false) }
@@ -637,7 +679,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         when (action) {
             GestureAction.NONE -> Unit
             GestureAction.LOCK -> if (!SystemActions.lockScreen()) askForGestureService()
-            GestureAction.NOTIFICATIONS -> if (!SystemActions.expandNotifications(context)) askForGestureService()
+            GestureAction.NOTIFICATIONS -> when {
+                settings.value.themeMode == ThemeMode.PAPER && settings.value.paperPanel -> openPanel()
+                !SystemActions.expandNotifications(context) -> askForGestureService()
+            }
             GestureAction.QUICK_SETTINGS -> if (!SystemActions.expandQuickSettings(context)) askForGestureService()
             GestureAction.RECENTS -> globalAction(AccessibilityService.GLOBAL_ACTION_RECENTS)
             GestureAction.SCREENSHOT -> globalAction(AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT)
