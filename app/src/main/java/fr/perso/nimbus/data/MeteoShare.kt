@@ -4,8 +4,10 @@ import android.content.ContentResolver
 import android.database.Cursor
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import java.util.Locale
 
 // Lecture de ce que l'appli Météo partage avec Nimbus (fournisseur content://io.github.pbailly.meteo.nimbus) :
 // le temps qu'il fait au lieu ouvert dans Météo, et le coloriage de son écran Aujourd'hui.
@@ -69,16 +71,22 @@ object MeteoShare {
     }
 
     /**
-     * Le coloriage (calque transparent) de [width] × [height] pixels. Lève une exception sans dessin
+     * Le coloriage (calque transparent) de [width] × [height] pixels, dessiné autour de [text] (le texte
+     * qui sera posé dessus, en fractions de l'image). Lève une exception sans dessin
      * (FileNotFoundException) ou si l'image est illisible.
      */
-    fun readSketch(resolver: ContentResolver, width: Int, height: Int): ImageBitmap {
+    fun readSketch(resolver: ContentResolver, width: Int, height: Int, text: List<Rect> = emptyList()): ImageBitmap {
         val uri = URI.buildUpon()
             .appendPath("sketch")
             .appendQueryParameter("width", "$width")
             .appendQueryParameter("height", "$height")
+            .apply { if (text.isNotEmpty()) appendQueryParameter("text", textParameter(text)) }
             .build()
         val bitmap = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
         return checkNotNull(bitmap) { "Dessin illisible" }.asImageBitmap()
     }
+
+    /** Les zones de texte comme les lit Météo : « gauche,haut,droite,bas » séparées par des points-virgules. */
+    internal fun textParameter(text: List<Rect>): String =
+        text.joinToString(";") { r -> listOf(r.left, r.top, r.right, r.bottom).joinToString(",") { String.format(Locale.ROOT, "%.4f", it) } }
 }
