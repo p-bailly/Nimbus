@@ -184,6 +184,12 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                 item(key = "preview") {
                     AppearancePreview(apps, settings, wallpaperColor) { dialog = SettingsDialog.Theme }
                 }
+                // Le choix du thème a aussi sa ligne : l'aperçu ne dit pas qu'on peut le toucher.
+                item {
+                    SettingsEntry(R.drawable.ms_palette, SettingsColors.Orange, "Thème", settings.themeMode.label, chevron = true) {
+                        dialog = SettingsDialog.Theme
+                    }
+                }
                 item {
                     SettingsEntry(R.drawable.ms_wallpaper, SettingsColors.Green, "Fond d'écran", "Image ou fond animé") {
                         SystemActions.openWallpaperPicker(context)
