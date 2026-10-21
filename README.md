@@ -34,6 +34,19 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   widgets alloués mais affichés nulle part sont libérés au démarrage.
 - Bouton Accueil : referme tout et revient à la page principale.
 
+**Accueils « papier » (style LaTeX)**
+- Appui long sur le fond › « Style de l'accueil » (ou Paramètres › Page d'accueil) : la grille
+  d'icônes, ou l'une des sept pages d'article : Groupes, Voronoï, Ensembles, Sierpiński, Fourier
+  (les applis tournent sur des épicycles), Lapin de Douady (ensemble de Julia), Remerciements.
+- Chaque page place 27 applis sur une figure mathématique : leurs places (WhatsApp, Messages…
+  πr) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
+  long sur une appli › « Changer », ou Paramètres › Page d'accueil › « Applis de la page ». Une place
+  vide est en pointillés : un appui permet de choisir son appli.
+- Les applis sont dessinées avec leur silhouette monochrome (calque des icônes à thème du Pixel,
+  sinon premier plan de l'icône, sinon l'initiale), teintée de la couleur de leur famille.
+- Le thème « Papier (LaTeX) » (choisi avec un accueil papier) met toute l'interface en Computer
+  Modern sur fond crème. La page est dessinée sur un repère de 412 × 916 mis à l'échelle de l'écran.
+
 **Gestes (à la Nova)**
 - Double tap, glisser vers le haut / le bas, glisser à deux doigts vers le haut /
   le bas, pincer, écarter.
@@ -170,6 +183,19 @@ Puis, dans Nimbus (appui long sur l'accueil › Paramètres Nimbus) :
    rapides, aux applis récentes, à la capture d'écran et au menu Marche/Arrêt.
 5. **Contacts** : accepter la permission pour les voir dans la recherche.
 
+## Polices
+
+Les pages « papier » utilisent CMU Serif (Computer Modern Unicode, licence SIL OFL 1.1), complétée
+des symboles mathématiques de Latin Modern Math (licence GUST) : fichiers `app/src/main/res/font/papier_*.ttf`,
+renommés « Nimbus Papier » comme le demandent les licences. Licences et script de fusion : `design/polices/`.
+
+## Captures d'écran (JVM)
+
+```bash
+./gradlew recordRoborazziDebug --tests 'fr.perso.nimbus.screens.paper.*'
+# → app/build/outputs/roborazzi/paper/*.png (pages « papier » avec des applis fictives, 20 h 35)
+```
+
 ## Architecture
 
 ```
@@ -180,7 +206,8 @@ app/src/main/java/fr/perso/nimbus/
 │                            permissions, rôle HOME
 ├── data/                    Modèles, réglages (Prefs), apps et profils (AppRepository),
 │                            icônes (IconFactory, CustomIcons, IconPack), catégories,
-│                            contacts, sauvegardes (BackupManager, SmartLauncherImport)
+│                            contacts, sauvegardes (BackupManager, SmartLauncherImport),
+│                            places des accueils papier (PaperSlots), silhouettes (GlyphFactory)
 ├── service/                 Pastilles (NotificationListener), gestes (accessibilité),
 │                            actions système
 ├── widgets/                 Hôte des widgets (AppWidgetHost)
@@ -190,8 +217,9 @@ app/src/main/java/fr/perso/nimbus/
     ├── NimbusApp.kt         Racine Compose : accueil + couches au-dessus
     ├── LauncherHost.kt      Actions qui passent par l'activité
     ├── HomeDrag.kt          Glisser-déposer sur l'accueil (calque sous le doigt)
-    ├── theme/Theme.kt       Thèmes Ambiant, Material You, Sombre, Clair
+    ├── theme/Theme.kt       Thèmes Ambiant, Material You, Sombre, Clair, Papier (PaperTheme.kt)
     ├── home/                Accueil, pages, grille d'icônes et de widgets
+    ├── paper/               Accueils « papier » : repère, en-tête, pastilles, sept pages (layouts/)
     ├── drawer/              Tiroir, recherche sans accents, défilement A–Z
     ├── components/          Icône d'app, feuille d'actions, dialogues (choix, PIN,
     │                        texte, choix d'app), sélecteur de widgets
