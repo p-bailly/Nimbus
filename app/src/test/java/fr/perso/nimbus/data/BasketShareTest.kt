@@ -140,6 +140,12 @@ class BasketShareTest {
         assertEquals(true, BasketShare.favoriteWon(results[0].copy(awayFavorite = false)))
         assertEquals(false, BasketShare.favoriteWon(results[0].copy(homeFavorite = false)))
         assertEquals("terminé après prolongation", BasketShare.spokenStatus(results[0].game))
+        // Coup d'envoi à 23 h 30 : fin comptée à 2 h, le résultat reste jusqu'à 14 h (UTC), puis disparaît.
+        assertEquals(java.time.Instant.parse("2026-10-21T14:00:00Z"), BasketShare.resultUntil(results[0].game))
+        val before = java.time.Instant.parse("2026-10-21T13:59:00Z")
+        assertEquals(listOf("2"), BasketShare.resultLines(favorites, games, live, before).map { it.game.id })
+        val after = java.time.Instant.parse("2026-10-21T14:00:00Z")
+        assertEquals(emptyList<String>(), BasketShare.resultLines(favorites, games, live, after).map { it.game.id })
     }
 
     @Test

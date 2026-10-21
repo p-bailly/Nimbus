@@ -26,7 +26,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import fr.perso.nimbus.data.BasketShare
+import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoShare
+import fr.perso.nimbus.data.UnlockNote
+import fr.perso.nimbus.service.BadgeService
+import fr.perso.nimbus.service.BadgeStore
+import fr.perso.nimbus.service.QuickToggles
 import fr.perso.nimbus.ui.theme.PaperShapes
 import fr.perso.nimbus.ui.theme.PaperTypography
 import fr.perso.nimbus.ui.theme.paperColorScheme
@@ -78,15 +83,23 @@ class UnlockActivity : ComponentActivity() {
         val feed = UnlockFeed.get(this)
         setContent {
             val state by feed.state.collectAsStateWithLifecycle()
+            // Messages reçus (WhatsApp, Discord, Messages, Claude…), si Nimbus a accès aux notifications.
+            val notifications by BadgeStore.notifications.collectAsStateWithLifecycle()
+            val notes = remember(notifications) {
+                MessageApps.notes(
+                    notifications.map { MessageApps.Candidate(it.key, it.packageName, it.title, it.text, it.time, it.clearable) },
+                )
+            }
             // Ce que la page lance (horloge, agenda du haut de la page) attend le déverrouillage.
             val context = remember { LockedContext(this) }
             CompositionLocalProvider(LocalContext provides context) {
                 MaterialTheme(colorScheme = paperColorScheme(), typography = PaperTypography, shapes = PaperShapes) {
                     UnlockPage(
-                        state,
+                        state.copy(notes = notes),
                         onMeteo = { openApp(MeteoShare.PACKAGE) },
                         onBasket = { openApp(BasketShare.PACKAGE) },
                         onUnlock = { unlock() },
+                        onNote = { openNote(it) },
                         onSketchText = feed::sketchText,
                     )
                 }
@@ -159,6 +172,18 @@ class UnlockActivity : ComponentActivity() {
     private fun openApp(pkg: String) {
         val intent = packageManager.getLaunchIntentForPackage(pkg)
         if (intent == null) unlock() else startAfterUnlock(intent)
+    }
+
+    /** Une notification de la page : déverrouiller, puis l'ouvrir comme le ferait le bandeau du système. */
+    private fun openNote(note: UnlockNote) = unlock {
+        val item = BadgeStore.notifications.value.firstOrNull { it.key == note.key }
+        val intent = item?.intent
+        if (intent == null || !QuickToggles.send(this, intent)) {
+            packageManager.getLaunchIntentForPackage(note.packageName)?.let {
+                runCatching { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
+        }
+        if (item != null && item.autoCancel && item.clearable) BadgeService.dismiss(item.key)
     }
 
     private fun unlocked() {

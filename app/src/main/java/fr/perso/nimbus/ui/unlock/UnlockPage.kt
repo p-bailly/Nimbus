@@ -4,16 +4,14 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,8 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.InlineTextContent
-import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -34,7 +30,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -49,16 +44,16 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.Placeholder
-import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -68,7 +63,6 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
@@ -80,14 +74,16 @@ import androidx.compose.ui.unit.em
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
+import fr.perso.nimbus.R
 import fr.perso.nimbus.data.BasketShare
-import fr.perso.nimbus.data.DailyExercise
-import fr.perso.nimbus.data.Exercise
+import fr.perso.nimbus.data.CrayonLogos
 import fr.perso.nimbus.data.GameTeam
 import fr.perso.nimbus.data.LiveLine
+import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoNow
 import fr.perso.nimbus.data.MeteoShare
 import fr.perso.nimbus.data.Seg
+import fr.perso.nimbus.data.UnlockNote
 import fr.perso.nimbus.ui.paper.HRule
 import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.PAPER_HEIGHT
@@ -99,14 +95,20 @@ import fr.perso.nimbus.ui.paper.PaperText
 import fr.perso.nimbus.ui.paper.at
 import fr.perso.nimbus.ui.paper.rememberPaperTime
 import fr.perso.nimbus.ui.theme.PaperColors
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 // Page de déverrouillage (maquette H8a, sans en-tête et en plus gros) : sous l'heure, la météo comme l'écran Aujourd'hui de l'appli
-// Météo (et son coloriage, agrandi et ravivé), les matchs en direct et les résultats de la nuit des équipes
-// favorites de Basket Live, puis l'exercice du jour et la solution de celui d'hier, cachée sous un bandeau.
-// Une section sans données disparaît, la suite remonte.
+// Météo (et son coloriage, agrandi et ravivé), les messages reçus (WhatsApp, Discord, Messages, Claude…) dans
+// des bandeaux coloriés à la couleur de leur appli, les matchs en direct et les résultats de la nuit des
+// équipes favorites de Basket Live dans un bandeau colorié orange, puis la figure du jour, dessinée au
+// crayon. Une section sans données disparaît, la suite remonte.
 //
 // Chaque texte est posé par sa ligne de base, relevée dans la maquette (Chrome arrondit ascendante et
 // descendante au pixel, et pose la ligne de base en conséquence) : haut = base − interligne / 2 − k × taille,
@@ -121,6 +123,8 @@ data class UnlockState(
     val lines: List<LiveLine> = emptyList(),
     /** Résultats de la nuit des équipes favorites (matchs terminés), sous le direct. */
     val results: List<LiveLine> = emptyList(),
+    /** Notifications des applis de messages, les plus récentes d'abord. */
+    val notes: List<UnlockNote> = emptyList(),
 )
 
 /** Couleurs de Météo (extrêmes du jour) et de Basket Live (direct, victoire, défaite). */
@@ -130,13 +134,13 @@ private val Live = Color(0xFFD92D2D)
 private val Win = Color(0xFF2E8540)
 private val Loss = Color(0xFFB0413E)
 
-/** Titres des sections (Basket, Exercice du jour, Solution d'hier), en gras. */
+/** Titre de la section Basket, en gras. */
 private const val TITLE = 19f
 
 /** Étiquettes à droite des titres, en petites capitales. */
 private const val LABEL = 13.5f
 
-/** Texte courant, le même pour les matchs et pour l'exercice. */
+/** Texte des matchs. */
 private const val BODY = 19f
 
 /** Face de la police, et son k = (ascendante − descendante) / 2, en em. */
@@ -157,9 +161,6 @@ private fun style(size: Float, line: Float = size, face: Face = Face.ROMAN, colo
     )
 
 private fun TextStyle.smallCaps(spacing: Float): TextStyle = copy(fontFeatureSettings = "smcp", letterSpacing = spacing.em)
-
-/** Interligne « normal » de la maquette : 1,385 em. */
-private const val NORMAL = 1.385f
 
 /** Heure (sa case de [TIME] unités) puis date, en haut de la page : il n'y a pas d'en-tête. */
 private const val CLOCK_TOP = 30f
@@ -187,6 +188,9 @@ private const val SKETCH_TOP = 24f
 private const val RULE_GAP = 14f
 private const val AFTER_RULE = 16f
 
+/** Sous un bandeau colorié (messages, Basket) : pas de filet, 16 unités jusqu'à la section suivante. */
+private const val AFTER_BANNER = 16f
+
 /** Lignes des matchs : 27 unités l'une sous l'autre. */
 private const val ROW_PITCH = 27f
 
@@ -196,8 +200,10 @@ fun UnlockPage(
     onMeteo: () -> Unit,
     onBasket: () -> Unit,
     onUnlock: () -> Unit,
-    /** Solution d'hier montrée d'emblée (captures). */
-    solutionShown: Boolean = false,
+    /** Ouvrir une notification (après le déverrouillage). */
+    onNote: (UnlockNote) -> Unit = {},
+    /** Explication de la figure montrée d'emblée (captures). */
+    infoShown: Boolean = false,
     /**
      * Le texte de la météo posé sur le coloriage, en fractions de l'image de Météo (gauche, haut, droite,
      * bas) : à lui demander de dessiner autour.
@@ -206,8 +212,7 @@ fun UnlockPage(
 ) {
     val now by rememberPaperTime()
     val today = now.toLocalDate()
-    val exercise = remember(today) { DailyExercise.of(today) }
-    val yesterday = remember(today) { DailyExercise.of(today.minusDays(1)) }
+    val figure = remember(today) { DailyFigures.of(today) }
     val unlock by rememberUpdatedState(onUnlock)
 
     PaperCanvas(
@@ -239,12 +244,15 @@ fun UnlockPage(
             HRule(22, end + RULE_GAP, 368, 0.6f)
             y = end + RULE_GAP + AFTER_RULE
         }
-        if (state.lines.isNotEmpty() || state.results.isNotEmpty()) {
-            val end = BasketSection(y, state.lines + state.results, onBasket)
-            HRule(22, end + RULE_GAP, 368, 0.6f)
-            y = end + RULE_GAP + AFTER_RULE
+        if (state.notes.isNotEmpty()) {
+            y = NotesSection(y, state.notes, today, onNote) + AFTER_BANNER
         }
-        ExerciseSection(y, exercise, yesterday, solutionShown, onUnlock)
+        if (state.lines.isNotEmpty() || state.results.isNotEmpty()) {
+            y = BasketSection(y, state.lines + state.results, onBasket) + AFTER_BANNER
+        }
+        // La figure du jour, numérotée après le coloriage de Météo s'il est là ; sous elle, un appui déverrouille.
+        TapZone("Déverrouiller", Modifier.at(0, y).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - y).coerceAtLeast(0f).dp), onUnlock)
+        FigureSection(y, figure, if (state.meteo != null && state.sketch != null) 2 else 1, infoShown)
     }
 }
 
@@ -454,27 +462,45 @@ private fun spoken(t: Double): String = "${t.roundToInt()}"
 
 // ---------------------------------------------------------------- Basket
 
-/** Les matchs en direct, puis les résultats de la nuit (matchs terminés) ; rend le bas de la section. */
+/**
+ * Les matchs en direct, puis les résultats de la nuit (matchs terminés), dans un bandeau colorié orange
+ * comme un ballon, le logo au crayon de Basket Live devant le titre ; rend le bas du bandeau.
+ */
 @Composable
 private fun BasketSection(y0: Float, lines: List<LiveLine>, onOpen: () -> Unit): Float {
-    val b = y0 + 17
-    Text("Basket", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(b, TITLE, face = Face.BOLD)))
+    val y = y0 + BANNER_PAD
+    val b = y + 17
+    val end = y + 45 + ROW_PITCH * (lines.size - 1) + 7 + BANNER_PAD
+    Box(Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp).crayonBanner(BasketOrange, seed = 7))
+    Image(
+        painterResource(R.drawable.crayon_basket),
+        contentDescription = null,
+        modifier = Modifier.at(24, b - 21).size(28.dp),
+    )
+    Text("Basket", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(56, top(b, TITLE, face = Face.BOLD)))
     if (lines.any { it.game.live }) RightText("en direct", style(LABEL, color = Live).smallCaps(0.06f), top(b, LABEL))
 
     val rows = rememberRows(lines)
-    rows.forEachIndexed { i, row -> GameRow(y0 + 45 + ROW_PITCH * i, row) }
-    val end = y0 + 45 + ROW_PITCH * (lines.size - 1) + 7
+    rows.forEachIndexed { i, row -> GameRow(y + 45 + ROW_PITCH * i, row) }
     TapZone(
         "Ouvrir Basket Live : " + lines.joinToString(" ; ") { l ->
             val winner = BasketShare.winner(l.game)?.let { ", victoire des ${it.name}" }.orEmpty()
             "${l.game.away.name} ${l.game.away.score ?: 0}, ${l.game.home.name} ${l.game.home.score ?: 0}, " +
                 BasketShare.spokenStatus(l.game) + winner
         },
-        Modifier.at(22, y0).size(368.dp, (end - y0 + 4).dp),
+        Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp),
         onOpen,
     )
     return end
 }
+
+/** Bandeaux coloriés : de 12 à 400, un peu plus larges que le texte (22 à 390) ; marge intérieure en haut et en bas. */
+private const val BANNER_X = 12f
+private const val BANNER_W = 388f
+private const val BANNER_PAD = 9f
+
+/** Orange d'un ballon de basket. */
+private val BasketOrange = Color(0xFFE0702A)
 
 /** Une équipe d'une ligne : nom affiché (le sigle si le nom ne tient pas), face et couleur. */
 private class TeamLook(val name: String, val face: Face, val color: Color)
@@ -593,7 +619,9 @@ private fun GameRow(baseline: Float, row: GameLine) {
                         .background(Live, CircleShape),
                 )
             }
-            PaperText(row.status, style = style(STATUS, face = row.statusFace, color = row.statusColor), softWrap = false)
+            // Victoire ou défaite : un coup de crayon de sa couleur, comme surligné.
+            val mark = if (game.finished && row.statusFace == Face.BOLD) Modifier.crayonMark(row.statusColor, game.id.hashCode()) else Modifier
+            PaperText(row.status, style = style(STATUS, face = row.statusFace, color = row.statusColor), softWrap = false, modifier = mark)
         }
     }
 }
@@ -626,152 +654,240 @@ private fun Score(text: String?, look: TeamLook, baseline: Float, x: Float, widt
     }
 }
 
-// ---------------------------------------------------------------- Exercice
+// ---------------------------------------------------------------- Messages
 
+/** Bandeau d'une notification : [NOTE_H] de haut, [NOTE_GAP] entre deux. */
+private const val NOTE_H = 54f
+private const val NOTE_GAP = 8f
+
+/** Pastille du logo, à gauche du bandeau. */
+private const val NOTE_DISC = 36f
+
+/**
+ * Les messages reçus, un bandeau colorié par notification à la couleur de son appli (au plus
+ * [MessageApps.MAX_NOTES], les plus récents), puis « et 2 autres » s'il y en a plus ; rend le bas.
+ */
 @Composable
-private fun ExerciseSection(e0: Float, exercise: Exercise, yesterday: Exercise, solutionShown: Boolean, onUnlock: () -> Unit) {
-    // Titre et numéro, sur la même ligne de base.
-    Text("Exercice du jour", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(e0 + 18, TITLE, face = Face.BOLD)))
-    RightText("n° ${exercise.number} · niveau : ${exercise.level}", style(LABEL).smallCaps(0.06f), top(e0 + 18, LABEL))
+private fun NotesSection(y0: Float, notes: List<UnlockNote>, today: LocalDate, onOpen: (UnlockNote) -> Unit): Float {
+    val shown = notes.take(MessageApps.MAX_NOTES)
+    shown.forEachIndexed { i, note -> NoteBanner(y0 + (NOTE_H + NOTE_GAP) * i, note, today, onOpen) }
+    var end = y0 + (NOTE_H + NOTE_GAP) * shown.size - NOTE_GAP
+    val more = notes.size - shown.size
+    if (more > 0) {
+        Text(
+            "et $more autre${if (more > 1) "s" else ""} notification${if (more > 1) "s" else ""}",
+            style = style(14.5f, 18f, Face.ITALIC, PaperColors.Soft).copy(textAlign = TextAlign.End),
+            modifier = Modifier.at(22, top(end + 19, 14.5f, 18f, Face.ITALIC)).width(368.dp),
+        )
+        end += 24
+    }
+    return end
+}
 
-    // Énoncé, formule, puis l'avis : chacun sous le précédent, selon le nombre de lignes de l'énoncé.
-    val statement = fine(exercise.statement)
-    val statementStyle = style(BODY, 26f).copy(textIndent = TextIndent(firstLine = 1.2.em), lineBreak = LineBreak.Simple)
-    Text(
-        statement,
-        style = statementStyle,
-        modifier = Modifier.at(22, top(e0 + 52, BODY, 26f)).width(368.dp),
+/**
+ * Une notification : le logo au crayon de l'appli dans une pastille blanche cerclée de sa couleur (son
+ * initiale s'il n'y a pas de logo), le titre en gras, l'appli en petites capitales et l'heure à droite,
+ * puis le texte sur une ligne. Appui : déverrouiller et l'ouvrir.
+ */
+@Composable
+private fun NoteBanner(y: Float, note: UnlockNote, today: LocalDate, onOpen: (UnlockNote) -> Unit) {
+    val color = Color(note.app.color)
+    val ink = inkOf(color)
+    Box(
+        Modifier
+            .at(BANNER_X, y)
+            .size(BANNER_W.dp, NOTE_H.dp)
+            .crayonBanner(color, seed = note.key.hashCode())
+            .semantics {
+                contentDescription = "Ouvrir ${note.app.name} : ${note.title}, ${note.text}"
+                role = Role.Button
+            }
+            .clickable(remember { MutableInteractionSource() }, indication = null) { onOpen(note) },
     )
-    var last = e0 + 52 + 26f * (lineCount(statement, statementStyle, 368f) - 1)
-    if (exercise.formula.isNotEmpty()) {
-        last += 54
-        PaperText(
-            segs(exercise.formula, supRatio = 0.62f, nowrap = false),
-            style = style(34f, 34f * NORMAL).copy(textAlign = TextAlign.Center),
-            softWrap = false,
-            inlineContent = Inline,
-            modifier = Modifier.at(22, top(last, 34f, 34f * NORMAL)).width(368.dp),
+    val discTop = y + (NOTE_H - NOTE_DISC) / 2
+    Box(
+        Modifier
+            .at(20, discTop)
+            .size(NOTE_DISC.dp)
+            .background(PaperColors.Paper, CircleShape)
+            .drawBehind {
+                drawCircle(color.copy(alpha = 0.8f), radius = size.minDimension / 2 - 0.8.dp.toPx(), style = Stroke(1.6.dp.toPx()))
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        val logo = CrayonLogos.ofPackage(note.packageName)
+        if (logo != null) {
+            Image(painterResource(logo), contentDescription = null, modifier = Modifier.size((NOTE_DISC * 0.78f).dp))
+        } else {
+            Text(note.app.name.take(1), style = style(18f, face = Face.BOLD, color = ink), softWrap = false)
+        }
+    }
+
+    // Première ligne : titre (ou l'appli s'il n'y en a pas) à gauche, appli et heure à droite.
+    val left = 64f
+    val first = y + 22
+    val second = y + 43
+    val meta = buildAnnotatedString {
+        withStyle(SpanStyle(color = ink, fontFeatureSettings = "smcp", letterSpacing = 0.06.em)) { append(note.app.name.lowercase(Locale.FRENCH)) }
+        withStyle(SpanStyle(color = PaperColors.Soft)) { append(" · ${noteTime(note.time, today)}") }
+    }
+    val metaStyle = style(13f)
+    val metaWidth = textWidth(meta, metaStyle)
+    Box(Modifier.at(22, top(first, 13f)).width(368.dp)) {
+        Text(meta, style = metaStyle, softWrap = false, modifier = Modifier.align(Alignment.TopEnd))
+    }
+    Text(
+        note.title.ifEmpty { note.app.name },
+        style = style(16.5f, face = Face.BOLD),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.at(left, top(first, 16.5f, face = Face.BOLD)).width((390f - left - metaWidth - 8f).coerceAtLeast(40f).dp),
+    )
+    if (note.text.isNotEmpty()) {
+        Text(
+            note.text.replace('\n', ' '),
+            style = style(15.5f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.at(left, top(second, 15.5f)).width((390f - left).dp),
         )
     }
-    last += 40
-    Text(
-        "La solution sera donnée demain.",
-        style = style(15.5f, 19f, Face.ITALIC, PaperColors.Soft).copy(textAlign = TextAlign.Center),
-        modifier = Modifier.at(22, top(last, 15.5f, 19f, Face.ITALIC)).width(368.dp),
-    )
+}
 
-    val rule = last + 26
-    HRule(22, rule, 368, 0.6f)
-    Text("Solution d'hier", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(rule + 30, TITLE, face = Face.BOLD)))
-    RightText("n° ${yesterday.number}", style(LABEL).smallCaps(0.06f), top(rule + 30, LABEL))
+/** Heure d'une notification : « 16:32 » aujourd'hui, « hier », sinon « 12 oct. ». */
+private fun noteTime(ms: Long, today: LocalDate): String {
+    val at = LocalDateTime.ofInstant(Instant.ofEpochMilli(ms), ZoneId.systemDefault())
+    return when (at.toLocalDate()) {
+        today -> at.format(DateTimeFormatter.ofPattern("HH:mm", Locale.FRANCE))
+        today.minusDays(1) -> "hier"
+        else -> at.format(DateTimeFormatter.ofPattern("d MMM", Locale.FRANCE))
+    }
+}
 
-    // L'énoncé d'hier en italique, sa formule à la suite (insécable) ; l'explication et la réponse restent
-    // sous un bandeau hachuré tant qu'on ne l'a pas touché (de nouveau caché à chaque réveil).
-    // Sous le texte, le bas de la page : un appui déverrouille.
-    var revealed by remember(yesterday.date) { mutableStateOf(solutionShown) }
+// ---------------------------------------------------------------- Figure du jour
+
+/** Hauteur de la figure, au plus ; plus bas, la page s'arrête vers [PAGE_BOTTOM]. */
+private const val FIGURE_MAX = FH
+private const val PAGE_BOTTOM = 884f
+
+/** En dessous de cette hauteur, la figure ne se lit plus : la page s'en passe. */
+private const val FIGURE_MIN = 110f
+
+/** Légende de la figure : « Figure 2 – Nom », puis le (i). */
+private const val CAPTION = 14f
+private const val CAPTION_H = 20f
+private const val INFO_MARK = 15f
+
+/**
+ * La figure du jour dessinée au crayon, et sa légende dessous, « Figure 2 – Nom » suivie d'un petit (i),
+ * centrées dans la place qui reste sous les sections. Toucher la légende montre l'explication
+ * mathématique sur une fiche posée sur la figure ; la toucher de nouveau (ou la fiche) la range. Elle
+ * est rangée à chaque réveil.
+ */
+@Composable
+private fun FigureSection(y0: Float, figure: DailyFigure, number: Int, infoShown: Boolean) {
+    var open by remember(figure.spec.key, figure.variant) { mutableStateOf(infoShown) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val lifecycleState by lifecycle.currentStateAsState()
     val awake = lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
-    LaunchedEffect(awake) { if (!awake) revealed = false }
+    LaunchedEffect(awake) { if (!awake && !infoShown) open = false }
 
-    val body = style(BODY, 25f).copy(lineBreak = LineBreak.Simple)
-    val solution = rule + 42
-    Column(Modifier.at(0, solution).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - solution).dp)) {
-        PaperText(
-            buildAnnotatedString {
-                withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { appendFine(yesterday.statement) }
-                if (yesterday.formula.isNotEmpty()) {
-                    append(" ")
-                    append(segs(yesterday.formula, supRatio = 0.68f, nowrap = true))
-                }
-            },
-            style = body,
-            inlineContent = Inline,
-            modifier = Modifier.padding(horizontal = 22.dp).fillMaxWidth(),
-        )
-        Spacer(Modifier.height(8.dp))
-        if (revealed) {
-            PaperText(
-                buildAnnotatedString {
-                    appendInlineContent(INDENT, " ")
-                    append(WJ)
-                    append(segs(yesterday.explanation, supRatio = 0.68f, nowrap = false))
-                    append(" ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendFine("Réponse : ${yesterday.answer}.") }
-                },
-                style = body,
-                inlineContent = Inline,
-                modifier = Modifier.padding(horizontal = 22.dp).fillMaxWidth(),
-            )
-        } else {
-            SolutionBanner { revealed = true }
-        }
-        TapZone("Déverrouiller", Modifier.fillMaxWidth().weight(1f), onUnlock)
+    val room = PAGE_BOTTOM - y0
+    val h = minOf(FIGURE_MAX, room - CAPTION_H - 10f)
+    if (h < FIGURE_MIN) return
+    val top = y0 + (room - (h + 10f + CAPTION_H)) / 2f
+    FigureArt(figure, Modifier.at(22, top).size(368.dp, h.dp))
+
+    val caption = buildAnnotatedString {
+        withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure $number") }
+        append(" – ${figure.title}")
     }
+    // Sans explication rédigée, pas de (i) : la légende n'est que le nom.
+    val hasInfo = figure.info.isNotEmpty()
+    val toggle = { open = hasInfo && !open }
+    Box(Modifier.at(22, top + h + 10f).size(368.dp, CAPTION_H.dp), contentAlignment = Alignment.Center) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .semantics { contentDescription = if (open) "Ranger l'explication" else "Explication : ${figure.title}" }
+                .clickable(remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClick = toggle),
+        ) {
+            Text(caption, style = style(CAPTION, 18f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 340.dp))
+            if (hasInfo) {
+                Spacer(Modifier.width(7.dp))
+                InfoMark(open)
+            }
+        }
+    }
+    if (open && hasInfo) InfoCard(figure.info, top, h, toggle)
 }
 
-/** Hauteur du bandeau qui cache la solution d'hier. */
-private const val BANNER = 42f
-
-/** Le bandeau qui cache la solution : des hachures, comme un coloriage, et l'invitation à toucher. */
+/** Le petit (i) : un cercle au crayon fin et un i italique ; plein d'encre quand l'explication est ouverte. */
 @Composable
-private fun SolutionBanner(onReveal: () -> Unit) {
+private fun InfoMark(open: Boolean) {
     Box(
         Modifier
-            .padding(horizontal = 22.dp)
-            .fillMaxWidth()
-            .height(BANNER.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(BannerFill)
-            .drawBehind {
-                val step = 9.dp.toPx()
-                var x = -size.height
-                while (x < size.width) {
-                    drawLine(BannerHatch, Offset(x, size.height), Offset(x + size.height, 0f), strokeWidth = 1.2.dp.toPx())
-                    x += step
-                }
-            }
-            .clickable(
-                remember { MutableInteractionSource() },
-                indication = null,
-                onClickLabel = "Afficher",
-                role = Role.Button,
-                onClick = onReveal,
-            ),
+            .size(INFO_MARK.dp)
+            .background(if (open) PaperColors.Ink else Color.Transparent, CircleShape)
+            .drawBehind { drawCircle(PaperColors.Ink, radius = size.minDimension / 2 - 0.6.dp.toPx(), style = Stroke(1.1.dp.toPx())) },
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            "Toucher pour voir la solution",
-            style = style(16f, 20f, Face.ITALIC, PaperColors.Ink),
+            "i",
+            style = style(11.5f, 12f, Face.ITALIC, if (open) PaperColors.Paper else PaperColors.Ink).copy(fontWeight = FontWeight.Bold),
             softWrap = false,
-            modifier = Modifier
-                .background(BannerFill, RoundedCornerShape(4.dp))
-                .padding(horizontal = 10.dp, vertical = 2.dp),
         )
     }
 }
 
-/** Couleurs du bandeau : un jaune pâle, hachuré d'ocre. */
-private val BannerFill = Color(0xFFFBEFC8)
-private val BannerHatch = Color(0xFFE2BE62)
+/** L'explication, sur une fiche de papier posée sur la figure ; sa taille se règle pour qu'elle tienne. */
+@Composable
+private fun InfoCard(text: String, top: Float, height: Float, onClose: () -> Unit) {
+    val pad = 14f
+    val size = fittingSize(text, 368f - 2 * pad, height - 2 * pad)
+    Box(
+        Modifier
+            .at(22, top)
+            .size(368.dp, height.dp)
+            .background(PaperColors.Paper, RoundedCornerShape(10.dp))
+            .crayonBanner(InfoBlue, seed = 3, radius = 10f)
+            .clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = "Ranger", onClick = onClose)
+            .padding(pad.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, style = style(size, size * 1.32f).copy(textAlign = TextAlign.Start, lineBreak = LineBreak.Paragraph))
+    }
+}
+
+/** Bleu pâle de la fiche d'explication. */
+private val InfoBlue = Color(0xFF4A8BD6)
+
+/** La plus grande taille, de 15,5 à 10 unités, à laquelle [text] tient dans [width] × [height]. */
+@Composable
+private fun fittingSize(text: String, width: Float, height: Float): Float {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    return remember(text, width, height, density) {
+        val px = with(density) { width.dp.roundToPx() }
+        var size = 15.5f
+        while (size > 10f) {
+            val laid = measurer.measure(AnnotatedString(text), style(size, size * 1.32f), constraints = Constraints(maxWidth = px))
+            if (with(density) { laid.size.height.toDp().value } <= height) break
+            size -= 0.5f
+        }
+        size
+    }
+}
 
 /**
- * Morceaux de texte : exposants (à [supRatio] em, posés par [PaperText]), variables en italique, « ⋯ »
- * dessinés ; [nowrap] : espaces insécables (la formule ne se coupe pas). Android permet une coupure
- * devant tout emplacement en ligne (exposant, points) : un gluon (U+2060, sans chasse) l'interdit.
+ * Morceaux de texte de l'état d'un match : exposants (à [supRatio] em, posés par [PaperText]) ;
+ * [nowrap] : espaces insécables. Android permet une coupure devant un exposant : un gluon (U+2060,
+ * sans chasse) l'interdit.
  */
 private fun segs(list: List<Seg>, supRatio: Float, nowrap: Boolean): AnnotatedString = buildAnnotatedString {
     for (seg in list) {
-        val text = if (nowrap) seg.text.replace(' ', '\u00A0') else seg.text
         withStyle(SpanStyle(fontStyle = if (seg.italic) FontStyle.Italic else FontStyle.Normal)) {
-            text.split('⋯').forEachIndexed { i, part ->
-                if (i > 0) {
-                    if (nowrap) append(WJ)
-                    appendInlineContent(DOTS, "⋯")
-                    if (nowrap) append(WJ)
-                }
-                appendFine(part)
-            }
+            append(if (nowrap) seg.text.replace(' ', '\u00A0') else seg.text)
         }
         if (seg.sup.isNotEmpty()) {
             append(WJ)
@@ -781,46 +897,8 @@ private fun segs(list: List<Seg>, supRatio: Float, nowrap: Boolean): AnnotatedSt
     }
 }
 
-private const val DOTS = "unlock.dots"
-private const val INDENT = "unlock.indent"
-
 /** Gluon (WORD JOINER) : invisible, sans chasse, interdit la coupure de part et d'autre. */
 private const val WJ = '\u2060'
-
-/**
- * Ajoute [text] ; l'espace fine insécable, absente de la police, devient une espace insécable de
- * demi-corps : 1/6 em, la chasse que lui donne le navigateur de la maquette.
- */
-private fun AnnotatedString.Builder.appendFine(text: String) {
-    text.split(DailyExercise.THIN).forEachIndexed { i, part ->
-        if (i > 0) withStyle(SpanStyle(fontSize = 0.5.em)) { append('\u00A0') }
-        append(part)
-    }
-}
-
-private fun fine(text: String): AnnotatedString = buildAnnotatedString { appendFine(text) }
-
-/** Contenus en ligne des textes de l'exercice. */
-private val Inline: Map<String, InlineTextContent> = mapOf(
-    // Alinéa de 1,2 em, en emplacement : avec TextIndent, Android décale les emplacements des lignes
-    // suivantes de la valeur de l'alinéa (les exposants s'écartent de leur base).
-    INDENT to InlineTextContent(Placeholder(1.2.em, 0.1.em, PlaceholderVerticalAlign.AboveBaseline)) {},
-    // « ⋯ », absent de la police : les trois points carrés de la police de repli de la maquette (DejaVu
-    // Sans, chasse 1 em), dessinés sur la ligne de base (le bas de l'emplacement).
-    DOTS to InlineTextContent(Placeholder(1.em, 0.5.em, PlaceholderVerticalAlign.AboveBaseline)) {
-        Canvas(Modifier.fillMaxSize()) {
-            val em = size.width
-            val u = em / 2048f
-            for (x in floatArrayOf(236f, 918f, 1600f)) {
-                drawRect(
-                    PaperColors.Ink,
-                    topLeft = Offset(x * u, size.height - 764f * u),
-                    size = Size(211f * u, 254f * u),
-                )
-            }
-        }
-    },
-)
 
 // ---------------------------------------------------------------- Outils
 
@@ -834,6 +912,16 @@ private fun RightText(text: String, style: TextStyle, top: Float, modifier: Modi
             onTextLayout = over?.layout(key) ?: {},
             modifier = modifier.align(Alignment.TopEnd).then(over?.of(key) ?: Modifier),
         )
+    }
+}
+
+/** Largeur de [text] sur une ligne, en unités. */
+@Composable
+private fun textWidth(text: AnnotatedString, style: TextStyle): Float {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    return remember(text, style, density) {
+        with(density) { measurer.measure(text, style, softWrap = false).size.width.toDp().value }
     }
 }
 

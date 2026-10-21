@@ -1,0 +1,46 @@
+package fr.perso.nimbus.ui.unlock
+
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+import kotlin.random.Random
+
+// Figures du jour de la page de déverrouillage : chacune a un nom (la légende « Figure 2 – Nom »), une
+// explication mathématique (montrée par le petit (i)) et son dessin au crayon. Une par jour, dans un
+// ordre mélangé une fois pour toutes ; d'un tour à l'autre, ses couleurs ou ses paramètres changent.
+
+/**
+ * Une figure : [key] (stable, pour les captures), [title], [group] (son thème, pour la planche), son
+ * explication selon la variante, et son dessin sur [FW] × [FH] unités.
+ */
+internal class FigureSpec(
+    val key: String,
+    val title: String,
+    val group: String,
+    val info: (variant: Int) -> String,
+    val draw: Pencil.(variant: Int) -> Unit,
+)
+
+/** Toutes les figures, par thème. */
+internal val ALL_FIGURES: List<FigureSpec> =
+    classicFigures + fractalFigures + circleFigures + curveFigures + tilingFigures + geometryFigures + spaceFigures + numberFigures
+
+/** La figure d'un jour et sa variante. */
+internal class DailyFigure(val spec: FigureSpec, val variant: Int) {
+    val title: String get() = spec.title
+    val info: String get() = spec.info(variant)
+}
+
+internal object DailyFigures {
+    /** Jour 1 : le 1er janvier 2026. */
+    private val ORIGIN: LocalDate = LocalDate.of(2026, 1, 1)
+
+    /** L'ordre des jours : les thèmes mélangés, pour ne pas voir cinq polyèdres de suite. */
+    val order: List<FigureSpec> by lazy { ALL_FIGURES.shuffled(Random(2026)) }
+
+    fun of(date: LocalDate): DailyFigure {
+        val d = ChronoUnit.DAYS.between(ORIGIN, date) + 1
+        val n = order.size.toLong()
+        val variant = Math.floorDiv(d, n).toInt().let { if (it < 0) -it else it }
+        return DailyFigure(order[Math.floorMod(d, n).toInt()], variant)
+    }
+}

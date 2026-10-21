@@ -18,6 +18,9 @@ import java.time.format.DateTimeFormatter
 // fournisseur (content://com.pbailly.superfanbasket.nimbus), les scores de l'API publique d'ESPN,
 // la même que l'appli.
 
+/** Morceau de texte : [text], puis l'exposant [sup] (vide : aucun) ; [italic] pour une variable. */
+data class Seg(val text: String, val sup: String = "", val italic: Boolean = false)
+
 /** Une équipe favorite de Basket Live (identifiant ESPN). */
 data class FavoriteTeam(val id: String, val abbr: String?, val name: String?)
 
@@ -58,8 +61,15 @@ object BasketShare {
     const val MAX_LINES = 3
     const val MAX_TOTAL = 4
 
-    /** Un résultat de plus de 36 h n'est plus « de la nuit ». */
-    private val RESULT_AGE: Duration = Duration.ofHours(36)
+    /**
+     * Un résultat disparaît 12 h après la fin du match. ESPN ne donne pas l'heure de fin : on la compte
+     * [GAME_LENGTH] après le coup d'envoi (la durée d'un match de NBA, temps morts compris).
+     */
+    private val RESULT_KEPT: Duration = Duration.ofHours(12)
+    private val GAME_LENGTH: Duration = Duration.ofMinutes(150)
+
+    /** Fin estimée de [game] plus 12 h : passé ce moment, son résultat n'est plus montré. */
+    fun resultUntil(game: Game): Instant? = game.start?.plus(GAME_LENGTH)?.plus(RESULT_KEPT)
 
     /**
      * Les équipes favorites, dans l'ordre de l'appli ; null si Basket Live n'est pas installée (ou trop
@@ -185,13 +195,13 @@ object BasketShare {
 
     /**
      * Les résultats de la nuit : pour chaque favorite, dans l'ordre, son dernier match terminé depuis
-     * moins de 36 h (coup d'envoi), s'il ne joue pas en ce moment ; un match entre deux favorites n'apparaît
+     * moins de 12 h (voir [resultUntil]), s'il ne joue pas en ce moment ; un match entre deux favorites n'apparaît
      * qu'une fois ; de quoi compléter [live] jusqu'à [MAX_TOTAL] lignes.
      */
     fun resultLines(favorites: List<FavoriteTeam>, games: List<Game>, live: List<LiveLine>, now: Instant): List<LiveLine> {
         val ids = favorites.map { it.id }.toSet()
         val playing = live.flatMap { listOf(it.game.home.id, it.game.away.id) }.toSet()
-        val done = games.filter { g -> g.finished && g.start?.let { Duration.between(it, now) < RESULT_AGE } != false }
+        val done = games.filter { g -> g.finished && resultUntil(g)?.let { now < it } != false }
             .sortedByDescending { it.start }
         val lines = mutableListOf<LiveLine>()
         for (fav in favorites) {

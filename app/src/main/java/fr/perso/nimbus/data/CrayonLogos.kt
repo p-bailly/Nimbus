@@ -138,6 +138,10 @@ object CrayonLogos {
         }
     }
 
+    /** Logo au crayon d'après le seul paquet (notifications de la page de déverrouillage), ou null. */
+    @DrawableRes
+    fun ofPackage(packageName: String): Int? = byPackage[packageName]
+
     private val marks = Regex("\\p{Mn}+")
 
     private fun normalize(text: String): String =

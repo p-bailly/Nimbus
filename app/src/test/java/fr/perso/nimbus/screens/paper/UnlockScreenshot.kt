@@ -7,6 +7,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import fr.perso.nimbus.data.Game
 import fr.perso.nimbus.data.GameTeam
 import fr.perso.nimbus.data.LiveLine
+import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoNow
 import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.PaperEnv
@@ -66,7 +67,7 @@ class UnlockScreenshot {
         name: String,
         state: UnlockState,
         time: LocalDateTime = LocalDateTime.of(2026, 10, 20, 20, 35),
-        solutionShown: Boolean = false,
+        infoShown: Boolean = false,
     ) {
         val base = PaperFixture.env()
         val env = PaperEnv(
@@ -78,7 +79,7 @@ class UnlockScreenshot {
         )
         captureRoboImage("build/outputs/roborazzi/paper/$name.png") {
             CompositionLocalProvider(LocalPaper provides env) {
-                UnlockPage(state, onMeteo = {}, onBasket = {}, onUnlock = {}, solutionShown = solutionShown)
+                UnlockPage(state, onMeteo = {}, onBasket = {}, onUnlock = {}, infoShown = infoShown)
             }
         }
     }
@@ -97,26 +98,48 @@ class UnlockScreenshot {
         shoot("h8_cette_nuit", UnlockState(meteo, sketch, results = results), LocalDateTime.of(2026, 10, 21, 7, 40))
     }
 
-    /** Solution d'hier montrée (bandeau touché), sous un match en direct. */
+    /**
+     * Messages reçus : WhatsApp, Discord, Claude et Messages (le quatrième ne tient plus : « et 1 autre
+     * notification »), au-dessus du match en direct.
+     */
     @Test
-    fun solutionShown() = shoot("h8_solution", UnlockState(meteo, sketch, listOf(spurs)), solutionShown = true)
+    fun messages() {
+        val at = java.time.ZonedDateTime.of(2026, 10, 20, 20, 30, 0, 0, java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        fun note(pkg: String, title: String, text: String, minutesAgo: Int) =
+            MessageApps.Candidate("0|$pkg|$minutesAgo", pkg, title, text, at - minutesAgo * 60_000L, clearable = true)
+        val notes = MessageApps.notes(
+            listOf(
+                note("com.whatsapp", "Maman", "Tu viens dîner dimanche ? On fait une raclette avec les cousins", 2),
+                note("com.discord", "#basket · Julien", "Wemby vient de mettre son 5e contre 😱", 9),
+                note("com.anthropic.claude", "Claude", "Ta session « Nimbus » est terminée : les modifications sont poussées.", 25),
+                note("com.google.android.apps.messaging", "06 12 34 56 78", "Votre colis arrive demain entre 9 h et 13 h.", 70),
+                // Pas une appli de messages : jamais sur la page.
+                note("com.android.vending", "Mises à jour", "3 applis mises à jour", 1),
+            ),
+        )
+        shoot("h8_messages", UnlockState(meteo, sketch, listOf(spurs), notes = notes))
+    }
 
-    /** Aucun match en direct : la section « Basket » disparaît, l'exercice remonte. */
+    /** Aucun match en direct : la section « Basket » disparaît, la figure remonte et grandit. */
     @Test
     fun noLiveGame() = shoot("h8_sans_direct", UnlockState(meteo, sketch, emptyList()))
 
-    /** Ni Météo ni match : l'exercice suit la date. */
+    /** Ni Météo ni match : la figure suit la date (Figure 1). */
     @Test
     fun noSections() = shoot("h8_sans_sections", UnlockState())
 
-    /** Jour 297 (samedi 24 octobre) : énoncé de trois lignes, solution d'hier sur quatre. */
+    /** L'explication de la figure, ouverte par le (i). */
     @Test
-    fun longExercise() = shoot("h8_exercice_long", UnlockState(meteo, sketch, listOf(spurs)), LocalDateTime.of(2026, 10, 24, 20, 35))
+    fun figureInfo() = shoot("h8_figure_info", UnlockState(meteo, sketch, emptyList()), infoShown = true)
+
+    /** Un autre jour, une autre figure : samedi 24 octobre. */
+    @Test
+    fun otherDay() = shoot("h8_autre_figure", UnlockState(meteo, sketch, listOf(spurs)), LocalDateTime.of(2026, 10, 24, 20, 35))
 
     /**
      * Cas limites : lieu et ciel longs, températures négatives, trois matchs (deux favorites l'une contre
      * l'autre à la mi-temps, une fin de quart-temps, une double prolongation) ; le 1er janvier 2027 au
-     * matin, la solution d'hier est celle du 31 décembre (n° 365, avec 2026).
+     * matin.
      */
     @Test
     fun longLabels() {

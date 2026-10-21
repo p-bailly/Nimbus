@@ -90,12 +90,20 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   ressenti, ciel, maximum en orange et minimum en bleu, en gras, et son coloriage en figure, agrandi,
   ravivé, qui monte et se colore en 1,6 s à chaque réveil ; il ne touche jamais le texte : la page
   mesure ses écritures et Météo dessine autour, le ciel colorié jusqu'aux bords, le soleil, la lune
-  et les nuages poussés à côté, et une gomme adoucie efface encore ici ce qui s'en approcherait), les matchs en direct des équipes favorites
-  de l'appli Basket Live (trois au plus, mi-temps et fin de période comprises) puis leurs résultats
-  de la nuit (gagnante en gras, perdante en gris, « victoire » ou « défaite » de la favorite ; quatre
-  lignes en tout), l'exercice du jour (calcul de tête niveau lycée, huit familles à tour de rôle) et
-  la solution de celui de la veille, cachée sous un bandeau hachuré : la toucher la montre (cachée de
-  nouveau au réveil suivant). Une section sans données (appli absente, rien en direct) disparaît.
+  et les nuages poussés à côté, et une gomme adoucie efface encore ici ce qui s'en approcherait), les
+  messages reçus (WhatsApp, Discord, Messages, Claude, Signal, Telegram, Gmail…) dans des bandeaux coloriés au crayon à la couleur de
+  leur appli, avec son logo (trois au plus, les plus récents ; il faut l'accès aux notifications ;
+  toucher un bandeau déverrouille et ouvre le message), puis, dans un bandeau colorié orange avec le
+  logo de Basket Live, les matchs en direct des équipes favorites (trois au plus, mi-temps et fin de
+  période comprises) et leurs résultats de la nuit (gagnante en gras, perdante en gris, « victoire »
+  ou « défaite » de la favorite surlignée au crayon ; quatre lignes en tout ; un résultat disparaît
+  12 h après la fin du match), puis la figure du jour, dessinée au crayon (contour au crayon de
+  papier, coloriage aux crayons de couleur), avec sa légende « Figure 2 – Nom » : 92 figures par
+  thème (classiques, fractales, cercles, courbes, pavages, géométrie, espace, nombres et hasard),
+  une par jour dans un ordre mélangé ; ses couleurs ou ses paramètres changent d'un tour à l'autre.
+  Un petit (i) après le nom, quand l'explication est rédigée, la montre sur une fiche posée sur la
+  figure. La figure prend la place qui reste, et disparaît si la page est trop pleine. Une section
+  sans données (appli absente, rien en direct) disparaît.
 - Glisser vers le haut, toucher le bas de la page ou Retour : le système demande l'empreinte, le
   visage ou le code, puis la page s'efface. Toucher la météo ouvre Météo, toucher les matchs ouvre
   Basket Live (après le déverrouillage). Un appel, une alarme ou l'appareil photo passent devant.
@@ -298,7 +306,7 @@ app/src/main/java/fr/perso/nimbus/
 │                            icônes (IconFactory, CustomIcons, IconPack), catégories,
 │                            contacts, sauvegardes (BackupManager, SmartLauncherImport),
 │                            places des accueils papier (PaperSlots), silhouettes (GlyphFactory),
-│                            page de déverrouillage (MeteoShare, BasketShare, DailyExercise)
+│                            page de déverrouillage (MeteoShare, BasketShare, MessageApps)
 ├── service/                 Pastilles (NotificationListener), gestes (accessibilité),
 │                            actions système
 ├── widgets/                 Hôte des widgets (AppWidgetHost)
