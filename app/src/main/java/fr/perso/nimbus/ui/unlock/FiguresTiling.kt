@@ -23,6 +23,7 @@ internal val tilingFigures: List<FigureSpec> = listOf(
     FigureSpec("rhombitrihexagonal", "Pavage 3.4.6.4", "Pavages", { _ -> "" }) { rhombitrihexagonal(it) },
     FigureSpec("octagons", "Octogones et carrés", "Pavages", { _ -> "" }) { octagons(it) },
     FigureSpec("pythagorean_tiling", "Pavage pythagoricien", "Pavages", { _ -> "" }) { pythagoreanTiling(it) },
+    FigureSpec("voronoi", "Vitrail de Voronoï", "Pavages", { _ -> "" }) { voronoi(it) },
 )
 
 /** Le cadre rectangulaire des pavages. */
@@ -50,6 +51,48 @@ private fun arc(c: Offset, r: Float, a0: Float, a1: Float, n: Int = 12): List<Of
     (0..n).map { c + dir(a0 + (a1 - a0) * it / n) * r }
 
 private val PHI = ((1 + sqrt(5.0)) / 2).toFloat()
+
+/** Garde du polygone convexe [poly] le côté de [s] par rapport à la médiatrice de [s] et [q]. */
+private fun voronoiCut(poly: List<Offset>, s: Offset, q: Offset): List<Offset> {
+    val m = (s + q) / 2f
+    val n = q - s
+    fun side(p: Offset) = (p.x - m.x) * n.x + (p.y - m.y) * n.y
+    val out = ArrayList<Offset>(poly.size + 1)
+    for (i in poly.indices) {
+        val a = poly[i]
+        val b = poly[(i + 1) % poly.size]
+        val sa = side(a)
+        val sb = side(b)
+        if (sa <= 0) out += a
+        if ((sa < 0 && sb > 0) || (sa > 0 && sb < 0)) out += a + (b - a) * (sa / (sa - sb))
+    }
+    return out
+}
+
+/**
+ * Vitrail de Voronoï : des germes tirés au hasard (assez écartés), et pour chacun la cellule des points
+ * plus proches de lui que de tout autre germe, obtenue en coupant le cadre par les médiatrices.
+ */
+private fun Pencil.voronoi(v: Int) {
+    val random = Random(31 + v * 17)
+    val seeds = mutableListOf<Offset>()
+    var tries = 0
+    while (seeds.size < 22 && tries < 4000) {
+        tries++
+        val p = pt(14f + random.nextFloat() * 340f, 13f + random.nextFloat() * 224f)
+        if (seeds.all { (it - p).getDistance() > 46f }) seeds += p
+    }
+    val pal = listOf(Crayons.rouge, Crayons.orange, Crayons.jaune, Crayons.vert, Crayons.turquoise, Crayons.bleu, Crayons.violet, Crayons.rose)
+        .rot(v % 8)
+    seeds.forEachIndexed { i, s ->
+        var cell = FRAME
+        for (q in seeds) if (q != s) cell = voronoiCut(cell, s, q)
+        if (cell.size < 3) return@forEachIndexed
+        fill(cell, pal[(i * 3 + random.nextInt(2)) % pal.size], wash = 0.42f, gap = 3.6f, angle = -58f + 37f * i, lw = 2.1f)
+    }
+    for (s in seeds) dot(s, 2f, Graphite, 0.85f)
+    outline(FRAME, lw = 1.8f)
+}
 
 private fun Pencil.penrose(v: Int) {
     class Tri(val thin: Boolean, val a: Offset, val b: Offset, val c: Offset)
