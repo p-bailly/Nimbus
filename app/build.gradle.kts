@@ -2,6 +2,8 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    // Captures d'écran JVM (Robolectric) : ./gradlew recordRoborazziDebug
+    id("io.github.takahirom.roborazzi")
 }
 
 // Clé de signature des releases, fournie par la CI (secrets GitHub, voir .github/workflows/android.yml).
@@ -84,4 +86,11 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
+
+    // Captures d'écran des écrans Compose sur la JVM (Roborazzi sur Robolectric).
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.43.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.43.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-junit-rule:1.43.1")
 }
