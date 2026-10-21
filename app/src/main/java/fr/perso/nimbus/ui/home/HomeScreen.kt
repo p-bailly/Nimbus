@@ -117,6 +117,14 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
             // Mêmes raccourcis que les tuiles, dans le même ordre.
             val shortcuts = buildList<Pair<String, () -> Unit>> {
                 add("Style de l'accueil" to { pickingStyle = true })
+                if (settings.homeStyle == HomeStyle.VORONOI && voronoiSites.isNotEmpty()) {
+                    add(
+                        "Sites d'origine" to {
+                            vm.closeHomeMenu()
+                            vm.setVoronoiSites(emptyMap())
+                        },
+                    )
+                }
                 if (!paper) {
                     add("Ajouter une icône" to { pickingIcon = true })
                     add("Ajouter un widget" to { vm.openWidgetPicker() })
