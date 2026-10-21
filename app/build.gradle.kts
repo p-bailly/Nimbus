@@ -64,7 +64,8 @@ android {
 
     testOptions {
         // Tests JVM avec Robolectric : vraie base SQLite et vrai parseur XML d'Android.
-        unitTests.isIncludeAndroidResources = false
+        // Ressources de l'appli (drawables, thème, chaînes) visibles dans les captures d'écran.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
