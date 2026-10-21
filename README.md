@@ -128,7 +128,9 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   numérotée, chaque app une sous-section avec points de conduite et numéro de page ; sous le titre,
   une figure des cinq applis les plus utilisées qui ne sont pas déjà sur l'accueil (places de la
   page papier, ou grille et dock) ; l'espace privé en annexe A, et les notifications d'une
-  app sont un appel de note. Devant chaque nom, le motif de l'app (le même que sur les pages
+  app sont un appel de note. Devant chaque nom, le logo au crayon de l'app (50 logos dessinés pour
+  Nimbus, tous à la même taille de dessin : sources dans `design/logos-crayon/`, reconnus d'après le
+  nom affiché ou le paquet dans `CrayonLogos.kt`), sinon son motif (le même que sur les pages
   papier) à sa propre couleur, la teinte dominante de son icône. Appui : ouvrir ; appui long :
   actions ou glisser vers l'accueil.
   Réglable (Paramètres › Page des applications › « Table des matières ») pour revenir à la grille.

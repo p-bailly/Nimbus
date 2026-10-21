@@ -1,6 +1,7 @@
 package fr.perso.nimbus.ui.drawer
 
 import android.os.Build
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -43,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.data.Category
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.BadgeStyle
+import fr.perso.nimbus.data.CrayonLogos
 import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.data.ProfileState
 import fr.perso.nimbus.data.ProfileType
@@ -142,9 +146,13 @@ private val EntryNumberWidth = 44.dp
 private val SectionNumberWidth = 28.dp
 private val PageWidth = 34.dp
 
-/** Motif de l'app devant son nom, et l'espace qui le suit. */
-private val GlyphSize = 19.dp
-private val GlyphGap = 9.dp
+/**
+ * Logo au crayon de l'app devant son nom (voir [CrayonLogos] : son dessin occupe 89 % du carré), sinon
+ * son motif, à la même taille de dessin ; et l'espace qui les suit.
+ */
+private val LogoSize = 26.dp
+private val GlyphSize = 23.dp
+private val GlyphGap = 10.dp
 
 /** Pas des points de conduite, en em, et marge avant le numéro de page. */
 private const val DOT_PITCH = 0.55f
@@ -341,16 +349,16 @@ internal fun TocEntry(
             if (line.number != null) {
                 Text(line.number, style = TocText, modifier = Modifier.alignByBaseline().width(EntryNumberWidth))
             }
-            // Le motif de l'app (celui des pages papier), à sa propre couleur.
-            AppGlyph(
-                app,
-                GlyphSize,
-                tint = rememberAppColor(app),
-                colored = true,
-                modifier = Modifier
-                    .align(Alignment.CenterVertically)
-                    .padding(end = GlyphGap),
-            )
+            // Son logo au crayon, sinon le motif de l'app (celui des pages papier) à sa propre couleur.
+            val logo = remember(app.packageName, app.label) { CrayonLogos.of(app) }
+            val iconModifier = Modifier
+                .align(Alignment.CenterVertically)
+                .padding(end = GlyphGap)
+            if (logo != null) {
+                Image(painterResource(logo), contentDescription = null, modifier = iconModifier.size(LogoSize))
+            } else {
+                AppGlyph(app, GlyphSize, tint = rememberAppColor(app), colored = true, modifier = iconModifier.padding(horizontal = (LogoSize - GlyphSize) / 2))
+            }
             Box(
                 Modifier
                     .alignByBaseline()
