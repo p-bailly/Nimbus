@@ -261,17 +261,25 @@ class MathBuilder(val b: AnnotatedString.Builder) {
 
     /** Indice (romain par défaut, [italic] pour une variable : T_n). */
     fun sub(s: String, italic: Boolean = false) =
-        b.withStyle(SpanStyle(fontSize = 0.69.em, baselineShift = BaselineShift(-0.22f), fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal)) { append(s) }
+        b.withStyle(SpanStyle(fontSize = 0.69.em, baselineShift = SUB_SHIFT, fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal)) { append(s) }
 
     fun sup(s: String, italic: Boolean = false) =
-        b.withStyle(SpanStyle(fontSize = 0.69.em, baselineShift = BaselineShift(0.42f), fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal)) { append(s) }
+        b.withStyle(SpanStyle(fontSize = 0.69.em, baselineShift = SUP_SHIFT, fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal)) { append(s) }
 
     /** Exposant composé (e^{it}) : [block] en petit, surélevé. */
     fun sup(block: MathBuilder.() -> Unit) =
-        b.withStyle(SpanStyle(fontSize = 0.69.em, baselineShift = BaselineShift(0.42f))) { MathBuilder(this).block() }
+        b.withStyle(SpanStyle(fontSize = 0.69.em, baselineShift = SUP_SHIFT)) { MathBuilder(this).block() }
 
     fun sub(block: MathBuilder.() -> Unit) =
-        b.withStyle(SpanStyle(fontSize = 0.69.em, baselineShift = BaselineShift(-0.22f))) { MathBuilder(this).block() }
+        b.withStyle(SpanStyle(fontSize = 0.69.em, baselineShift = SUB_SHIFT)) { MathBuilder(this).block() }
+
+    private companion object {
+        // Comme Chrome (vertical-align super / sub) : la ligne de base monte de taille/3 + 1 et descend de
+        // taille/5 + 1 ; BaselineShift compte en ascendantes de l'indice (0,69 em × 0,842), soit pour un texte
+        // de 14,5 : 5,8 / 8,4 et 3,9 / 8,4.
+        val SUP_SHIFT = BaselineShift(0.69f)
+        val SUB_SHIFT = BaselineShift(-0.46f)
+    }
 }
 
 /** Texte composé avec [MathBuilder] : `tex { it("V"); +"(a)" }`. */

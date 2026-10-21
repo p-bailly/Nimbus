@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.perso.nimbus.R
@@ -44,12 +45,18 @@ object PaperColors {
     val Line = Color(0xFFD9D4C7)
 }
 
-/** Style de base : interlignage à la manière de CSS (demi-interligne au-dessus et au-dessous). */
+/**
+ * Style de base, réglé pour composer comme un navigateur (donc comme les maquettes) : interlignage à la
+ * manière de CSS (demi-interligne au-dessus et au-dessous) et chasse sans arrondi au pixel
+ * ([TextMotion.Animated] : positions sous-pixel, sans hinting), sinon les lignes sortent 2 % trop serrées
+ * et ne se coupent plus au même endroit.
+ */
 val PaperTextBase = TextStyle(
     fontFamily = PaperSerif,
     color = PaperColors.Ink,
     platformStyle = PlatformTextStyle(includeFontPadding = false),
     lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
+    textMotion = TextMotion.Animated,
 )
 
 fun paperColorScheme(): ColorScheme = lightColorScheme(
