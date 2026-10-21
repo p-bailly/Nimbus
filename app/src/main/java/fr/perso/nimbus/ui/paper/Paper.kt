@@ -90,10 +90,11 @@ const val PAPER_HEIGHT = 916
 
 /**
  * Bande du repère qui doit rester entre la barre d'état et la barre de navigation : le contenu des
- * pages commence vers y = 142 (vers y = 66 avec l'heure et la date) et finit avant y = 890.
+ * pages commence vers y = 142 (vers y = 30 avec l'heure et la date de la page de déverrouillage) et
+ * finit avant y = 890.
  */
 private const val CONTENT_TOP = 134
-private const val CLOCK_TOP = 60
+private const val CLOCK_TOP = 26
 private const val SAFE_BOTTOM = 890
 
 /**
@@ -145,7 +146,7 @@ val LocalPaper = staticCompositionLocalOf { PaperEnv.Empty }
 
 /**
  * Fond papier sur tout l'écran et repère de 412 × 916 unités, mis à l'échelle pour que la bande
- * utile (134 à 890, ou 60 à 890 avec l'heure et la date) tienne entre les barres système, et que
+ * utile (134 à 890, ou 26 à 890 avec l'heure et la date) tienne entre les barres système, et que
  * la largeur moins les marges rognées ([SIDE_CROP]) tienne dans l'écran ; centré.
  * Dans [content], 1.dp = 1 unité et 1.sp = 1 unité (la taille de police du système ne déforme pas la page).
  */
@@ -191,9 +192,12 @@ fun PaperPage(modifier: Modifier = Modifier, content: @Composable BoxScope.() ->
     }
 }
 
-/** Heure (appui : alarmes) et date (appui : agenda), centrées en haut de la page. */
+/**
+ * Heure (appui : alarmes) et date (appui : agenda), centrées en haut de la page ; la page de
+ * déverrouillage les pose plus haut et plus grandes ([top], [timeSize], [dateTop], [dateSize]).
+ */
 @Composable
-private fun PaperClock() {
+fun PaperClock(top: Float = 66f, timeSize: Float = 44f, dateTop: Float = 114f, dateSize: Float = 13f) {
     val context = LocalContext.current
     val now by rememberPaperTime()
     val locale = Locale.FRANCE
@@ -206,18 +210,19 @@ private fun PaperClock() {
 
     Text(
         time,
-        style = Paper.text(44f, 44f).copy(textAlign = TextAlign.Center),
+        style = Paper.text(timeSize, timeSize).copy(textAlign = TextAlign.Center),
         modifier = Modifier
-            .at(0, 66)
+            .at(0, top)
             .width(PAPER_WIDTH.dp)
             .semantics { contentDescription = "Heure : $time" }
             .clickable(onClickLabel = "Ouvrir l'horloge") { SystemActions.openAlarms(context) },
     )
     Text(
         date,
-        style = Paper.text(13f, 16f).copy(fontFeatureSettings = "smcp", letterSpacing = 0.06.em, textAlign = TextAlign.Center),
+        style = Paper.text(dateSize, dateSize * 16f / 13f)
+            .copy(fontFeatureSettings = "smcp", letterSpacing = 0.06.em, textAlign = TextAlign.Center),
         modifier = Modifier
-            .at(0, 114)
+            .at(0, dateTop)
             .width(PAPER_WIDTH.dp)
             .clickable(onClickLabel = "Ouvrir l'agenda") { SystemActions.openCalendar(context) },
     )

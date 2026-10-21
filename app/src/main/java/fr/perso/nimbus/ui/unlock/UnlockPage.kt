@@ -77,7 +77,8 @@ import fr.perso.nimbus.ui.paper.HRule
 import fr.perso.nimbus.ui.paper.PAPER_HEIGHT
 import fr.perso.nimbus.ui.paper.PAPER_WIDTH
 import fr.perso.nimbus.ui.paper.Paper
-import fr.perso.nimbus.ui.paper.PaperPage
+import fr.perso.nimbus.ui.paper.PaperCanvas
+import fr.perso.nimbus.ui.paper.PaperClock
 import fr.perso.nimbus.ui.paper.PaperText
 import fr.perso.nimbus.ui.paper.at
 import fr.perso.nimbus.ui.paper.rememberPaperTime
@@ -86,7 +87,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-// Page de déverrouillage (maquette H8a) : sous l'heure, la météo comme l'écran Aujourd'hui de l'appli
+// Page de déverrouillage (maquette H8a, sans en-tête et en plus gros) : sous l'heure, la météo comme l'écran Aujourd'hui de l'appli
 // Météo (et son coloriage), les matchs en direct des équipes favorites de Basket Live, puis l'exercice
 // du jour et la solution de celui d'hier. Une section sans données disparaît, la suite remonte.
 //
@@ -131,15 +132,25 @@ private fun TextStyle.smallCaps(spacing: Float): TextStyle = copy(fontFeatureSet
 /** Interligne « normal » de la maquette : 1,385 em. */
 private const val NORMAL = 1.385f
 
-/** Haut de la première section quand la météo manque (celui de l'exercice dans la maquette sans météo). */
-private const val FIRST = 176f
+/** Heure (sa case de [TIME] unités) puis date, en haut de la page : il n'y a pas d'en-tête. */
+private const val CLOCK_TOP = 30f
+private const val TIME = 80f
+private const val DATE_TOP = 112f
+private const val DATE = 15f
+
+/** Haut de la première section quand la météo manque. */
+private const val FIRST = 154f
 
 /** Haut du bloc météo. */
-private const val METEO = 146f
+private const val METEO = 142f
 
-/** Coloriage : 368 × 199 unités, 8 sous le haut du bloc ; on en montre le bas (le ciel le plus haut est coupé). */
+/**
+ * Coloriage : 368 × 199 unités, [SKETCH_TOP] sous le haut du bloc ; on en montre le bas (le ciel le plus
+ * haut est coupé).
+ */
 private const val SKETCH_W = 368f
 private const val SKETCH_H = 199f
+private const val SKETCH_TOP = 24f
 
 /** Entre deux sections : filet 14 sous la fin de l'une, l'autre 16 sous le filet. */
 private const val RULE_GAP = 14f
@@ -161,7 +172,7 @@ fun UnlockPage(
     val yesterday = remember(today) { DailyExercise.of(today.minusDays(1)) }
     val unlock by rememberUpdatedState(onUnlock)
 
-    PaperPage(
+    PaperCanvas(
         // Glisser vers le haut, n'importe où : déverrouiller.
         modifier = Modifier.pointerInput(Unit) {
             val threshold = 64.dp.toPx()
@@ -183,6 +194,7 @@ fun UnlockPage(
             )
         },
     ) {
+        PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE)
         var y = FIRST
         state.meteo?.let { meteo ->
             val end = MeteoSection(meteo, state.sketch, now.hour, onMeteo)
@@ -205,43 +217,43 @@ fun UnlockPage(
 private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpen: () -> Unit): Float {
     val t = METEO
 
-    if (sketch != null) Sketch(sketch, Modifier.at(22, t + 8).size(SKETCH_W.dp, SKETCH_H.dp))
+    if (sketch != null) Sketch(sketch, Modifier.at(22, t + SKETCH_TOP).size(SKETCH_W.dp, SKETCH_H.dp))
 
     // À gauche : le lieu en petites capitales, la température (« °C » plus petit, en haut), le ressenti.
-    val placeStyle = style(12f, 14f, color = PaperColors.Soft).smallCaps(0.06f)
+    val placeStyle = style(15f, 18f, color = PaperColors.Soft).smallCaps(0.06f)
     Text(
         meteo.place.lowercase(Locale.FRENCH),
         style = placeStyle,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.at(22, top(t + 15, 12f, 14f)).widthIn(max = 180.dp),
+        modifier = Modifier.at(22, top(t + 17, 15f, 18f)).widthIn(max = 200.dp),
     )
-    val tempTop = top(t + 65, 46f)
-    Row(Modifier.at(21, tempTop)) {
-        Text(degrees(meteo.temperature), style = style(46f), softWrap = false)
-        // « °C » : 17 unités, sa ligne de base 19 au-dessus de celle de la température.
+    val tempTop = top(t + 80, 64f)
+    Row(Modifier.at(20, tempTop)) {
+        Text(degrees(meteo.temperature), style = style(64f), softWrap = false)
+        // « °C » : 23 unités, sa ligne de base 26 au-dessus de celle de la température.
         Text(
             "°C",
-            style = style(17f),
+            style = style(23f),
             softWrap = false,
-            modifier = Modifier.padding(start = 2.dp, top = (top(t + 46, 17f) - tempTop).dp),
+            modifier = Modifier.padding(start = 3.dp, top = (top(t + 54, 23f) - tempTop).dp),
         )
     }
     Text(
         "ressenti ${degrees(meteo.feelsLike)}\u00A0°C",
-        style = style(12.5f, 16f, Face.ITALIC),
+        style = style(16f, 20f, Face.ITALIC),
         softWrap = false,
-        modifier = Modifier.at(22, top(t + 78, 12.5f, 16f, Face.ITALIC)),
+        modifier = Modifier.at(22, top(t + 102, 16f, 20f, Face.ITALIC)),
     )
 
     // À droite : le ciel en gras (sur deux lignes s'il est long, pour laisser le milieu au dessin),
     // puis les extrêmes du jour en orange et en bleu.
-    val skyStyle = style(15f, 20f, Face.BOLD).copy(textAlign = TextAlign.End, lineBreak = LineBreak.Heading)
+    val skyStyle = style(19f, 24f, Face.BOLD).copy(textAlign = TextAlign.End, lineBreak = LineBreak.Heading)
     val skyLines = lineCount(AnnotatedString(meteo.sky), skyStyle, SKY_WIDTH)
-    RightText(meteo.sky, skyStyle, top(t + 18, 15f, 20f, Face.BOLD), Modifier.widthIn(max = SKY_WIDTH.dp))
-    val extremes = t + 41 + 20f * (skyLines - 1)
-    RightText("max ${degrees(meteo.todayMax)}\u00A0°C", style(13.5f, 19f, color = Maxi), top(extremes, 13.5f, 19f))
-    RightText("min ${degrees(meteo.todayMin)}\u00A0°C", style(13.5f, 19f, color = Mini), top(extremes + 19, 13.5f, 19f))
+    RightText(meteo.sky, skyStyle, top(t + 21, 19f, 24f, Face.BOLD), Modifier.widthIn(max = SKY_WIDTH.dp))
+    val extremes = t + 50 + 24f * (skyLines - 1)
+    RightText("max ${degrees(meteo.todayMax)}\u00A0°C", style(17f, 23f, color = Maxi), top(extremes, 17f, 23f))
+    RightText("min ${degrees(meteo.todayMin)}\u00A0°C", style(17f, 23f, color = Mini), top(extremes + 23, 17f, 23f))
 
     val end: Float
     if (sketch != null) {
@@ -251,23 +263,24 @@ private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpe
             append(" – ${meteo.place} ${moment(hour)}, dessiné par l'appli Météo.")
         }
         val captionStyle = Paper.caption.copy(lineBreak = LineBreak.Heading)
-        Text(caption, style = captionStyle, modifier = Modifier.at(22, top(t + 223, 12.5f, 16f)).width(368.dp))
-        end = t + 211 + 16f * lineCount(caption, captionStyle, 368f)
+        val below = t + SKETCH_TOP + SKETCH_H
+        Text(caption, style = captionStyle, modifier = Modifier.at(22, top(below + 16, 12.5f, 16f)).width(368.dp))
+        end = below + 4 + 16f * lineCount(caption, captionStyle, 368f)
     } else {
-        end = maxOf(t + 82, extremes + 19 + 5)
+        end = maxOf(t + 107, extremes + 23 + 6)
     }
 
     TapZone(
         "Ouvrir Météo, ${meteo.place} : ${spoken(meteo.temperature)} degrés, ${meteo.sky.lowercase(Locale.FRENCH)} ; " +
             "aujourd'hui ${spoken(meteo.todayMax)} au plus, ${spoken(meteo.todayMin)} au moins",
-        Modifier.at(22, t).size(368.dp, (if (sketch != null) 8f + SKETCH_H else end - t).dp),
+        Modifier.at(22, t).size(368.dp, (if (sketch != null) SKETCH_TOP + SKETCH_H else end - t).dp),
         onOpen,
     )
     return end
 }
 
 /** Largeur au plus du ciel, à droite : le milieu reste au dessin. */
-private const val SKY_WIDTH = 128f
+private const val SKY_WIDTH = 150f
 
 /**
  * Le coloriage : composé par Météo pour 411 × 287 dp, posé sur la largeur du texte et coupé en haut
@@ -474,38 +487,45 @@ private fun Score(text: String?, modifier: Modifier, alignment: Alignment) {
 @Composable
 private fun ExerciseSection(e0: Float, exercise: Exercise, yesterday: Exercise, onUnlock: () -> Unit) {
     // Titre et numéro, sur la même ligne de base.
-    Text("Exercice du jour", style = style(15f, face = Face.BOLD), modifier = Modifier.at(22, top(e0 + 15, 15f, face = Face.BOLD)))
-    RightText("n° ${exercise.number} · niveau : ${exercise.level}", style(12f).smallCaps(0.06f), top(e0 + 15, 12f))
+    Text("Exercice du jour", style = style(18f, face = Face.BOLD), modifier = Modifier.at(22, top(e0 + 17, 18f, face = Face.BOLD)))
+    RightText("n° ${exercise.number} · niveau : ${exercise.level}", style(13f).smallCaps(0.06f), top(e0 + 17, 13f))
 
+    // Énoncé, formule, puis l'avis : chacun sous le précédent, selon le nombre de lignes de l'énoncé.
+    val statement = fine(exercise.statement)
+    val statementStyle = style(18f, 25f).copy(textIndent = TextIndent(firstLine = 1.2.em), lineBreak = LineBreak.Simple)
     Text(
-        fine(exercise.statement),
-        style = style(14.5f, 20f).copy(textIndent = TextIndent(firstLine = 1.2.em), lineBreak = LineBreak.Simple),
-        modifier = Modifier.at(22, top(e0 + 45, 14.5f, 20f)).width(368.dp),
+        statement,
+        style = statementStyle,
+        modifier = Modifier.at(22, top(e0 + 50, 18f, 25f)).width(368.dp),
     )
+    var last = e0 + 50 + 25f * (lineCount(statement, statementStyle, 368f) - 1)
     if (exercise.formula.isNotEmpty()) {
-        // Formule centrée dans une bande de 48 sous l'énoncé (interligne « normal »).
+        last += 56
         PaperText(
             segs(exercise.formula, supRatio = 0.62f, nowrap = false),
-            style = style(24f, 24f * NORMAL).copy(textAlign = TextAlign.Center),
+            style = style(32f, 32f * NORMAL).copy(textAlign = TextAlign.Center),
             softWrap = false,
             inlineContent = Inline,
-            modifier = Modifier.at(22, top(e0 + 117.5f, 24f, 24f * NORMAL)).width(368.dp),
+            modifier = Modifier.at(22, top(last, 32f, 32f * NORMAL)).width(368.dp),
         )
     }
+    last += 42
     Text(
         "La solution sera donnée demain.",
-        style = style(12.5f, 16f, Face.ITALIC, PaperColors.Soft).copy(textAlign = TextAlign.Center),
-        modifier = Modifier.at(22, top(e0 + 162, 12.5f, 16f, Face.ITALIC)).width(368.dp),
+        style = style(14.5f, 18f, Face.ITALIC, PaperColors.Soft).copy(textAlign = TextAlign.Center),
+        modifier = Modifier.at(22, top(last, 14.5f, 18f, Face.ITALIC)).width(368.dp),
     )
 
-    HRule(22, e0 + 194, 368, 0.6f)
-    Text("Solution d'hier", style = style(13.5f, face = Face.BOLD), modifier = Modifier.at(22, top(e0 + 224, 13.5f, face = Face.BOLD)))
-    RightText("n° ${yesterday.number}", style(12f).smallCaps(0.06f), top(e0 + 224, 12f))
+    val rule = last + 26
+    HRule(22, rule, 368, 0.6f)
+    Text("Solution d'hier", style = style(16f, face = Face.BOLD), modifier = Modifier.at(22, top(rule + 30, 16f, face = Face.BOLD)))
+    RightText("n° ${yesterday.number}", style(13f).smallCaps(0.06f), top(rule + 30, 13f))
 
     // L'énoncé d'hier en italique, sa formule à la suite (insécable) ; puis l'explication et la réponse.
     // Sous le texte, le bas de la page : un appui déverrouille.
-    val body = style(13.5f, 19f).copy(lineBreak = LineBreak.Simple)
-    Column(Modifier.at(0, e0 + 234).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - e0 - 234).dp)) {
+    val body = style(14.5f, 20f).copy(lineBreak = LineBreak.Simple)
+    val solution = rule + 40
+    Column(Modifier.at(0, solution).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - solution).dp)) {
         PaperText(
             buildAnnotatedString {
                 withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { appendFine(yesterday.statement) }

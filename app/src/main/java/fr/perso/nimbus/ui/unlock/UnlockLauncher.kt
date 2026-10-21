@@ -8,13 +8,15 @@ import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import fr.perso.nimbus.data.Prefs
 
 /**
  * Pose la page de déverrouillage à l'extinction de l'écran, depuis le service « Gestes » : un service
  * d'accessibilité lié par le système peut démarrer une activité depuis l'arrière-plan. La page n'est
  * posée que si le réglage est actif, si le téléphone a un verrouillage (code, schéma, mot de passe),
- * s'il est bien verrouillé, et si rien ne doit rester devant : appel, sonnerie ou alarme.
+ * s'il est bien verrouillé, et si rien ne doit rester devant : appel, sonnerie ou alarme. Si l'écran se
+ * rallume avant (verrouillage un peu en retard), la page est posée au réveil, par-dessus l'écran verrouillé.
  */
 object UnlockLauncher {
     private val handler = Handler(Looper.getMainLooper())
@@ -25,6 +27,19 @@ object UnlockLauncher {
      */
     private val TRIES = longArrayOf(0, 300, 1_000, 3_000, 6_000, 16_000, 31_000, 61_000)
 
+    /**
+     * Écran rallumé moins de [CAMERA_GESTURE] ms après l'extinction : double appui sur Marche/Arrêt,
+     * l'appareil photo arrive (300 ms au plus entre les appuis sur Android) ; la page ne passe pas devant.
+     */
+    private const val CAMERA_GESTURE = 500L
+
+    /** Essais au réveil (ms) : l'état du verrouillage peut suivre l'allumage de quelques instants. */
+    private val LATE_TRIES = longArrayOf(0, 250)
+
+    /** Extinction vue, page pas encore posée. */
+    private var waiting = false
+    private var offAt = 0L
+
     private val BUSY_USAGES = setOf(
         AudioAttributes.USAGE_ALARM,
         AudioAttributes.USAGE_NOTIFICATION_RINGTONE,
@@ -32,28 +47,45 @@ object UnlockLauncher {
     )
 
     fun onScreenOff(context: Context) {
-        handler.removeCallbacksAndMessages(null)
+        cancel()
         if (!Prefs.get(context).settings.value.unlockPage) return
         val keyguard = context.getSystemService(KeyguardManager::class.java) ?: return
         if (!keyguard.isDeviceSecure) return
         UnlockFeed.get(context).prefetch()
-        attempt(context, 0)
+        waiting = true
+        offAt = SystemClock.elapsedRealtime()
+        attempt(context, 0, TRIES, interactive = false)
     }
 
-    /** Écran rallumé : trop tard pour poser la page sans qu'on la voie arriver. */
-    fun onScreenOn() {
+    /**
+     * Écran rallumé avant que la page soit posée (rallumé vite, le verrouillage n'était pas encore là) :
+     * si le téléphone est verrouillé, la page arrive par-dessus l'écran verrouillé.
+     */
+    fun onScreenOn(context: Context) {
+        val late = waiting && SystemClock.elapsedRealtime() - offAt >= CAMERA_GESTURE
+        cancel()
+        if (late) attempt(context, 0, LATE_TRIES, interactive = true)
+    }
+
+    /** Plus rien à poser (service arrêté, écran rallumé). */
+    fun cancel() {
         handler.removeCallbacksAndMessages(null)
+        waiting = false
     }
 
-    private fun attempt(context: Context, step: Int) {
+    /** Essai [step] de [tries], écran éteint ou, au réveil, allumé ([interactive]). */
+    private fun attempt(context: Context, step: Int, tries: LongArray, interactive: Boolean) {
         val power = context.getSystemService(PowerManager::class.java) ?: return
-        if (power.isInteractive || busy(context)) return
+        if (power.isInteractive != interactive || busy(context)) return
         val keyguard = context.getSystemService(KeyguardManager::class.java) ?: return
         if (keyguard.isKeyguardLocked) {
+            waiting = false
             launch(context)
             return
         }
-        if (step + 1 < TRIES.size) handler.postDelayed({ attempt(context, step + 1) }, TRIES[step + 1] - TRIES[step])
+        if (step + 1 < tries.size) {
+            handler.postDelayed({ attempt(context, step + 1, tries, interactive) }, tries[step + 1] - tries[step])
+        }
     }
 
     private fun launch(context: Context) {
