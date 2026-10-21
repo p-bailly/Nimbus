@@ -5,7 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
@@ -22,6 +24,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
@@ -30,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.CrayonLogos
 import fr.perso.nimbus.data.Glyph
 import fr.perso.nimbus.data.GlyphChoice
 import fr.perso.nimbus.data.GlyphChoices
@@ -138,12 +142,36 @@ fun rememberAppColor(app: AppEntry, fallback: GlyphChoice? = null): Color {
     }.value
 }
 
+/** Logo au crayon de [app] (voir [CrayonLogos]), ou null : l'app garde son motif. */
+@Composable
+fun rememberCrayonLogo(app: AppEntry?): Int? =
+    if (app == null) null else remember(app.packageName, app.label) { CrayonLogos.of(app) }
+
 /**
- * Silhouette de l'app teinte de [tint] dans un carré de [size], ou ses lettres en italique ; avec
- * [colored], dans les couleurs de l'icône quand le motif les a gardées (applis Google).
+ * Logo au crayon dans le carré d'un motif de [size] : un peu plus grand que le carré (son dessin n'en
+ * occupe que 89 %, et ses couleurs le rendent plus fin qu'une silhouette pleine), centré.
+ */
+@Composable
+fun CrayonLogo(@DrawableRes logo: Int, size: Dp, modifier: Modifier = Modifier) {
+    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+        Image(painterResource(logo), contentDescription = null, modifier = Modifier.requiredSize(size * CRAYON_LOGO_SCALE))
+    }
+}
+
+/** Taille d'un logo au crayon, rapportée au carré du motif qu'il remplace. */
+const val CRAYON_LOGO_SCALE = 1.2f
+
+/**
+ * Logo au crayon de l'app (voir [CrayonLogos]) ; sinon sa silhouette teinte de [tint] dans un carré de
+ * [size], ou ses lettres en italique ; avec [colored], dans les couleurs de l'icône quand le motif les a
+ * gardées (applis Google).
  */
 @Composable
 fun AppGlyph(app: AppEntry, size: Dp, tint: Color, modifier: Modifier = Modifier, colored: Boolean = false) {
+    rememberCrayonLogo(app)?.let { logo ->
+        CrayonLogo(logo, size, modifier)
+        return
+    }
     val density = LocalDensity.current
     val px = with(density) { size.roundToPx() }.coerceAtLeast(8)
     val glyph = rememberAppGlyph(app, px)

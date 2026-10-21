@@ -63,6 +63,7 @@ import fr.perso.nimbus.data.PaperSlot.TWITCH
 import fr.perso.nimbus.data.PaperSlot.WAZE
 import fr.perso.nimbus.data.PaperSlot.WHATSAPP
 import fr.perso.nimbus.data.PaperSlot.YOUTUBE
+import fr.perso.nimbus.ui.components.rememberCrayonLogo
 import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.MathBuilder
 import fr.perso.nimbus.ui.paper.Paper
@@ -204,6 +205,7 @@ private fun Figure() {
 private fun TriangleSlot(c: Cell) {
     val env = LocalPaper.current
     val app = env.app(c.slot)
+    val logo = rememberCrayonLogo(app)
     val badge = app?.let { env.badges[it.packageName] } ?: 0
     Box(
         Modifier
@@ -212,9 +214,9 @@ private fun TriangleSlot(c: Cell) {
             .slot(c.slot, TriangleShape),
     ) {
         val glyph = Modifier.offset((c.side / 2f - 8.5f).dp, (2f * c.height / 3f - 8.5f).dp)
-        if (app != null && env.ownColors) {
-            // Aux couleurs des applis : le triangle garde la couleur de la famille, le motif prend celle de
-            // l'appli sur un petit disque blanc.
+        if (app != null && (env.ownColors || logo != null)) {
+            // Aux couleurs des applis, ou avec un logo au crayon : le triangle garde la couleur de la
+            // famille, le motif prend celle de l'appli sur un petit disque blanc.
             Box(
                 Modifier
                     .offset((c.side / 2f - 12f).dp, (2f * c.height / 3f - 12f).dp)

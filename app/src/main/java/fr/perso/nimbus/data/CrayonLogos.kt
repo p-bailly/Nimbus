@@ -52,6 +52,8 @@ object CrayonLogos {
         "fr.perso.managingapps" to R.drawable.crayon_mesapplis,
         "com.android.settings" to R.drawable.crayon_parametres,
         "com.google.android.apps.nbu.files" to R.drawable.crayon_files,
+        "com.google.android.documentsui" to R.drawable.crayon_files,
+        "com.android.documentsui" to R.drawable.crayon_files,
         "app.revanced.manager.flutter" to R.drawable.crayon_revanced,
         "com.google.android.apps.authenticator2" to R.drawable.crayon_authenticator,
         "com.IndexEducation.Pronote" to R.drawable.crayon_pronote,
@@ -87,6 +89,7 @@ object CrayonLogos {
         "spotify" to R.drawable.crayon_spotify,
         "stremio" to R.drawable.crayon_stremio,
         "basket live" to R.drawable.crayon_basket,
+        "basket" to R.drawable.crayon_basket,
         "lichess" to R.drawable.crayon_lichess,
         "bg stats" to R.drawable.crayon_bgstats,
         "claude" to R.drawable.crayon_claude,
@@ -105,6 +108,7 @@ object CrayonLogos {
         "mes applis" to R.drawable.crayon_mesapplis,
         "parametres" to R.drawable.crayon_parametres,
         "files" to R.drawable.crayon_files,
+        "fichiers" to R.drawable.crayon_files,
         "revanced manager" to R.drawable.crayon_revanced,
         "authenticator" to R.drawable.crayon_authenticator,
         "parametres de microg" to R.drawable.crayon_microg,
@@ -112,6 +116,8 @@ object CrayonLogos {
         "pronote" to R.drawable.crayon_pronote,
         "prof maths" to R.drawable.crayon_profmaths,
         "prof de maths" to R.drawable.crayon_profmaths,
+        "πr" to R.drawable.crayon_profmaths,
+        "pir" to R.drawable.crayon_profmaths,
         "scan" to R.drawable.crayon_scan,
     )
 

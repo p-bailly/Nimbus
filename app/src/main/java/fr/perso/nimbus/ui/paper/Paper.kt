@@ -71,8 +71,10 @@ import fr.perso.nimbus.data.Glyph
 import fr.perso.nimbus.data.PaperFamily
 import fr.perso.nimbus.data.PaperSlot
 import fr.perso.nimbus.service.SystemActions
+import fr.perso.nimbus.ui.components.CrayonLogo
 import fr.perso.nimbus.ui.components.rememberAppColor
 import fr.perso.nimbus.ui.components.rememberAppGlyph
+import fr.perso.nimbus.ui.components.rememberCrayonLogo
 import fr.perso.nimbus.ui.theme.PaperColors
 import fr.perso.nimbus.ui.theme.PaperTextBase
 import kotlinx.coroutines.delay
@@ -346,14 +348,19 @@ fun Modifier.slot(slot: PaperSlot, shape: Shape = CircleShape, label: String? = 
 }
 
 /**
- * Motif monochrome de l'app d'une place, teint de [tint], dans un carré de [size] unités ; avec [own],
- * comme dans le sommaire : à la couleur propre de l'app, ou dans ses couleurs (applis Google).
+ * Logo au crayon de l'app d'une place (voir [CrayonLogo]) ; sinon son motif monochrome, teint de [tint],
+ * dans un carré de [size] unités ; avec [own], comme dans le sommaire : à la couleur propre de l'app, ou
+ * dans ses couleurs (applis Google).
  */
 @Composable
 fun SlotGlyph(slot: PaperSlot, size: Float, tint: Color, modifier: Modifier = Modifier, own: Boolean = false) {
     val env = LocalPaper.current
-    val px = with(LocalDensity.current) { size.dp.roundToPx() }.coerceAtLeast(8)
     val app = env.app(slot)
+    rememberCrayonLogo(app)?.let { logo ->
+        CrayonLogo(logo, size.dp, modifier)
+        return
+    }
+    val px = with(LocalDensity.current) { size.dp.roundToPx() }.coerceAtLeast(8)
     val glyph = rememberAppGlyph(app, px, fallback = slot.glyph, sync = env.syncGlyphs)
     val ink = if (own && app != null) rememberAppColor(app, fallback = slot.glyph) else tint
     Box(modifier.size(size.dp), contentAlignment = Alignment.Center) {
@@ -406,7 +413,9 @@ fun SlotDisc(
     val app = env.app(slot)
     val badge = app?.let { env.badges[it.packageName] } ?: 0
     // Motif du sommaire (couleur de l'appli, Google en couleur) : demandé, ou page aux couleurs des applis.
-    val own = ownColors || (env.ownColors && glyphColor == null)
+    // Un logo au crayon, en couleurs, se pose toujours sur un disque blanc cerclé de la famille.
+    val logo = rememberCrayonLogo(app)
+    val own = ownColors || (env.ownColors && glyphColor == null) || logo != null
     Box(
         Modifier
             .at(cx - size / 2f, cy - size / 2f)

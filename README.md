@@ -52,7 +52,10 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Voronoï : appui long sur une cellule puis glisser pour déplacer le site de son appli dans le
   carré Ω ; les cellules suivent le doigt, et les pastilles ne sortent pas du carré, ne se touchent
   pas et laissent le « Ω » libre. Appui long sur le fond › « Sites d'origine » pour tout remettre.
-- Les applis sont dessinées avec leur silhouette monochrome (calque des icônes à thème du Pixel,
+- Les 50 applis qui ont un logo au crayon (`design/logos-crayon/`, voir `CrayonLogos.kt`) le montrent
+  sur un disque blanc cerclé de leur famille, sur toutes les pages d'accueil papier, dans la figure de
+  la table des matières et dans les pastilles du tiroir ; il passe devant le motif choisi.
+- Les autres applis sont dessinées avec leur silhouette monochrome (calque des icônes à thème du Pixel,
   sinon premier plan de l'icône, sinon l'initiale), à la couleur propre de l'appli comme dans le
   sommaire, dans une pastille qui garde la couleur de sa famille (cercle, triangle de Sierpiński) ;
   réglable : Paramètres › Page d'accueil › « Couleurs des applis » (sinon motif blanc ou de la famille). La
