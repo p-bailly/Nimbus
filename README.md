@@ -88,11 +88,16 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Au réveil, par-dessus l'écran verrouillé : une page d'article sans en-tête (l'heure en grand, la
   date), puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
   ressenti, ciel, maximum en orange et minimum en bleu, en gras, et son coloriage en figure, agrandi,
-  ravivé, qui monte et se colore en 1,6 s à chaque réveil), les matchs en direct des équipes favorites
-  de l'appli Basket Live (trois au plus, mi-temps et fin de période comprises) puis leurs résultats
-  de la nuit (gagnante en gras, perdante en gris, « victoire » ou « défaite » de la favorite ; quatre
-  lignes en tout), l'exercice du jour (calcul de tête niveau lycée, huit familles à tour de rôle) et
-  la solution de celui de la veille, cachée sous un bandeau hachuré : la toucher la montre (cachée de
+  ravivé, qui monte et se colore en 1,6 s à chaque réveil), les messages reçus (WhatsApp, Discord,
+  Messages, Claude, Signal, Telegram, Gmail…) dans des bandeaux coloriés au crayon à la couleur de
+  leur appli, avec son logo (trois au plus, les plus récents ; il faut l'accès aux notifications ;
+  toucher un bandeau déverrouille et ouvre le message), puis, dans un bandeau colorié orange avec le
+  logo de Basket Live, les matchs en direct des équipes favorites (trois au plus, mi-temps et fin de
+  période comprises) et leurs résultats de la nuit (gagnante en gras, perdante en gris, « victoire »
+  ou « défaite » de la favorite surlignée au crayon ; quatre lignes en tout ; un résultat disparaît
+  12 h après la fin du match), l'énigme du jour (à faire de tête : escargot dans le puits, poules et
+  lapins, suites logiques, aiguilles de l'horloge…, douze familles à tour de rôle) et la solution de
+  celle de la veille, cachée sous un bandeau hachuré : la toucher la montre (cachée de
   nouveau au réveil suivant). Une section sans données (appli absente, rien en direct) disparaît.
 - Glisser vers le haut, toucher le bas de la page ou Retour : le système demande l'empreinte, le
   visage ou le code, puis la page s'efface. Toucher la météo ouvre Météo, toucher les matchs ouvre

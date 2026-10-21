@@ -1,113 +1,191 @@
 package fr.perso.nimbus.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.math.BigInteger
 import java.time.LocalDate
 
 /**
- * Exercice du jour : la réponse annoncée est recalculée par une autre voie (force brute), pour chaque
- * famille et 400 jours de chacune ; les nombres sont relus dans le texte affiché.
+ * Exercice du jour : la réponse annoncée est retrouvée par une autre voie (simulation, force brute),
+ * pour chaque famille et 300 jours de chacune ; les nombres sont relus dans le texte affiché.
  */
 class DailyExerciseTest {
 
     private val start = LocalDate.of(2026, 1, 1)
 
-    /** 3 200 jours consécutifs : 400 par famille, sur près de neuf ans. */
-    private val days = (0L until 3200L).map { DailyExercise.of(start.plusDays(it)) }
+    /** 3 600 jours consécutifs : 300 par famille, sur près de dix ans. */
+    private val days = (0L until 3600L).map { DailyExercise.of(start.plusDays(it)) }
 
-    private fun answer(e: Exercise): Long = e.answer.removeSuffix("\u00A0%").replace("\u202F", "").toLong()
+    /** Premier nombre de la réponse : « 12 jours » → 12. */
+    private fun answer(e: Exercise): Int = int("""^(\d+)""", e.answer)
 
     private fun int(regex: String, text: String): Int =
         Regex(regex).find(text)?.groupValues?.get(1)?.toInt() ?: error("« $regex » absent de « $text »")
 
-    private fun family(f: Int): List<Exercise> = days.filter { it.family == f }.also { assertEquals(400, it.size) }
+    private fun family(f: Int): List<Exercise> =
+        days.filter { it.family == f }.also { assertEquals(3600 / DailyExercise.FAMILIES, it.size) }
 
     @Test
-    fun powersOfTwo() = family(0).forEach { e ->
-        val n = e.formula.single().sup.toInt()
-        var sum = 0L
-        var term = 1L
-        repeat(n + 1) {
-            sum += term
-            term *= 2
+    fun snail() = family(0).forEach { e ->
+        val height = int("""puits de (\d+) m""", e.statement)
+        var at = 0
+        var day = 0
+        while (true) {
+            day++
+            at += 3
+            if (at >= height) break
+            at -= 2
         }
-        assertEquals(e.toString(), sum, answer(e))
+        assertEquals(e.toString(), day, answer(e))
     }
 
     @Test
-    fun arithmeticSum() = family(1).forEach { e ->
-        val terms = Regex("""\d+""").findAll(e.formula.single().text).map { it.value.toInt() }.toList()
-        val (a, b, c, last) = terms
-        val r = b - a
-        assertEquals(r, c - b)
-        assertEquals(0, (last - a) % r)
-        var sum = 0L
-        for (x in a..last step r) sum += x
-        assertEquals(e.toString(), sum, answer(e))
+    fun farm() = family(1).forEach { e ->
+        val heads = int("""(\d+) têtes""", e.statement)
+        val legs = int("""(\d+) pattes""", e.statement)
+        val solutions = (0..heads).filter { rabbits -> 4 * rabbits + 2 * (heads - rabbits) == legs }
+        assertEquals(e.toString(), listOf(answer(e)), solutions)
+        assertTrue(answer(e) in 1 until heads)
     }
 
     @Test
-    fun committees() = family(2).forEach { e ->
-        val n = int("""parmi (\d+) élèves""", e.statement)
-        var trios = 0L
-        for (i in 0 until n) for (j in i + 1 until n) for (k in j + 1 until n) trios++
-        assertEquals(e.toString(), trios, answer(e))
-        assertTrue(e.formula.isEmpty())
+    fun waterLily() = family(2).forEach { e ->
+        val days = int("""en (\d+) jours""", e.statement)
+        // Surface en 2⁻⁶⁰ de l'étang : couvert le jour [days].
+        val half = (1..days).first { d -> 1L shl (60 - (days - d)) >= 1L shl 59 }
+        assertEquals(e.toString(), half, answer(e))
     }
 
     @Test
-    fun sumOfSquares() = family(3).forEach { e ->
-        assertTrue(e.formula.all { it.sup == "2" })
-        val n = int("""(\d+)$""", e.formula.last().text)
-        var sum = 0L
-        for (k in 1..n) sum += k.toLong() * k
-        assertEquals(e.toString(), sum, answer(e))
+    fun handshakes() = family(3).forEach { e ->
+        val n = int("""(\d+) amis""", e.statement)
+        var pairs = 0
+        for (i in 0 until n) for (j in i + 1 until n) pairs++
+        assertEquals(e.toString(), pairs, answer(e))
     }
 
     @Test
-    fun digitsOfPowerOfTwo() = family(4).forEach { e ->
-        val seg = e.formula.single()
-        assertEquals("2", seg.text)
-        val digits = BigInteger.TWO.pow(seg.sup.toInt()).toString().length
-        assertEquals(e.toString(), digits.toLong(), answer(e))
+    fun socks() = family(4).forEach { e ->
+        val red = int("""(\d+) chaussettes rouges""", e.statement)
+        val blue = int("""et (\d+) bleues""", e.statement)
+        // Le plus petit tirage dont le pire cas (le plus de bleues possible) donne deux rouges.
+        val k = (1..red + blue).first { k -> k - minOf(k, blue) >= 2 }
+        assertEquals(e.toString(), k, answer(e))
     }
 
     @Test
-    fun unitsDigit() = family(5).forEach { e ->
-        val seg = e.formula.single()
-        val base = seg.text.toInt()
-        val exponent = seg.sup.toInt()
-        assertEquals(e.date.year, exponent)
-        val digit = BigInteger.valueOf(base.toLong()).modPow(BigInteger.valueOf(exponent.toLong()), BigInteger.TEN).toLong()
-        assertEquals(e.toString(), digit, answer(e))
-    }
-
-    @Test
-    fun geometricSeries() = family(6).forEach { e ->
-        val q = int("""1/(\d+)""", e.formula.first().text)
-        val (num, den) = e.answer.split("/").map { it.toLong() }
-        var sum = 0.0
-        var term = 1.0
-        repeat(80) {
-            sum += term
-            term /= q
+    fun racket() = family(5).forEach { e ->
+        fun cents(text: String) = Regex("""(\d+)(?:,(\d\d))? €""").find(text)!!.groupValues.let {
+            it[1].toInt() * 100 + (it[2].ifEmpty { "0" }).toInt()
         }
-        assertEquals(e.toString(), num.toDouble() / den, sum, 1e-12)
-        assertEquals(1L, BigInteger.valueOf(num).gcd(BigInteger.valueOf(den)).toLong())
+        val total = cents(e.statement.substringAfter("coûtent "))
+        val gap = cents(e.statement.substringAfter("coûte "))
+        val ball = (0..total).single { b -> b + (b + gap) == total }
+        assertEquals(e.toString(), ball, cents(e.answer))
     }
 
     @Test
-    fun percentUpThenDown() = family(7).forEach { e ->
-        val p = int("""de (\d+)\u00A0%, puis""", e.statement)
-        assertTrue(e.statement.contains("baisse de $p\u00A0%"))
-        // Prix de 10 000 centimes : +p %, puis −p %.
-        val up = 10_000L * (100 + p) / 100
-        val down = up * (100 - p) / 100
-        assertEquals(0L, (10_000L - down) % 100)
-        assertEquals(e.toString(), (10_000L - down) / 100, answer(e))
-        assertTrue("« ${e.answer} »", e.answer.endsWith("\u00A0%"))
+    fun ages() = family(6).forEach { e ->
+        val times = if ("trois fois" in e.statement) 3 else 4
+        val later = if ("le double" in e.statement) 2 else 3
+        assertEquals(times - 1, later)
+        val years = int("""Dans (\d+) ans""", e.statement)
+        val brother = (1..100).single { x -> times * x + years == later * (x + years) }
+        assertEquals(e.toString(), brother, answer(e))
+    }
+
+    @Test
+    fun sequences() {
+        val kinds = mutableSetOf<String>()
+        family(7).forEach { e ->
+            val terms = e.formula.single().text.removeSuffix(", ?").split(", ").map { it.toLong() }
+            assertEquals(5, terms.size)
+            val next = e.answer.toLong()
+            // L'une des règles connaît les cinq termes et donne la réponse.
+            val rules = mapOf<String, (List<Long>) -> Long?>(
+                "somme" to { t -> if ((2 until t.size).all { t[it] == t[it - 1] + t[it - 2] }) t[t.size - 1] + t[t.size - 2] else null },
+                "double" to { t -> if ((1 until t.size).all { t[it] == 2 * t[it - 1] }) 2 * t.last() else null },
+                "écarts" to { t ->
+                    val d = (1 until t.size).map { t[it] - t[it - 1] }
+                    if ((1 until d.size).all { d[it] - d[it - 1] == d[1] - d[0] }) t.last() + d.last() + (d[1] - d[0]) else null
+                },
+                "alterné" to { t ->
+                    val d = (1 until t.size).map { t[it] - t[it - 1] }
+                    if ((2 until d.size).all { d[it] == d[it - 2] } && d[0] != d[1]) t.last() + d[d.size - 2] else null
+                },
+                "lecture" to { t -> if ((1 until t.size).all { t[it] == lookAndSay(t[it - 1]) }) lookAndSay(t.last()) else null },
+            )
+            val fits = rules.filter { (_, rule) -> rule(terms) == next }.keys
+            assertTrue("$terms → $next", fits.isNotEmpty())
+            kinds += fits
+            // De tête : de petits nombres (sauf la suite qu'on lit à voix haute).
+            if ("lecture" !in fits) assertTrue("$terms → $next", next <= 100)
+        }
+        assertEquals(setOf("somme", "double", "écarts", "alterné", "lecture"), kinds)
+    }
+
+    private fun lookAndSay(n: Long): Long {
+        val s = n.toString()
+        val out = StringBuilder()
+        var i = 0
+        while (i < s.length) {
+            var j = i
+            while (j < s.length && s[j] == s[i]) j++
+            out.append(j - i).append(s[i])
+            i = j
+        }
+        return out.toString().toLong()
+    }
+
+    @Test
+    fun clock() = family(8).forEach { e ->
+        val hour = int("""à (\d+) h""", e.statement)
+        val minutes = if ("h 30" in e.statement) 30 else 0
+        // En demi-degrés : la petite aiguille avance d'un demi-degré par minute, la grande de 6°.
+        val small = (hour * 60 + minutes) % 720
+        val big = minutes * 12
+        val gap = Math.abs(small - big)
+        val angle = minOf(gap, 720 - gap) / 2
+        assertEquals(e.toString(), angle, answer(e))
+        assertTrue(e.answer.endsWith("°"))
+    }
+
+    @Test
+    fun machines() = family(9).forEach { e ->
+        val n = int("""Si (\d+) machines""", e.statement)
+        val m = int("""faut-il à (\d+) machines""", e.statement)
+        // Une machine fait n objets / (n machines × n minutes) par minute.
+        val minutes = m.toDouble() / (m * (n.toDouble() / (n * n)))
+        assertEquals(e.toString(), minutes, answer(e).toDouble(), 1e-9)
+    }
+
+    @Test
+    fun race() {
+        val ordinals = listOf("premier", "deuxième", "troisième", "quatrième", "cinquième", "sixième")
+        family(10).forEach { e ->
+            val passed = ordinals.indexOfFirst { "tu doubles le $it." in e.statement } + 1
+            assertTrue(e.statement, passed >= 2)
+            // Les coureurs dans l'ordre ; « moi » juste derrière lui, puis devant lui.
+            val runners = (1..8).map { "c$it" }.toMutableList()
+            runners.add(passed, "moi")
+            runners.remove("moi")
+            runners.add(passed - 1, "moi")
+            assertEquals(e.toString(), ordinals[runners.indexOf("moi")], e.answer)
+        }
+    }
+
+    @Test
+    fun logs() = family(11).forEach { e ->
+        val minutes = int("""Il faut (\d+) minutes""", e.statement)
+        val pieces = int("""la scier en (\d+) morceaux""", e.statement)
+        var count = 1
+        var time = 0
+        while (count < pieces) {
+            count++
+            time += minutes
+        }
+        assertEquals(e.toString(), time, answer(e))
     }
 
     @Test
@@ -116,14 +194,23 @@ class DailyExerciseTest {
         assertEquals(366L, DailyExercise.dayIndex(LocalDate.of(2027, 1, 1)))
         for (e in days) {
             assertEquals(e.date.dayOfYear, e.number)
-            assertEquals(Math.floorMod(DailyExercise.dayIndex(e.date), 8L).toInt(), e.family)
-            assertEquals("lycée", e.level)
+            assertEquals(Math.floorMod(DailyExercise.dayIndex(e.date), DailyExercise.FAMILIES.toLong()).toInt(), e.family)
+            assertTrue(e.level, e.level == "facile" || e.level == "malin")
             // L'explication est une phrase : majuscule (sauf variable en tête) et point final.
             val first = e.explanation.first()
             assertTrue(first.italic || first.text.first().isUpperCase())
             assertTrue(e.explanation.last().text.endsWith("."))
+            // Plus aucune puissance ni grand calcul : pas d'exposant, et pas de nombre de plus de 4 chiffres
+            // hors de la suite qu'on lit à voix haute.
+            assertTrue(e.toString(), (e.formula + e.explanation).all { it.sup.isEmpty() })
+            if (e.answer != "312211") {
+                val numbers = Regex("""\d+""").findAll(e.statement + e.formula.joinToString { it.text } + e.answer)
+                assertTrue(e.toString(), numbers.all { it.value.length <= 4 })
+            }
+            // Un énoncé court : il tient en trois lignes de la page, et il est repris le lendemain.
+            assertTrue(e.statement, e.statement.length <= 150)
         }
-        // Le 1er janvier : la solution est celle du 31 décembre, n° 365, avec son année.
+        // Le 1er janvier : la solution est celle du 31 décembre, n° 365.
         val jan1 = DailyExercise.of(LocalDate.of(2027, 1, 1).minusDays(1))
         assertEquals(365, jan1.number)
         assertEquals(LocalDate.of(2026, 12, 31), jan1.date)
@@ -132,23 +219,14 @@ class DailyExerciseTest {
 
     @Test
     fun mockupDay() {
-        // 20 octobre 2026, n° 293, 7²⁰²⁶ ; solution d'hier n° 292, le nombre de chiffres d'une puissance de 2.
+        // 20 octobre 2026, n° 293 : le jour 293 est de la famille 5 (raquette et balle).
         val today = DailyExercise.of(LocalDate.of(2026, 10, 20))
         assertEquals(293, today.number)
-        assertEquals("lycée", today.level)
-        assertEquals(listOf(Seg("7", "2026")), today.formula)
-        assertEquals("9", today.answer)
-        val yesterday = DailyExercise.of(LocalDate.of(2026, 10, 19))
-        assertEquals(292, yesterday.number)
-        assertEquals("Combien de chiffres a ce nombre\u202F?", yesterday.statement)
-        assertEquals(listOf(Seg("2", "132")), yesterday.formula)
-        assertEquals(Seg(" = 132 × log 2 ≈ 39,74 : le nombre est entre 10", "39"), yesterday.explanation[1])
-        assertEquals("40", yesterday.answer)
-        // Pourcentages (n° 295) : « 9 % », et 1 − 0,3² = 0,91.
-        val percent = DailyExercise.of(LocalDate.of(2026, 10, 22))
-        assertEquals("9\u00A0%", percent.answer)
-        assertEquals(" = 0,91.", percent.explanation.last().text)
-        // Milliers : 1 048 575 avec une espace fine insécable.
-        assertEquals("1\u202F048\u202F575", DailyExercise.of(LocalDate.of(2026, 10, 23)).answer)
+        assertEquals(5, today.family)
+        assertFalse(today.statement.isEmpty())
+        // Euros à la française.
+        assertEquals("0,05 €", DailyExercise.euros(5))
+        assertEquals("1,10 €", DailyExercise.euros(110))
+        assertEquals("10 €", DailyExercise.euros(1000))
     }
 }

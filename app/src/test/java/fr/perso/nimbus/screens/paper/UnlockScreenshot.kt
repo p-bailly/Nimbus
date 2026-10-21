@@ -7,6 +7,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import fr.perso.nimbus.data.Game
 import fr.perso.nimbus.data.GameTeam
 import fr.perso.nimbus.data.LiveLine
+import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoNow
 import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.PaperEnv
@@ -100,6 +101,28 @@ class UnlockScreenshot {
     /** Solution d'hier montrée (bandeau touché), sous un match en direct. */
     @Test
     fun solutionShown() = shoot("h8_solution", UnlockState(meteo, sketch, listOf(spurs)), solutionShown = true)
+
+    /**
+     * Messages reçus : WhatsApp, Discord, Claude et Messages (le quatrième ne tient plus : « et 1 autre
+     * notification »), au-dessus du match en direct.
+     */
+    @Test
+    fun messages() {
+        val at = java.time.ZonedDateTime.of(2026, 10, 20, 20, 30, 0, 0, java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        fun note(pkg: String, title: String, text: String, minutesAgo: Int) =
+            MessageApps.Candidate("0|$pkg|$minutesAgo", pkg, title, text, at - minutesAgo * 60_000L, clearable = true)
+        val notes = MessageApps.notes(
+            listOf(
+                note("com.whatsapp", "Maman", "Tu viens dîner dimanche ? On fait une raclette avec les cousins", 2),
+                note("com.discord", "#basket · Julien", "Wemby vient de mettre son 5e contre 😱", 9),
+                note("com.anthropic.claude", "Claude", "Ta session « Nimbus » est terminée : les modifications sont poussées.", 25),
+                note("com.google.android.apps.messaging", "06 12 34 56 78", "Votre colis arrive demain entre 9 h et 13 h.", 70),
+                // Pas une appli de messages : jamais sur la page.
+                note("com.android.vending", "Mises à jour", "3 applis mises à jour", 1),
+            ),
+        )
+        shoot("h8_messages", UnlockState(meteo, sketch, listOf(spurs), notes = notes))
+    }
 
     /** Aucun match en direct : la section « Basket » disparaît, l'exercice remonte. */
     @Test

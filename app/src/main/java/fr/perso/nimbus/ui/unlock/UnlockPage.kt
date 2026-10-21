@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -48,9 +49,11 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -78,14 +81,18 @@ import androidx.compose.ui.unit.em
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
+import fr.perso.nimbus.R
 import fr.perso.nimbus.data.BasketShare
+import fr.perso.nimbus.data.CrayonLogos
 import fr.perso.nimbus.data.DailyExercise
 import fr.perso.nimbus.data.Exercise
 import fr.perso.nimbus.data.GameTeam
 import fr.perso.nimbus.data.LiveLine
 import fr.perso.nimbus.data.MeteoNow
+import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoShare
 import fr.perso.nimbus.data.Seg
+import fr.perso.nimbus.data.UnlockNote
 import fr.perso.nimbus.ui.paper.HRule
 import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.PAPER_HEIGHT
@@ -97,14 +104,20 @@ import fr.perso.nimbus.ui.paper.PaperText
 import fr.perso.nimbus.ui.paper.at
 import fr.perso.nimbus.ui.paper.rememberPaperTime
 import fr.perso.nimbus.ui.theme.PaperColors
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 // Page de déverrouillage (maquette H8a, sans en-tête et en plus gros) : sous l'heure, la météo comme l'écran Aujourd'hui de l'appli
-// Météo (et son coloriage, agrandi et ravivé), les matchs en direct et les résultats de la nuit des équipes
-// favorites de Basket Live, puis l'exercice du jour et la solution de celui d'hier, cachée sous un bandeau.
-// Une section sans données disparaît, la suite remonte.
+// Météo (et son coloriage, agrandi et ravivé), les messages reçus (WhatsApp, Discord, Messages, Claude…) dans
+// des bandeaux coloriés à la couleur de leur appli, les matchs en direct et les résultats de la nuit des
+// équipes favorites de Basket Live dans un bandeau colorié orange, puis l'énigme du jour et la solution de
+// celle d'hier, cachée sous un bandeau. Une section sans données disparaît, la suite remonte.
 //
 // Chaque texte est posé par sa ligne de base, relevée dans la maquette (Chrome arrondit ascendante et
 // descendante au pixel, et pose la ligne de base en conséquence) : haut = base − interligne / 2 − k × taille,
@@ -119,6 +132,8 @@ data class UnlockState(
     val lines: List<LiveLine> = emptyList(),
     /** Résultats de la nuit des équipes favorites (matchs terminés), sous le direct. */
     val results: List<LiveLine> = emptyList(),
+    /** Notifications des applis de messages, les plus récentes d'abord. */
+    val notes: List<UnlockNote> = emptyList(),
 )
 
 /** Couleurs de Météo (extrêmes du jour) et de Basket Live (direct, victoire, défaite). */
@@ -185,6 +200,9 @@ private const val SKETCH_TOP = 24f
 private const val RULE_GAP = 14f
 private const val AFTER_RULE = 16f
 
+/** Sous un bandeau colorié (messages, Basket) : pas de filet, 16 unités jusqu'à la section suivante. */
+private const val AFTER_BANNER = 16f
+
 /** Lignes des matchs : 27 unités l'une sous l'autre. */
 private const val ROW_PITCH = 27f
 
@@ -194,6 +212,8 @@ fun UnlockPage(
     onMeteo: () -> Unit,
     onBasket: () -> Unit,
     onUnlock: () -> Unit,
+    /** Ouvrir une notification (après le déverrouillage). */
+    onNote: (UnlockNote) -> Unit = {},
     /** Solution d'hier montrée d'emblée (captures). */
     solutionShown: Boolean = false,
 ) {
@@ -232,10 +252,11 @@ fun UnlockPage(
             HRule(22, end + RULE_GAP, 368, 0.6f)
             y = end + RULE_GAP + AFTER_RULE
         }
+        if (state.notes.isNotEmpty()) {
+            y = NotesSection(y, state.notes, today, onNote) + AFTER_BANNER
+        }
         if (state.lines.isNotEmpty() || state.results.isNotEmpty()) {
-            val end = BasketSection(y, state.lines + state.results, onBasket)
-            HRule(22, end + RULE_GAP, 368, 0.6f)
-            y = end + RULE_GAP + AFTER_RULE
+            y = BasketSection(y, state.lines + state.results, onBasket) + AFTER_BANNER
         }
         ExerciseSection(y, exercise, yesterday, solutionShown, onUnlock)
     }
@@ -407,27 +428,45 @@ private fun spoken(t: Double): String = "${t.roundToInt()}"
 
 // ---------------------------------------------------------------- Basket
 
-/** Les matchs en direct, puis les résultats de la nuit (matchs terminés) ; rend le bas de la section. */
+/**
+ * Les matchs en direct, puis les résultats de la nuit (matchs terminés), dans un bandeau colorié orange
+ * comme un ballon, le logo au crayon de Basket Live devant le titre ; rend le bas du bandeau.
+ */
 @Composable
 private fun BasketSection(y0: Float, lines: List<LiveLine>, onOpen: () -> Unit): Float {
-    val b = y0 + 17
-    Text("Basket", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(b, TITLE, face = Face.BOLD)))
+    val y = y0 + BANNER_PAD
+    val b = y + 17
+    val end = y + 45 + ROW_PITCH * (lines.size - 1) + 7 + BANNER_PAD
+    Box(Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp).crayonBanner(BasketOrange, seed = 7))
+    Image(
+        painterResource(R.drawable.crayon_basket),
+        contentDescription = null,
+        modifier = Modifier.at(24, b - 21).size(28.dp),
+    )
+    Text("Basket", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(56, top(b, TITLE, face = Face.BOLD)))
     if (lines.any { it.game.live }) RightText("en direct", style(LABEL, color = Live).smallCaps(0.06f), top(b, LABEL))
 
     val rows = rememberRows(lines)
-    rows.forEachIndexed { i, row -> GameRow(y0 + 45 + ROW_PITCH * i, row) }
-    val end = y0 + 45 + ROW_PITCH * (lines.size - 1) + 7
+    rows.forEachIndexed { i, row -> GameRow(y + 45 + ROW_PITCH * i, row) }
     TapZone(
         "Ouvrir Basket Live : " + lines.joinToString(" ; ") { l ->
             val winner = BasketShare.winner(l.game)?.let { ", victoire des ${it.name}" }.orEmpty()
             "${l.game.away.name} ${l.game.away.score ?: 0}, ${l.game.home.name} ${l.game.home.score ?: 0}, " +
                 BasketShare.spokenStatus(l.game) + winner
         },
-        Modifier.at(22, y0).size(368.dp, (end - y0 + 4).dp),
+        Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp),
         onOpen,
     )
     return end
 }
+
+/** Bandeaux coloriés : de 12 à 400, un peu plus larges que le texte (22 à 390) ; marge intérieure en haut et en bas. */
+private const val BANNER_X = 12f
+private const val BANNER_W = 388f
+private const val BANNER_PAD = 9f
+
+/** Orange d'un ballon de basket. */
+private val BasketOrange = Color(0xFFE0702A)
 
 /** Une équipe d'une ligne : nom affiché (le sigle si le nom ne tient pas), face et couleur. */
 private class TeamLook(val name: String, val face: Face, val color: Color)
@@ -546,7 +585,9 @@ private fun GameRow(baseline: Float, row: GameLine) {
                         .background(Live, CircleShape),
                 )
             }
-            PaperText(row.status, style = style(STATUS, face = row.statusFace, color = row.statusColor), softWrap = false)
+            // Victoire ou défaite : un coup de crayon de sa couleur, comme surligné.
+            val mark = if (game.finished && row.statusFace == Face.BOLD) Modifier.crayonMark(row.statusColor, game.id.hashCode()) else Modifier
+            PaperText(row.status, style = style(STATUS, face = row.statusFace, color = row.statusColor), softWrap = false, modifier = mark)
         }
     }
 }
@@ -579,6 +620,116 @@ private fun Score(text: String?, look: TeamLook, baseline: Float, x: Float, widt
     }
 }
 
+// ---------------------------------------------------------------- Messages
+
+/** Bandeau d'une notification : [NOTE_H] de haut, [NOTE_GAP] entre deux. */
+private const val NOTE_H = 54f
+private const val NOTE_GAP = 8f
+
+/** Pastille du logo, à gauche du bandeau. */
+private const val NOTE_DISC = 36f
+
+/**
+ * Les messages reçus, un bandeau colorié par notification à la couleur de son appli (au plus
+ * [MessageApps.MAX_NOTES], les plus récents), puis « et 2 autres » s'il y en a plus ; rend le bas.
+ */
+@Composable
+private fun NotesSection(y0: Float, notes: List<UnlockNote>, today: LocalDate, onOpen: (UnlockNote) -> Unit): Float {
+    val shown = notes.take(MessageApps.MAX_NOTES)
+    shown.forEachIndexed { i, note -> NoteBanner(y0 + (NOTE_H + NOTE_GAP) * i, note, today, onOpen) }
+    var end = y0 + (NOTE_H + NOTE_GAP) * shown.size - NOTE_GAP
+    val more = notes.size - shown.size
+    if (more > 0) {
+        Text(
+            "et $more autre${if (more > 1) "s" else ""} notification${if (more > 1) "s" else ""}",
+            style = style(14.5f, 18f, Face.ITALIC, PaperColors.Soft).copy(textAlign = TextAlign.End),
+            modifier = Modifier.at(22, top(end + 19, 14.5f, 18f, Face.ITALIC)).width(368.dp),
+        )
+        end += 24
+    }
+    return end
+}
+
+/**
+ * Une notification : le logo au crayon de l'appli dans une pastille blanche cerclée de sa couleur (son
+ * initiale s'il n'y a pas de logo), le titre en gras, l'appli en petites capitales et l'heure à droite,
+ * puis le texte sur une ligne. Appui : déverrouiller et l'ouvrir.
+ */
+@Composable
+private fun NoteBanner(y: Float, note: UnlockNote, today: LocalDate, onOpen: (UnlockNote) -> Unit) {
+    val color = Color(note.app.color)
+    val ink = inkOf(color)
+    Box(
+        Modifier
+            .at(BANNER_X, y)
+            .size(BANNER_W.dp, NOTE_H.dp)
+            .crayonBanner(color, seed = note.key.hashCode())
+            .semantics {
+                contentDescription = "Ouvrir ${note.app.name} : ${note.title}, ${note.text}"
+                role = Role.Button
+            }
+            .clickable(remember { MutableInteractionSource() }, indication = null) { onOpen(note) },
+    )
+    val discTop = y + (NOTE_H - NOTE_DISC) / 2
+    Box(
+        Modifier
+            .at(20, discTop)
+            .size(NOTE_DISC.dp)
+            .background(PaperColors.Paper, CircleShape)
+            .drawBehind {
+                drawCircle(color.copy(alpha = 0.8f), radius = size.minDimension / 2 - 0.8.dp.toPx(), style = Stroke(1.6.dp.toPx()))
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        val logo = CrayonLogos.ofPackage(note.packageName)
+        if (logo != null) {
+            Image(painterResource(logo), contentDescription = null, modifier = Modifier.size((NOTE_DISC * 0.78f).dp))
+        } else {
+            Text(note.app.name.take(1), style = style(18f, face = Face.BOLD, color = ink), softWrap = false)
+        }
+    }
+
+    // Première ligne : titre (ou l'appli s'il n'y en a pas) à gauche, appli et heure à droite.
+    val left = 64f
+    val first = y + 22
+    val second = y + 43
+    val meta = buildAnnotatedString {
+        withStyle(SpanStyle(color = ink, fontFeatureSettings = "smcp", letterSpacing = 0.06.em)) { append(note.app.name.lowercase(Locale.FRENCH)) }
+        withStyle(SpanStyle(color = PaperColors.Soft)) { append(" · ${noteTime(note.time, today)}") }
+    }
+    val metaStyle = style(13f)
+    val metaWidth = textWidth(meta, metaStyle)
+    Box(Modifier.at(22, top(first, 13f)).width(368.dp)) {
+        Text(meta, style = metaStyle, softWrap = false, modifier = Modifier.align(Alignment.TopEnd))
+    }
+    Text(
+        note.title.ifEmpty { note.app.name },
+        style = style(16.5f, face = Face.BOLD),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.at(left, top(first, 16.5f, face = Face.BOLD)).width((390f - left - metaWidth - 8f).coerceAtLeast(40f).dp),
+    )
+    if (note.text.isNotEmpty()) {
+        Text(
+            note.text.replace('\n', ' '),
+            style = style(15.5f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.at(left, top(second, 15.5f)).width((390f - left).dp),
+        )
+    }
+}
+
+/** Heure d'une notification : « 16:32 » aujourd'hui, « hier », sinon « 12 oct. ». */
+private fun noteTime(ms: Long, today: LocalDate): String {
+    val at = LocalDateTime.ofInstant(Instant.ofEpochMilli(ms), ZoneId.systemDefault())
+    return when (at.toLocalDate()) {
+        today -> at.format(DateTimeFormatter.ofPattern("HH:mm", Locale.FRANCE))
+        today.minusDays(1) -> "hier"
+        else -> at.format(DateTimeFormatter.ofPattern("d MMM", Locale.FRANCE))
+    }
+}
+
 // ---------------------------------------------------------------- Exercice
 
 @Composable
@@ -587,7 +738,7 @@ private fun ExerciseSection(e0: Float, exercise: Exercise, yesterday: Exercise, 
     Text("Exercice du jour", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(e0 + 18, TITLE, face = Face.BOLD)))
     RightText("n° ${exercise.number} · niveau : ${exercise.level}", style(LABEL).smallCaps(0.06f), top(e0 + 18, LABEL))
 
-    // Énoncé, formule, puis l'avis : chacun sous le précédent, selon le nombre de lignes de l'énoncé.
+    // Énoncé, puis la suite s'il y en a une : sous l'énoncé, selon son nombre de lignes.
     val statement = fine(exercise.statement)
     val statementStyle = style(BODY, 26f).copy(textIndent = TextIndent(firstLine = 1.2.em), lineBreak = LineBreak.Simple)
     Text(
@@ -597,23 +748,18 @@ private fun ExerciseSection(e0: Float, exercise: Exercise, yesterday: Exercise, 
     )
     var last = e0 + 52 + 26f * (lineCount(statement, statementStyle, 368f) - 1)
     if (exercise.formula.isNotEmpty()) {
-        last += 54
+        // La suite de l'énigme, centrée, assez petite pour tenir sur la ligne.
+        last += 44
         PaperText(
             segs(exercise.formula, supRatio = 0.62f, nowrap = false),
-            style = style(34f, 34f * NORMAL).copy(textAlign = TextAlign.Center),
+            style = style(FORMULA, FORMULA * NORMAL).copy(textAlign = TextAlign.Center),
             softWrap = false,
             inlineContent = Inline,
-            modifier = Modifier.at(22, top(last, 34f, 34f * NORMAL)).width(368.dp),
+            modifier = Modifier.at(22, top(last, FORMULA, FORMULA * NORMAL)).width(368.dp),
         )
     }
-    last += 40
-    Text(
-        "La solution sera donnée demain.",
-        style = style(15.5f, 19f, Face.ITALIC, PaperColors.Soft).copy(textAlign = TextAlign.Center),
-        modifier = Modifier.at(22, top(last, 15.5f, 19f, Face.ITALIC)).width(368.dp),
-    )
 
-    val rule = last + 26
+    val rule = last + 22
     HRule(22, rule, 368, 0.6f)
     Text("Solution d'hier", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(rule + 30, TITLE, face = Face.BOLD)))
     RightText("n° ${yesterday.number}", style(LABEL).smallCaps(0.06f), top(rule + 30, LABEL))
@@ -629,7 +775,8 @@ private fun ExerciseSection(e0: Float, exercise: Exercise, yesterday: Exercise, 
 
     val body = style(BODY, 25f).copy(lineBreak = LineBreak.Simple)
     val solution = rule + 42
-    Column(Modifier.at(0, solution).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - solution).dp)) {
+    // Page très remplie (messages, matchs) : la solution passe sous le bas de l'écran, sans place pour l'appui.
+    Column(Modifier.at(0, solution).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - solution).coerceAtLeast(0f).dp)) {
         PaperText(
             buildAnnotatedString {
                 withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { appendFine(yesterday.statement) }
@@ -662,6 +809,9 @@ private fun ExerciseSection(e0: Float, exercise: Exercise, yesterday: Exercise, 
         TapZone("Déverrouiller", Modifier.fillMaxWidth().weight(1f), onUnlock)
     }
 }
+
+/** Taille de la suite d'une énigme, sous l'énoncé. */
+private const val FORMULA = 26f
 
 /** Hauteur du bandeau qui cache la solution d'hier. */
 private const val BANNER = 42f
@@ -782,6 +932,16 @@ private val Inline: Map<String, InlineTextContent> = mapOf(
 private fun RightText(text: String, style: TextStyle, top: Float, modifier: Modifier = Modifier) {
     Box(Modifier.at(22, top).width(368.dp)) {
         Text(text, style = style, modifier = modifier.align(Alignment.TopEnd))
+    }
+}
+
+/** Largeur de [text] sur une ligne, en unités. */
+@Composable
+private fun textWidth(text: AnnotatedString, style: TextStyle): Float {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    return remember(text, style, density) {
+        with(density) { measurer.measure(text, style, softWrap = false).size.width.toDp().value }
     }
 }
 
