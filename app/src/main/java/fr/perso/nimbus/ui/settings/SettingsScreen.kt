@@ -12,6 +12,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,8 +45,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.R
@@ -75,12 +82,26 @@ import fr.perso.nimbus.ui.components.ChoiceDialog
 import fr.perso.nimbus.ui.components.PinDialog
 import fr.perso.nimbus.ui.components.PinMode
 import fr.perso.nimbus.ui.components.ClaudeSessionDialog
+import fr.perso.nimbus.ui.components.AppGlyphDisc
+import fr.perso.nimbus.ui.theme.LocalPaperUi
+import fr.perso.nimbus.ui.theme.PaperChevron
+import fr.perso.nimbus.ui.theme.PaperColors
+import fr.perso.nimbus.ui.theme.PaperDialog
+import fr.perso.nimbus.ui.theme.PaperListRow
+import fr.perso.nimbus.ui.theme.PaperParagraph
+import fr.perso.nimbus.ui.theme.PaperRule
+import fr.perso.nimbus.ui.theme.PaperStyle
+import fr.perso.nimbus.ui.theme.PaperTextButton
+import fr.perso.nimbus.ui.theme.inkClickable
+import fr.perso.nimbus.ui.theme.runIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Date
+import java.util.Locale
 
 /** Dialogues ouverts depuis les réglages. */
 private sealed interface SettingsDialog {
@@ -142,6 +163,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
     val back: () -> Unit = vm::closeScreen
 
     BackHandler { vm.closeScreen() }
+    val paper = LocalPaperUi.current
 
     AnimatedContent(
         targetState = section,
@@ -155,10 +177,10 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
         label = "settings",
     ) { page ->
         when (page) {
-            SettingsSection.MAIN -> SettingsPage("Paramètres", onBack = null) {
-                mainPage(settings, status, context, host, open)
+            SettingsSection.MAIN -> SettingsPage("Paramètres", onBack = null, folio = folio(page)) {
+                mainPage(settings, status, context, host, open, paper)
             }
-            SettingsSection.APPEARANCE -> SettingsPage("Apparence globale", onBack = back) {
+            SettingsSection.APPEARANCE -> SettingsPage("Apparence globale", onBack = back, folio = folio(page)) {
                 item(key = "preview") {
                     AppearancePreview(apps, settings, wallpaperColor) { dialog = SettingsDialog.Theme }
                 }
@@ -202,7 +224,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     }
                 }
             }
-            SettingsSection.GESTURES -> SettingsPage("Gestes et raccourcis", onBack = back) {
+            SettingsSection.GESTURES -> SettingsPage("Gestes et raccourcis", onBack = back, folio = folio(page)) {
                 for (gesture in Gesture.entries) {
                     item(key = "gesture:${gesture.name}") {
                         val action = settings.actionFor(gesture)
@@ -224,7 +246,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     ) { SystemActions.openAccessibilitySettings(context) }
                 }
             }
-            SettingsSection.BACKUP -> SettingsPage("Sauvegarde", onBack = back) {
+            SettingsSection.BACKUP -> SettingsPage("Sauvegarde", onBack = back, folio = folio(page)) {
                 item {
                     SettingsEntry(
                         R.drawable.ms_upload_file, SettingsColors.Cyan, "Exporter la configuration",
@@ -258,7 +280,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     }
                 }
             }
-            SettingsSection.HOME -> SettingsPage("Page d'accueil", onBack = back) {
+            SettingsSection.HOME -> SettingsPage("Page d'accueil", onBack = back, folio = folio(page)) {
                 item {
                     SettingsEntry(R.drawable.ms_style, SettingsColors.Blue, "Style de l'accueil", settings.homeStyle.label, chevron = true) {
                         dialog = SettingsDialog.HomeStyleChoice
@@ -274,6 +296,10 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                             slot.title,
                             app?.label ?: "Aucune appli : toucher pour choisir",
                             chevron = true,
+                            // Papier : la pastille de la place, cerclée de la couleur de sa famille.
+                            paperLeading = {
+                                AppGlyphDisc(app, 30.dp, color = Color(slot.family.argb), ring = 1.1.dp, placeholder = slot.title.take(1))
+                            },
                         ) { vm.showPaperSlotPicker(slot) }
                     }
                     settingsSection("Grille d'icônes")
@@ -316,16 +342,29 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                 settingsSection("Widgets")
                 if (apps.homeWidgets.isEmpty()) {
                     item(key = "widgets:none") {
-                        Text(
-                            "Aucun widget. Appui long sur le fond de l'accueil › Ajouter un widget.",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                        )
+                        if (paper) {
+                            PaperParagraph("Aucun widget. Appui long sur le fond de l'accueil › Ajouter un widget.")
+                        } else {
+                            Text(
+                                "Aucun widget. Appui long sur le fond de l'accueil › Ajouter un widget.",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                            )
+                        }
                     }
                 }
                 items(apps.homeWidgets, key = { "widget:${it.id}" }) { widget ->
                     val label = remember(widget.id) { vm.widgetLabel(widget.id) }
+                    if (paper) {
+                        PaperListRow(
+                            title = label,
+                            subtitle = "Page ${widget.page + 1} · ${widget.spanX} × ${widget.spanY} cases",
+                            onClick = null,
+                            trailing = { PaperTextButton("Supprimer", onClick = { vm.removeHomeWidget(widget.id) }, color = PaperColors.Error) },
+                        )
+                        return@items
+                    }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
@@ -353,7 +392,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     }
                 }
             }
-            SettingsSection.DRAWER -> SettingsPage("Page des applications", onBack = back) {
+            SettingsSection.DRAWER -> SettingsPage("Page des applications", onBack = back, folio = folio(page)) {
                 item {
                     SettingsEntry(R.drawable.ms_dark_mode, SettingsColors.Blue, "Mode nuit", settings.drawerTheme.label, chevron = true) {
                         dialog = SettingsDialog.DrawerThemeChoice
@@ -387,7 +426,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     ) { update { it.copy(autoCategories = !it.autoCategories) } }
                 }
             }
-            SettingsSection.SEARCH -> SettingsPage("Page de recherche", onBack = back) {
+            SettingsSection.SEARCH -> SettingsPage("Page de recherche", onBack = back, folio = folio(page)) {
                 item {
                     SettingsEntry(R.drawable.ms_public, SettingsColors.Blue, "Moteur de recherche web", settings.webSearchEngine.label, chevron = true) {
                         dialog = SettingsDialog.Engine
@@ -405,7 +444,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     }
                 }
                 if (settings.searchContacts && !status.contactsPermission) {
-                    item { SettingsBanner(R.drawable.ms_contacts, "Autoriser l'accès aux contacts", host::requestContactsPermission) }
+                    item { SettingsBanner(R.drawable.ms_contacts, "Autoriser l'accès aux contacts", onClick = host::requestContactsPermission) }
                 }
                 item {
                     SettingsEntry(
@@ -419,7 +458,8 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     }
                 }
                 if (settings.searchFiles && !status.filesPermission) {
-                    item { SettingsBanner(R.drawable.ms_file_open, "Autoriser l'accès aux fichiers", host::requestFilesPermission) }
+                    val mark = if (settings.searchContacts && !status.contactsPermission) 2 else 1
+                    item { SettingsBanner(R.drawable.ms_file_open, "Autoriser l'accès aux fichiers", mark = mark, onClick = host::requestFilesPermission) }
                 }
                 item {
                     SettingsEntry(
@@ -429,16 +469,21 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     ) { update { it.copy(searchPlayStore = !it.searchPlayStore) } }
                 }
             }
-            SettingsSection.DICTATION -> SettingsPage("Dictée pour Claude", onBack = back) {
+            SettingsSection.DICTATION -> SettingsPage("Dictée pour Claude", onBack = back, folio = folio(page)) {
                 item {
-                    Text(
-                        "Parlez depuis n'importe quelle appli : Nimbus transcrit, ouvre la conversation Claude " +
-                            "(par exemple une session Claude Code), y écrit le texte et l'envoie. Avec le service activé, " +
-                            "la dictée s'ouvre dans un panneau flottant : vous pouvez changer d'appli pendant que vous parlez.",
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                    )
+                    val intro = "Parlez depuis n'importe quelle appli : Nimbus transcrit, ouvre la conversation Claude " +
+                        "(par exemple une session Claude Code), y écrit le texte et l'envoie. Avec le service activé, " +
+                        "la dictée s'ouvre dans un panneau flottant : vous pouvez changer d'appli pendant que vous parlez."
+                    if (paper) {
+                        PaperParagraph(intro)
+                    } else {
+                        Text(
+                            intro,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                        )
+                    }
                 }
                 if (!status.dictationService) {
                     item {
@@ -453,12 +498,19 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     ) { ClaudeDictation.start(context) }
                 }
                 item {
-                    Text(
-                        "Conversations — la destination se choisit dans le panneau de dictée (actuelle : ${settings.claudeTargetName})",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 4.dp),
-                    )
+                    if (paper) {
+                        PaperParagraph(
+                            runIn("Conversations.", "La destination se choisit dans le panneau de dictée (actuelle : ${settings.claudeTargetName})."),
+                            Modifier.padding(top = 10.dp),
+                        )
+                    } else {
+                        Text(
+                            "Conversations — la destination se choisit dans le panneau de dictée (actuelle : ${settings.claudeTargetName})",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 4.dp),
+                        )
+                    }
                 }
                 settings.claudeSessions.forEachIndexed { index, session ->
                     item(key = "claude-session:$index") {
@@ -514,15 +566,22 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     ) { update { it.copy(dictationReturn = !it.dictationReturn) } }
                 }
                 item {
-                    Text(
-                        "Astuce : un geste de l'accueil peut aussi lancer la dictée (Gestes › « Dictée pour Claude »).",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                    )
+                    if (paper) {
+                        PaperParagraph(
+                            runIn("Astuce.", "Un geste de l'accueil peut aussi lancer la dictée (Gestes › « Dictée pour Claude »)."),
+                            Modifier.padding(top = 10.dp),
+                        )
+                    } else {
+                        Text(
+                            "Astuce : un geste de l'accueil peut aussi lancer la dictée (Gestes › « Dictée pour Claude »).",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        )
+                    }
                 }
             }
-            SettingsSection.NOTIFICATIONS -> SettingsPage("Notifications", onBack = back) {
+            SettingsSection.NOTIFICATIONS -> SettingsPage("Notifications", onBack = back, folio = folio(page)) {
                 if (settings.badgesEnabled && !status.notificationAccess) {
                     item {
                         SettingsBanner(R.drawable.ms_app_badging, "Autoriser « Pastilles de notification Nimbus »") {
@@ -547,7 +606,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     }
                 }
             }
-            SettingsSection.PRIVACY -> SettingsPage("Sécurité et confidentialité", onBack = back) {
+            SettingsSection.PRIVACY -> SettingsPage("Sécurité et confidentialité", onBack = back, folio = folio(page)) {
                 item {
                     val count = apps.hidden.size
                     SettingsEntry(
@@ -593,7 +652,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                     }
                 }
             }
-            SettingsSection.ABOUT -> SettingsPage("À propos", onBack = back) {
+            SettingsSection.ABOUT -> SettingsPage("À propos", onBack = back, folio = folio(page)) {
                 item {
                     val version = remember {
                         try {
@@ -621,32 +680,19 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
     SettingsDialogs(dialog, { dialog = it }, settings, status, apps, iconPacks.orEmpty(), vm, host, context)
 }
 
-/** Contenu de la page principale. */
+/**
+ * Contenu de la page principale. [paper] : les bandeaux deviennent des notes de bas de page,
+ * placées après les entrées.
+ */
 private fun LazyListScope.mainPage(
     settings: LauncherSettings,
     status: SystemStatus,
     context: android.content.Context,
     host: LauncherHost,
     open: (SettingsSection) -> Unit,
+    paper: Boolean,
 ) {
-    if (!status.isDefaultLauncher) {
-        item { SettingsBanner(R.drawable.ms_home, "Définir Nimbus comme application d'accueil", host::requestDefaultLauncher) }
-    }
-    if (settings.badgesEnabled && !status.notificationAccess) {
-        item {
-            SettingsBanner(R.drawable.ms_app_badging, "Voir le nombre de notifications sur les icônes") {
-                SystemActions.openNotificationAccessSettings(context)
-            }
-        }
-    }
-    val needsService = Gesture.entries.any { settings.actionFor(it) in SERVICE_ACTIONS }
-    if (needsService && !status.gestureService) {
-        item {
-            SettingsBanner(R.drawable.ms_accessibility_new, "Activer les gestes système (verrouillage…)") {
-                SystemActions.openAccessibilitySettings(context)
-            }
-        }
-    }
+    if (!paper) mainBanners(settings, status, context, host)
     item { Spacer(Modifier.height(8.dp)) }
     item { SettingsEntry(R.drawable.ms_wallpaper, SettingsColors.Green, "Fond d'écran") { SystemActions.openWallpaperPicker(context) } }
     item { SettingsEntry(R.drawable.ms_palette, SettingsColors.Orange, "Apparence globale") { open(SettingsSection.APPEARANCE) } }
@@ -663,6 +709,53 @@ private fun LazyListScope.mainPage(
     item { SettingsEntry(R.drawable.ms_notifications, SettingsColors.Purple, "Notifications") { open(SettingsSection.NOTIFICATIONS) } }
     item { SettingsEntry(R.drawable.ms_shield_lock, SettingsColors.Teal, "Sécurité et confidentialité") { open(SettingsSection.PRIVACY) } }
     item { SettingsEntry(R.drawable.ms_info, SettingsColors.Gray, "À propos") { open(SettingsSection.ABOUT) } }
+    if (paper) {
+        item { Spacer(Modifier.height(20.dp)) }
+        mainBanners(settings, status, context, host)
+    }
+}
+
+/** Bandeaux de la page principale (notes de bas de page numérotées sous le thème papier). */
+private fun LazyListScope.mainBanners(
+    settings: LauncherSettings,
+    status: SystemStatus,
+    context: android.content.Context,
+    host: LauncherHost,
+) {
+    var mark = 0
+    if (!status.isDefaultLauncher) {
+        val n = ++mark
+        item { SettingsBanner(R.drawable.ms_home, "Définir Nimbus comme application d'accueil", mark = n, rule = n == 1, onClick = host::requestDefaultLauncher) }
+    }
+    if (settings.badgesEnabled && !status.notificationAccess) {
+        val n = ++mark
+        item {
+            SettingsBanner(R.drawable.ms_app_badging, "Voir le nombre de notifications sur les icônes", mark = n, rule = n == 1) {
+                SystemActions.openNotificationAccessSettings(context)
+            }
+        }
+    }
+    val needsService = Gesture.entries.any { settings.actionFor(it) in SERVICE_ACTIONS }
+    if (needsService && !status.gestureService) {
+        val n = ++mark
+        item {
+            SettingsBanner(R.drawable.ms_accessibility_new, "Activer les gestes système (verrouillage…)", mark = n, rule = n == 1) {
+                SystemActions.openAccessibilitySettings(context)
+            }
+        }
+    }
+}
+
+/** Folio d'une page des réglages, en chiffres romains comme les pages liminaires d'un livre. */
+private fun folio(section: SettingsSection): String = roman(section.ordinal + 1)
+
+/** Folio de la page des apps masquées, après celles des réglages. */
+internal val HIDDEN_APPS_FOLIO: String = roman(SettingsSection.entries.size + 1)
+
+private fun roman(n: Int): String {
+    val units = listOf("", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix")
+    val tens = listOf("", "x", "xx", "xxx")
+    return tens[(n / 10).coerceAtMost(3)] + units[n % 10]
 }
 
 /**
@@ -671,6 +764,10 @@ private fun LazyListScope.mainPage(
  */
 @Composable
 private fun AppearancePreview(apps: AppsState, settings: LauncherSettings, wallpaperColor: Int?, onThemeClick: () -> Unit) {
+    if (LocalPaperUi.current) {
+        PaperAppearancePreview(apps, settings, onThemeClick)
+        return
+    }
     val seed = wallpaperColor?.let { Color(it) } ?: MaterialTheme.colorScheme.primary
     val samples = remember(apps.favorites, apps.visible) { (apps.favorites + apps.visible).distinctBy { it.key }.take(4) }
     val time = remember { LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")) }
@@ -716,6 +813,71 @@ private fun AppearancePreview(apps: AppsState, settings: LauncherSettings, wallp
                     Text(settings.themeMode.label, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.inverseOnSurface)
                 }
                 Icon(painterResource(R.drawable.ms_expand_more), contentDescription = null, tint = MaterialTheme.colorScheme.inverseOnSurface)
+            }
+        }
+    }
+}
+
+/**
+ * Aperçu sous le thème papier : la page d'accueil en réduction, encadrée d'un filet comme une
+ * figure (titre courant, heure, date, pastilles des apps), sa légende, puis le choix du thème.
+ */
+@Composable
+internal fun PaperAppearancePreview(apps: AppsState, settings: LauncherSettings, onThemeClick: () -> Unit) {
+    val samples = remember(apps.favorites, apps.visible) { (apps.favorites + apps.visible).distinctBy { it.key }.take(5) }
+    val now = remember { LocalDateTime.now() }
+    val head = settings.homeStyle.label.substringAfter("· ")
+    SettingsCard {
+        Column(Modifier.fillMaxWidth()) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(0.6.dp, PaperColors.Rule, RoundedCornerShape(3.dp))
+                    .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 20.dp),
+            ) {
+                Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth().padding(bottom = 3.dp)) {
+                    Text(head, style = PaperStyle.smallCaps(9.5f, spacing = 0.08f))
+                    Spacer(Modifier.weight(1f))
+                    Text("1", style = PaperStyle.serif(9.5f, 12f))
+                }
+                PaperRule(thickness = 0.5.dp)
+                Text(
+                    now.format(DateTimeFormatter.ofPattern("HH:mm", Locale.FRANCE)),
+                    style = PaperStyle.serif(30f, 34f),
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+                Text(
+                    now.format(DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRANCE)),
+                    style = PaperStyle.smallCaps(10f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(top = 16.dp)) {
+                    for (app in samples) AppGlyphDisc(app, 34.dp, ring = 1.dp)
+                }
+            }
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure 1") }
+                    append(" – Aperçu de l'accueil.")
+                },
+                style = PaperStyle.caption.copy(textAlign = TextAlign.Center),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 6.dp),
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp)
+                    .inkClickable(onClick = onThemeClick)
+                    .padding(vertical = 8.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Thème du lanceur", style = PaperStyle.item)
+                    Text(settings.themeMode.label, style = PaperStyle.note)
+                }
+                PaperChevron()
             }
         }
     }
@@ -908,7 +1070,25 @@ private fun SettingsDialogs(
             },
             onDismiss = close,
         )
-        SettingsDialog.ConfirmImport -> AlertDialog(
+        SettingsDialog.ConfirmImport -> if (LocalPaperUi.current) {
+            PaperDialog(
+                onDismissRequest = close,
+                title = "Importer une configuration",
+                actions = {
+                    PaperTextButton("Annuler", onClick = close)
+                    PaperTextButton("Choisir le fichier", bold = true, onClick = {
+                        close()
+                        host.importBackup()
+                    })
+                },
+            ) {
+                Text(
+                    "L'import remplace l'accueil, le dock, les catégories, les apps masquées, les noms et les réglages " +
+                        "par ceux du fichier. Exporte d'abord ta configuration actuelle si tu veux pouvoir y revenir.",
+                    style = PaperStyle.body.copy(textAlign = TextAlign.Justify),
+                )
+            }
+        } else AlertDialog(
             onDismissRequest = close,
             title = { Text("Importer une configuration") },
             text = {

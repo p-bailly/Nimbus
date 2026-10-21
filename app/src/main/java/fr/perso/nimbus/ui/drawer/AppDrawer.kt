@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -112,6 +113,23 @@ import fr.perso.nimbus.ui.SearchResults
 import fr.perso.nimbus.ui.UiState
 import fr.perso.nimbus.ui.LocalHomeDrag
 import fr.perso.nimbus.ui.components.DrawerAppIcon
+import fr.perso.nimbus.ui.theme.LocalPaperUi
+import fr.perso.nimbus.ui.theme.PaperColors
+import fr.perso.nimbus.ui.theme.PaperMargin
+import fr.perso.nimbus.ui.theme.PaperRule
+import fr.perso.nimbus.ui.theme.PaperSheetHandle
+import fr.perso.nimbus.ui.theme.PaperStyle
+import fr.perso.nimbus.ui.theme.PaperTextButton
+import fr.perso.nimbus.ui.theme.PaperTextField
+import fr.perso.nimbus.ui.theme.inkClickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -196,8 +214,10 @@ fun AppDrawer(
     val homeDrag = LocalHomeDrag.current
     LaunchedEffect(Unit) { homeDrag.drawerHidden = false }
 
+    val paper = LocalPaperUi.current
     Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
+        // Papier : une page opaque, comme celles de l'accueil.
+        color = if (paper) PaperColors.Paper else MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
         contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier
             .fillMaxSize()
@@ -255,6 +275,10 @@ fun AppDrawer(
 
 @Composable
 private fun DragHandle() {
+    if (LocalPaperUi.current) {
+        PaperSheetHandle()
+        return
+    }
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -288,6 +312,25 @@ private fun SearchField(
             keyboard?.show()
             onFocusConsumed()
         }
+    }
+    if (LocalPaperUi.current) {
+        // Papier : « Rechercher : » et un champ souligné ; à droite, un lien en petites capitales.
+        PaperTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            label = "Rechercher",
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+            fieldModifier = Modifier.focusRequester(focusRequester),
+            trailing = {
+                if (query.isNotEmpty()) PaperTextButton("Effacer", onClick = { onQueryChange("") }, horizontalPadding = 0.dp, modifier = Modifier.padding(start = 14.dp))
+                else PaperTextButton("Paramètres", onClick = onOpenSettings, horizontalPadding = 0.dp, modifier = Modifier.padding(start = 14.dp))
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PaperMargin),
+        )
+        return
     }
     TextField(
         value = query,
@@ -339,7 +382,13 @@ private fun CategoryPager(
     val scope = rememberCoroutineScope()
 
     Column {
-        if (tabs.size > 1) {
+        if (tabs.size > 1 && LocalPaperUi.current) {
+            PaperTabs(
+                labels = tabs.map { it?.label ?: "Toutes" },
+                selected = pagerState.currentPage.coerceIn(0, tabs.lastIndex),
+                onSelect = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
+            )
+        } else if (tabs.size > 1) {
             ScrollableTabRow(
                 selectedTabIndex = pagerState.currentPage.coerceIn(0, tabs.lastIndex),
                 edgePadding = 12.dp,
@@ -370,6 +419,49 @@ private fun CategoryPager(
                 badges = badges,
                 vm = vm,
             )
+        }
+    }
+}
+
+/**
+ * Onglets papier : intitulés en petites capitales, l'onglet choisi à l'encre et souligné d'un
+ * filet, les autres en gris ; la rangée défile pour garder l'onglet choisi en vue.
+ */
+@Composable
+internal fun PaperTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    val rowState = rememberLazyListState()
+    LaunchedEffect(selected) { rowState.animateScrollToItem((selected - 1).coerceAtLeast(0)) }
+    LazyRow(
+        state = rowState,
+        contentPadding = PaddingValues(horizontal = PaperMargin),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp),
+    ) {
+        items(labels.size) { index ->
+            val active = index == selected
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .inkClickable(role = Role.Tab, onClick = { onSelect(index) })
+                    .semantics { this.selected = active }
+                    .padding(top = 10.dp, bottom = 6.dp)
+                    .width(IntrinsicSize.Max),
+            ) {
+                Text(
+                    labels[index],
+                    style = PaperStyle.smallCaps(14f, if (active) PaperColors.Ink else PaperColors.Soft, spacing = 0.05f),
+                    maxLines = 1,
+                )
+                Box(
+                    Modifier
+                        .padding(top = 5.dp)
+                        .fillMaxWidth()
+                        .height(0.8.dp)
+                        .background(if (active) PaperColors.Ink else Color.Transparent),
+                )
+            }
         }
     }
 }
@@ -415,7 +507,8 @@ private fun AppPage(
                 item(span = { GridItemSpan(maxLineSpan) }, key = "frequent-title") { SectionHeader("Fréquentes") }
                 appItems(frequent, settings, badges, vm, keyPrefix = "frequent:")
                 item(span = { GridItemSpan(maxLineSpan) }, key = "frequent-divider") {
-                    HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    if (LocalPaperUi.current) PaperRule(Modifier.padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 8.dp))
+                    else HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 }
             }
             appItems(list, settings, badges, vm)
@@ -457,6 +550,7 @@ private fun FastScroller(letters: List<Char>, onLetter: (Char) -> Unit) {
     val haptics = LocalHapticFeedback.current
     var active by remember { mutableStateOf<Char?>(null) }
     val select by rememberUpdatedState(onLetter)
+    val paper = LocalPaperUi.current
     Box(Modifier.fillMaxSize()) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -491,12 +585,36 @@ private fun FastScroller(letters: List<Char>, onLetter: (Char) -> Unit) {
                 },
         ) {
             for (letter in letters) {
-                Text(
-                    letter.toString(),
-                    fontSize = 11.sp,
-                    color = if (letter == active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (paper) {
+                    // Petites capitales : la lettre en minuscule, composée en « smcp ».
+                    Text(
+                        letter.lowercase(),
+                        style = PaperStyle.smallCaps(12.5f, if (letter == active) PaperColors.Ink else PaperColors.Soft, spacing = 0f, bold = letter == active),
+                    )
+                } else {
+                    Text(
+                        letter.toString(),
+                        fontSize = 11.sp,
+                        color = if (letter == active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
+        }
+        if (paper) {
+            active?.let { letter ->
+                // La lettre en grand, sur papier, dans un cadre d'encre.
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(76.dp)
+                        .background(PaperColors.Paper)
+                        .border(0.8.dp, PaperColors.Rule),
+                ) {
+                    Text(letter.toString(), style = PaperStyle.serif(40f, 44f, bold = true))
+                }
+            }
+            return@Box
         }
         active?.let { letter ->
             Box(
@@ -520,6 +638,24 @@ private fun PrivateSpaceHeader(
     onInstall: () -> Unit,
     onSettings: () -> Unit,
 ) {
+    if (LocalPaperUi.current) {
+        // Papier : un intertitre entre deux filets, les actions en liens.
+        Column(Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 6.dp)) {
+            PaperRule()
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+                Text("Espace privé", style = PaperStyle.section, modifier = Modifier.weight(1f))
+                if (!state.quiet) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                        PaperTextButton("Installer", onClick = onInstall, size = 13f, horizontalPadding = 6.dp)
+                    }
+                    PaperTextButton("Réglages", onClick = onSettings, size = 13f, horizontalPadding = 6.dp)
+                }
+                PaperTextButton(if (state.quiet) "Déverrouiller" else "Verrouiller", onClick = onToggleLock, size = 13f, bold = true, horizontalPadding = 6.dp)
+            }
+            PaperRule()
+        }
+        return
+    }
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -604,12 +740,14 @@ private fun SearchResultsGrid(
     val privateSpace = apps.privateSpace
     val showPrivateEntry = privateSpace != null && normalized.length >= 3 &&
         PRIVATE_SPACE_WORDS.any { it.startsWith(normalized) }
+    val paper = LocalPaperUi.current
     AppGrid(columns = settings.drawerColumns) {
         if (results.apps.isEmpty()) {
             item(span = fullSpan) {
                 Text(
                     "Aucune app ne correspond",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = if (paper) PaperStyle.note.copy(fontSize = PaperStyle.body.fontSize) else LocalTextStyle.current,
                     modifier = Modifier.padding(16.dp),
                 )
             }
@@ -665,7 +803,8 @@ private fun SearchResultsGrid(
 
         item(span = fullSpan) {
             Column {
-                HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                if (paper) PaperRule(Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
+                else HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 if (settings.searchPlayStore) {
                     ResultRow(
                         text = "Rechercher « ${query.trim()} » sur le Play Store",
@@ -685,6 +824,14 @@ private fun SearchResultsGrid(
 
 @Composable
 private fun SectionHeader(text: String) {
+    if (LocalPaperUi.current) {
+        Text(
+            text,
+            style = PaperStyle.smallCaps(13.5f, PaperColors.Soft, spacing = 0.08f),
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 16.dp, bottom = 4.dp),
+        )
+        return
+    }
     Text(
         text,
         style = MaterialTheme.typography.labelLarge,
@@ -695,6 +842,25 @@ private fun SectionHeader(text: String) {
 
 @Composable
 private fun ContactRow(contact: ContactResult, onClick: () -> Unit) {
+    if (LocalPaperUi.current) {
+        // Papier : l'initiale en italique dans un cercle d'encre.
+        ResultRow(
+            text = contact.name,
+            onClick = onClick,
+            paperLeading = true,
+            leading = {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .border(1.dp, PaperColors.Ink, CircleShape),
+                ) {
+                    Text(contact.name.firstOrNull()?.uppercase() ?: "?", style = PaperStyle.serif(16f, 18f, italic = true))
+                }
+            },
+        )
+        return
+    }
     ResultRow(
         text = contact.name,
         onClick = onClick,
@@ -729,8 +895,32 @@ private fun ResultRow(
     text: String,
     onClick: () -> Unit,
     subtitle: String? = null,
+    paperLeading: Boolean = false,
     leading: @Composable () -> Unit,
 ) {
+    if (LocalPaperUi.current) {
+        // Papier : du texte seul ; seuls les contacts gardent leur initiale cerclée ([paperLeading]).
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .inkClickable(onClick = onClick)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        ) {
+            if (paperLeading) {
+                Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) { leading() }
+                Spacer(Modifier.width(16.dp))
+            }
+            Column {
+                Text(text, style = PaperStyle.item, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (!subtitle.isNullOrEmpty()) {
+                    Text(subtitle, style = PaperStyle.note, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        return
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier

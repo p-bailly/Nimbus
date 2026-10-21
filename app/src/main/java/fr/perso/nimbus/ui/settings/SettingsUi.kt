@@ -38,10 +38,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.perso.nimbus.R
+import fr.perso.nimbus.ui.theme.LocalPaperUi
+import fr.perso.nimbus.ui.theme.PaperCheckbox
+import fr.perso.nimbus.ui.theme.PaperChevron
+import fr.perso.nimbus.ui.theme.PaperColors
+import fr.perso.nimbus.ui.theme.PaperFootnote
+import fr.perso.nimbus.ui.theme.PaperListRow
+import fr.perso.nimbus.ui.theme.PaperMargin
+import fr.perso.nimbus.ui.theme.PaperRule
+import fr.perso.nimbus.ui.theme.PaperRunningHead
+import fr.perso.nimbus.ui.theme.PaperSectionTitle
+import fr.perso.nimbus.ui.theme.PaperStyle
 
 /** Couleurs des icônes de réglages, comme les pastilles colorées de Smart Launcher. */
 object SettingsColors {
@@ -58,15 +72,40 @@ object SettingsColors {
 /**
  * Page de réglages : grand titre (avec le logo sur la page principale, une flèche retour
  * sur les sous-pages), puis le contenu. Les marges suivent les barres système.
+ * Thème papier : page d'article, titre courant « Nimbus » (ou « ← paramètres ») et [folio],
+ * titre en gras, sections numérotées.
  */
 @Composable
 fun SettingsPage(
     title: String,
     onBack: (() -> Unit)?,
+    folio: String = "",
     content: LazyListScope.() -> Unit,
 ) {
     val bars = WindowInsets.systemBars.asPaddingValues()
     val direction = LocalLayoutDirection.current
+    if (LocalPaperUi.current) {
+        Surface(color = PaperColors.Paper, contentColor = PaperColors.Ink, modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    start = bars.calculateStartPadding(direction),
+                    end = bars.calculateEndPadding(direction),
+                    top = bars.calculateTopPadding() + 4.dp,
+                    bottom = bars.calculateBottomPadding() + 40.dp,
+                ),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                item(key = "title") {
+                    Column(Modifier.padding(horizontal = PaperMargin)) {
+                        PaperRunningHead(if (onBack == null) "Nimbus" else "Paramètres", folio, onBack = onBack)
+                        Text(title, style = PaperStyle.title, modifier = Modifier.padding(top = 26.dp, bottom = 10.dp))
+                    }
+                }
+                SettingsListScope(this).content()
+            }
+        }
+        return
+    }
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             contentPadding = PaddingValues(
@@ -111,9 +150,25 @@ fun SettingsPage(
     }
 }
 
-/** Bandeau d'information cliquable (fond teinté, texte de la couleur principale, chevron). */
+/**
+ * Bandeau d'information cliquable (fond teinté, texte de la couleur principale, chevron).
+ * Thème papier : note de bas de page numérotée [mark], le texte en lien bleu ; [rule] : petit
+ * filet au-dessus (la première note d'une série).
+ */
 @Composable
-fun SettingsBanner(@DrawableRes icon: Int, text: String, onClick: () -> Unit) {
+fun SettingsBanner(@DrawableRes icon: Int, text: String, mark: Int = 1, rule: Boolean = true, onClick: () -> Unit) {
+    if (LocalPaperUi.current) {
+        PaperFootnote(
+            mark = "$mark",
+            text = text,
+            rule = rule,
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = PaperMargin, end = PaperMargin, top = if (rule) 14.dp else 0.dp),
+        )
+        return
+    }
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
@@ -131,9 +186,25 @@ fun SettingsBanner(@DrawableRes icon: Int, text: String, onClick: () -> Unit) {
     }
 }
 
-/** Titre de section en petites capitales espacées (« PAGES », « AUTRES »). */
+/** Portée de la liste d'une page de réglages : numérote les sections (thème papier). */
+private class SettingsListScope(base: LazyListScope) : LazyListScope by base {
+    var sections = 0
+}
+
+/**
+ * Titre de section en petites capitales espacées (« PAGES », « AUTRES »).
+ * Thème papier : filet fin, puis titre numéroté en gras (« 1  Pages »).
+ */
 fun LazyListScope.settingsSection(title: String) {
+    val number = (this as? SettingsListScope)?.let { ++it.sections }
     item(key = "section:$title") {
+        if (LocalPaperUi.current) {
+            Column(Modifier.padding(start = PaperMargin, end = PaperMargin, top = 14.dp, bottom = 2.dp)) {
+                PaperRule()
+                PaperSectionTitle(number?.toString(), title, Modifier.padding(top = 16.dp, bottom = 2.dp))
+            }
+            return@item
+        }
         Column {
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
@@ -150,7 +221,11 @@ fun LazyListScope.settingsSection(title: String) {
     }
 }
 
-/** Ligne de réglage : icône colorée, titre, sous-titre éventuel, et à droite un chevron ou un interrupteur. */
+/**
+ * Ligne de réglage : icône colorée, titre, sous-titre éventuel, et à droite un chevron ou un interrupteur.
+ * Thème papier : pas d'icône (sauf [paperLeading]), titre en romain, sous-titre en italique gris,
+ * chevron « › » ou case à cocher ☐ / ☒.
+ */
 @Composable
 fun SettingsEntry(
     @DrawableRes icon: Int,
@@ -160,8 +235,29 @@ fun SettingsEntry(
     enabled: Boolean = true,
     chevron: Boolean = false,
     checked: Boolean? = null,
+    paperLeading: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
+    if (LocalPaperUi.current) {
+        PaperListRow(
+            title = title,
+            subtitle = subtitle,
+            enabled = enabled,
+            onClick = onClick,
+            leading = paperLeading,
+            trailing = when {
+                checked != null -> {
+                    { PaperCheckbox(checked) }
+                }
+                chevron -> {
+                    { PaperChevron() }
+                }
+                else -> null
+            },
+            modifier = if (checked != null) Modifier.semantics { toggleableState = ToggleableState(checked) } else Modifier,
+        )
+        return
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -196,9 +292,17 @@ fun SettingsEntry(
     }
 }
 
-/** Carte arrondie qui regroupe un aperçu (page Apparence). */
+/** Carte arrondie qui regroupe un aperçu (page Apparence). Thème papier : simple bloc dans les marges. */
 @Composable
 fun SettingsCard(content: @Composable () -> Unit) {
+    if (LocalPaperUi.current) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PaperMargin, vertical = 8.dp),
+        ) { content() }
+        return
+    }
     Box(
         Modifier
             .fillMaxWidth()

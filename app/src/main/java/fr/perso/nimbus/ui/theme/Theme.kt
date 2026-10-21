@@ -9,6 +9,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +29,7 @@ fun isDarkTheme(mode: ThemeMode, systemDark: Boolean): Boolean = when (mode) {
 /**
  * [forceDark] : palette sombre quel que soit [mode] (tiroir en mode nuit) ;
  * [pureBlack] : fonds noirs, pour les écrans OLED.
+ * Le thème papier (palette claire) pose [LocalPaperUi] : les écrans prennent l'allure d'un article.
  */
 @Composable
 fun NimbusTheme(
@@ -38,7 +40,9 @@ fun NimbusTheme(
     content: @Composable () -> Unit,
 ) {
     if (mode == ThemeMode.PAPER && !forceDark) {
-        MaterialTheme(colorScheme = paperColorScheme(), typography = PaperTypography, shapes = PaperShapes, content = content)
+        CompositionLocalProvider(LocalPaperUi provides true) {
+            MaterialTheme(colorScheme = paperColorScheme(), typography = PaperTypography, shapes = PaperShapes, content = content)
+        }
         return
     }
     val context = LocalContext.current
@@ -54,8 +58,11 @@ fun NimbusTheme(
         else -> remember(dark) { seededColorScheme(DEFAULT_SEED, dark) }
     }.let { if (pureBlack && dark) remember(it) { it.blackened() } else it }
     if (mode == ThemeMode.PAPER) {
-        // Tiroir en mode nuit avec le thème papier : encre claire sur fond sombre, même police.
-        MaterialTheme(colorScheme = scheme, typography = PaperTypography, shapes = PaperShapes, content = content)
+        // Tiroir en mode nuit avec le thème papier : encre claire sur fond sombre, même police,
+        // mais l'allure Material (le style papier suppose le fond crème).
+        CompositionLocalProvider(LocalPaperUi provides false) {
+            MaterialTheme(colorScheme = scheme, typography = PaperTypography, shapes = PaperShapes, content = content)
+        }
     } else {
         MaterialTheme(colorScheme = scheme, content = content)
     }

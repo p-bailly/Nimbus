@@ -57,6 +57,8 @@ import androidx.compose.ui.unit.sp
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.ui.DragItem
 import fr.perso.nimbus.ui.LocalHomeDrag
+import fr.perso.nimbus.ui.theme.LocalPaperUi
+import fr.perso.nimbus.ui.theme.PaperStyle
 
 /** Ombre portée des textes posés directement sur le fond d'écran. */
 val WallpaperTextShadow = Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 2f), blurRadius = 8f)
@@ -206,6 +208,35 @@ fun Modifier.swipeUp(onSwipeUp: () -> Unit): Modifier = composed {
     }
 }
 
+/**
+ * Icône sous le thème papier (tiroir) : pastille cerclée d'encre avec la silhouette de l'app, nom
+ * en CMU Serif ; une notification n'est qu'un point d'encre. App en pause : à demi effacée.
+ */
+@Composable
+internal fun PaperIconContent(app: AppEntry, iconSizeDp: Int, showLabel: Boolean, dot: Boolean) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        AppGlyphDisc(
+            app = app,
+            size = (iconSizeDp * PAPER_DISC_RATIO).dp,
+            dot = dot,
+            modifier = Modifier.alpha(if (app.isPaused) 0.45f else 1f),
+        )
+        if (showLabel) {
+            Spacer(Modifier.height(7.dp))
+            Text(
+                text = app.label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                style = PaperStyle.serif(12.5f, 15f),
+            )
+        }
+    }
+}
+
+/** Diamètre des pastilles papier du tiroir, rapporté à la taille d'icône choisie. */
+private const val PAPER_DISC_RATIO = 0.84f
+
 /** Visuel de l'icône (image, pastille, nom), sans gestion des touchers. */
 @Composable
 fun AppIconContent(
@@ -216,6 +247,10 @@ fun AppIconContent(
     badgeDot: Boolean,
     onWallpaper: Boolean,
 ) {
+    if (LocalPaperUi.current && !onWallpaper) {
+        PaperIconContent(app, iconSizeDp, showLabel, dot = badgeCount > 0)
+        return
+    }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box {
             Image(

@@ -21,13 +21,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.perso.nimbus.R
 import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherViewModel
+import fr.perso.nimbus.ui.components.AppGlyphDisc
 import fr.perso.nimbus.ui.components.AppPickerDialog
+import fr.perso.nimbus.ui.theme.LocalPaperUi
+import fr.perso.nimbus.ui.theme.PaperListRow
+import fr.perso.nimbus.ui.theme.PaperParagraph
+import fr.perso.nimbus.ui.theme.PaperStyle
+import fr.perso.nimbus.ui.theme.PaperTextButton
 
 /**
  * Apps masquées : absentes du tiroir et de la recherche, lançables d'ici.
@@ -36,10 +43,11 @@ import fr.perso.nimbus.ui.components.AppPickerDialog
 @Composable
 fun HiddenAppsScreen(vm: LauncherViewModel, apps: AppsState, settings: LauncherSettings) {
     var picking by remember { mutableStateOf(false) }
+    val paper = LocalPaperUi.current
 
     BackHandler { vm.closeScreen() }
 
-    SettingsPage("Apps masquées", onBack = vm::closeScreen) {
+    SettingsPage("Apps masquées", onBack = vm::closeScreen, folio = HIDDEN_APPS_FOLIO) {
         item {
             SettingsEntry(R.drawable.ms_visibility_off, SettingsColors.Teal, "Masquer une app", "Elle n'apparaîtra plus dans le tiroir ni dans la recherche") {
                 picking = true
@@ -47,15 +55,30 @@ fun HiddenAppsScreen(vm: LauncherViewModel, apps: AppsState, settings: LauncherS
         }
         if (apps.hidden.isEmpty()) {
             item {
-                Text(
-                    "Aucune app masquée.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                )
+                if (paper) {
+                    PaperParagraph("Aucune app masquée.", style = PaperStyle.body.copy(fontStyle = FontStyle.Italic))
+                } else {
+                    Text(
+                        "Aucune app masquée.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                    )
+                }
             }
         } else {
             settingsSection("Masquées")
             items(apps.hidden, key = { it.key }) { app ->
+                if (paper) {
+                    PaperListRow(
+                        title = app.label,
+                        subtitle = app.category.label,
+                        onClick = { vm.launch(app) },
+                        leading = { AppGlyphDisc(app, 36.dp) },
+                        trailing = { PaperTextButton("Afficher", onClick = { vm.setHidden(app, false) }) },
+                        maxTitleLines = 1,
+                    )
+                    return@items
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier

@@ -16,11 +16,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -52,6 +55,14 @@ import fr.perso.nimbus.ui.components.ChoiceDialog
 import fr.perso.nimbus.ui.paper.PaperHome
 import fr.perso.nimbus.ui.settings.SettingsColors
 import fr.perso.nimbus.ui.settings.SettingsEntry
+import fr.perso.nimbus.ui.theme.LocalPaperUi
+import fr.perso.nimbus.ui.theme.NimbusBottomSheet
+import fr.perso.nimbus.ui.theme.PaperColors
+import fr.perso.nimbus.ui.theme.PaperMargin
+import fr.perso.nimbus.ui.theme.PaperRule
+import fr.perso.nimbus.ui.theme.PaperStyle
+import fr.perso.nimbus.ui.theme.PaperTextButton
+import fr.perso.nimbus.ui.theme.inkClickable
 
 /**
  * Accueil : pages d'icônes et de widgets, horloge, dock, recherche, et le menu de l'appui long.
@@ -96,10 +107,43 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
     var pickingStyle by remember { mutableStateOf(false) }
     val paper = settings.homeStyle.paper
 
-    ModalBottomSheet(
+    NimbusBottomSheet(
         onDismissRequest = vm::closeHomeMenu,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
+        if (LocalPaperUi.current) {
+            // Mêmes raccourcis que les tuiles, dans le même ordre.
+            val shortcuts = buildList<Pair<String, () -> Unit>> {
+                add("Style de l'accueil" to { pickingStyle = true })
+                if (!paper) {
+                    add("Ajouter une icône" to { pickingIcon = true })
+                    add("Ajouter un widget" to { vm.openWidgetPicker() })
+                }
+                add(
+                    "Fond d'écran" to {
+                        vm.closeHomeMenu()
+                        SystemActions.openWallpaperPicker(context)
+                    },
+                )
+                add("Toutes les apps" to { vm.openDrawer() })
+                if (!paper && menu.page != apps.homePage && menu.page < apps.pageCount) {
+                    add(
+                        "Page principale" to {
+                            vm.closeHomeMenu()
+                            vm.setMainHomePage(menu.page)
+                        },
+                    )
+                }
+            }
+            PaperHomeMenu(
+                shortcuts = shortcuts,
+                onAppearance = { vm.openSettings(SettingsSection.APPEARANCE) },
+                onHomeSettings = { vm.openSettings(SettingsSection.HOME) },
+                onGestures = { vm.openSettings(SettingsSection.GESTURES) },
+                onAllSettings = { vm.openSettings() },
+            )
+            return@NimbusBottomSheet
+        }
         Column(Modifier.padding(bottom = 16.dp)) {
             Text(
                 "Page d'accueil",
@@ -188,6 +232,77 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
                 app?.let(vm::addToHome)
             },
             onDismiss = { pickingIcon = false },
+        )
+    }
+}
+
+/**
+ * Menu de l'accueil sous le thème papier : titre en gras, raccourcis en tableau à filets fins
+ * (trois colonnes), réglages de la page, puis « voir tous les paramètres » en lien.
+ */
+@Composable
+internal fun PaperHomeMenu(
+    shortcuts: List<Pair<String, () -> Unit>>,
+    onAppearance: () -> Unit,
+    onHomeSettings: () -> Unit,
+    onGestures: () -> Unit,
+    onAllSettings: () -> Unit,
+) {
+    Column(Modifier.padding(bottom = 12.dp)) {
+        Text(
+            "Page d'accueil",
+            style = PaperStyle.serif(24f, 30f, bold = true),
+            modifier = Modifier.padding(horizontal = PaperMargin),
+        )
+        Column(
+            Modifier
+                .padding(horizontal = PaperMargin)
+                .padding(top = 16.dp, bottom = 10.dp),
+        ) {
+            PaperRule(thickness = 0.8.dp)
+            for ((r, row) in shortcuts.chunked(3).withIndex()) {
+                if (r > 0) PaperRule()
+                Row(Modifier.height(IntrinsicSize.Min)) {
+                    for (i in 0 until 3) {
+                        if (i > 0) {
+                            Box(
+                                Modifier
+                                    .width(0.6.dp)
+                                    .fillMaxHeight()
+                                    .background(PaperColors.Rule),
+                            )
+                        }
+                        val item = row.getOrNull(i)
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 60.dp)
+                                .then(if (item != null) Modifier.inkClickable(onClick = item.second) else Modifier)
+                                .padding(horizontal = 6.dp, vertical = 8.dp),
+                        ) {
+                            if (item != null) {
+                                Text(
+                                    item.first,
+                                    style = PaperStyle.serif(14.5f, 18f).copy(textAlign = TextAlign.Center),
+                                    maxLines = 2,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            PaperRule(thickness = 0.8.dp)
+        }
+        SettingsEntry(R.drawable.ms_palette, SettingsColors.Orange, "Apparence globale", onClick = onAppearance)
+        SettingsEntry(R.drawable.ms_home, SettingsColors.Blue, "Page d'accueil", chevron = true, onClick = onHomeSettings)
+        SettingsEntry(R.drawable.ms_swipe, SettingsColors.Red, "Gestes et raccourcis", onClick = onGestures)
+        PaperTextButton(
+            "Voir tous les paramètres ›",
+            onClick = onAllSettings,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(top = 6.dp),
         )
     }
 }

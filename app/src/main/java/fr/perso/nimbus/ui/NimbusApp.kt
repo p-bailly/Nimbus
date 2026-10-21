@@ -11,8 +11,10 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -38,7 +40,11 @@ import fr.perso.nimbus.ui.drawer.AppDrawer
 import fr.perso.nimbus.ui.home.HomeScreen
 import fr.perso.nimbus.ui.settings.HiddenAppsScreen
 import fr.perso.nimbus.ui.settings.SettingsScreen
+import fr.perso.nimbus.ui.theme.LocalPaperUi
 import fr.perso.nimbus.ui.theme.NimbusTheme
+import fr.perso.nimbus.ui.theme.PaperDialog
+import fr.perso.nimbus.ui.theme.PaperStyle
+import fr.perso.nimbus.ui.theme.PaperTextButton
 import fr.perso.nimbus.ui.theme.isDarkTheme
 
 /** Racine de l'interface : accueil, et par-dessus tiroir, réglages, feuilles et dialogues. */
@@ -122,6 +128,34 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                 }
 
                 importResult?.let { result ->
+                    if (LocalPaperUi.current) {
+                        // Papier : liste à puces dans un cadre d'encre, actions en petites capitales.
+                        PaperDialog(
+                            onDismissRequest = vm::dismissImportResult,
+                            title = result.title,
+                            actions = {
+                                if (result.widgets.isNotEmpty()) {
+                                    PaperTextButton("Plus tard", onClick = vm::dismissImportResult)
+                                    PaperTextButton("Rajouter les widgets", bold = true, onClick = {
+                                        vm.dismissImportResult()
+                                        host.addWidgets(result.widgets)
+                                    })
+                                } else {
+                                    PaperTextButton("OK", bold = true, onClick = vm::dismissImportResult)
+                                }
+                            },
+                        ) {
+                            Column(Modifier.verticalScroll(rememberScrollState())) {
+                                for (line in result.details) {
+                                    Row(Modifier.padding(vertical = 3.dp)) {
+                                        Text("•", style = PaperStyle.body, modifier = Modifier.width(18.dp))
+                                        Text(line, style = PaperStyle.body)
+                                    }
+                                }
+                            }
+                        }
+                        return@let
+                    }
                     AlertDialog(
                         onDismissRequest = vm::dismissImportResult,
                         title = { Text(result.title) },

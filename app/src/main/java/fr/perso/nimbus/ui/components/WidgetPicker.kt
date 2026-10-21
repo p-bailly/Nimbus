@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,7 +27,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -49,6 +50,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import fr.perso.nimbus.ui.drawer.SearchMatcher
 import fr.perso.nimbus.widgets.WidgetHostManager
+import fr.perso.nimbus.ui.theme.LocalPaperUi
+import fr.perso.nimbus.ui.theme.NimbusBottomSheet
+import fr.perso.nimbus.ui.theme.PaperColors
+import fr.perso.nimbus.ui.theme.PaperMargin
+import fr.perso.nimbus.ui.theme.PaperStyle
+import fr.perso.nimbus.ui.theme.PaperTextField
+import fr.perso.nimbus.ui.theme.inkClickable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.Collator
@@ -74,45 +82,72 @@ fun WidgetPicker(onDismiss: () -> Unit, onPick: (AppWidgetProviderInfo) -> Unit)
         groups.orEmpty().filter { q.isEmpty() || it.searchKey.contains(q) }
     }
 
-    ModalBottomSheet(
+    val paper = LocalPaperUi.current
+    NimbusBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         Column(Modifier.fillMaxHeight(0.9f)) {
-            Text(
-                "Ajouter un widget",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 24.dp),
-            )
-            OutlinedTextField(
-                value = filter,
-                onValueChange = { filter = it },
-                singleLine = true,
-                placeholder = { Text("Rechercher un widget") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-            )
+            if (paper) {
+                Text(
+                    "Ajouter un widget",
+                    style = PaperStyle.serif(22f, 28f, bold = true),
+                    modifier = Modifier.padding(horizontal = PaperMargin),
+                )
+                PaperTextField(
+                    value = filter,
+                    onValueChange = { filter = it },
+                    label = "Rechercher",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = PaperMargin, vertical = 12.dp),
+                )
+            } else {
+                Text(
+                    "Ajouter un widget",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+                OutlinedTextField(
+                    value = filter,
+                    onValueChange = { filter = it },
+                    singleLine = true,
+                    placeholder = { Text("Rechercher un widget") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            }
             when {
                 groups == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    if (paper) CircularProgressIndicator(color = PaperColors.Ink, strokeWidth = 1.5.dp)
+                    else CircularProgressIndicator()
                 }
                 shown.isEmpty() -> Text(
                     "Aucun widget trouvé",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(24.dp),
+                    style = if (paper) PaperStyle.note.copy(fontSize = PaperStyle.body.fontSize) else LocalTextStyle.current,
+                    modifier = Modifier.padding(if (paper) PaperMargin else 24.dp),
                 )
                 else -> LazyColumn(Modifier.fillMaxWidth()) {
                     for (group in shown) {
                         item(key = "app:" + group.packageName) {
-                            Text(
-                                group.appLabel,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 4.dp),
-                            )
+                            if (paper) {
+                                Text(
+                                    group.appLabel,
+                                    style = PaperStyle.smallCaps(14f, spacing = 0.06f),
+                                    modifier = Modifier.padding(start = PaperMargin, end = PaperMargin, top = 18.dp, bottom = 2.dp),
+                                )
+                            } else {
+                                Text(
+                                    group.appLabel,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 4.dp),
+                                )
+                            }
                         }
                         items(group.widgets, key = { it.info.provider.flattenToString() + it.info.profile.hashCode() }) { option ->
                             WidgetRow(option, onClick = { onPick(option.info) })
@@ -131,6 +166,33 @@ private fun WidgetRow(option: WidgetOption, onClick: () -> Unit) {
     var preview by remember(option.info) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(option.info) {
         preview = withContext(Dispatchers.IO) { loadPreview(context, option.info) }
+    }
+    if (LocalPaperUi.current) {
+        // Papier : l'aperçu encadré d'un filet, comme une figure ; nom en romain, taille en italique.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .inkClickable(onClick = onClick)
+                .padding(horizontal = PaperMargin, vertical = 8.dp),
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(width = 96.dp, height = 72.dp)
+                    .border(0.6.dp, PaperColors.Rule),
+            ) {
+                preview?.let {
+                    Image(it, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.padding(6.dp))
+                }
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(verticalArrangement = Arrangement.Center) {
+                Text(option.label, style = PaperStyle.item, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(option.size + " cases", style = PaperStyle.note)
+            }
+        }
+        return
     }
     Row(
         verticalAlignment = Alignment.CenterVertically,

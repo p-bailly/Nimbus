@@ -4,10 +4,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,10 +33,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.ui.drawer.SearchMatcher
+import fr.perso.nimbus.ui.theme.LocalPaperUi
+import fr.perso.nimbus.ui.theme.PaperDialogFrame
+import fr.perso.nimbus.ui.theme.PaperDialogWindow
+import fr.perso.nimbus.ui.theme.PaperRule
+import fr.perso.nimbus.ui.theme.PaperStyle
+import fr.perso.nimbus.ui.theme.PaperTextButton
+import fr.perso.nimbus.ui.theme.PaperTextField
+import fr.perso.nimbus.ui.theme.inkClickable
 
 /**
  * Choix d'une app dans une liste filtrable. [noneLabel] non null : première ligne
@@ -52,6 +65,12 @@ fun AppPickerDialog(
     val shown = remember(sorted, filter) {
         if (filter.isBlank()) sorted
         else SearchMatcher.search(SearchMatcher.index(sorted), filter)
+    }
+    if (LocalPaperUi.current) {
+        PaperDialogWindow(onDismiss) {
+            PaperAppPicker(title, shown, filter, { filter = it }, onPick, onDismiss, noneLabel)
+        }
+        return
     }
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
@@ -107,4 +126,63 @@ fun AppPickerDialog(
             }
         }
     }
+}
+
+/** Version papier : champ « Rechercher : » souligné, pastilles à l'encre, noms en romain. */
+@Composable
+internal fun PaperAppPicker(
+    title: String,
+    shown: List<AppEntry>,
+    filter: String,
+    onFilter: (String) -> Unit,
+    onPick: (AppEntry?) -> Unit,
+    onDismiss: () -> Unit,
+    noneLabel: String?,
+) {
+    PaperDialogFrame(title = title, actions = { PaperTextButton("Annuler", onClick = onDismiss) }) {
+        PaperTextField(
+            value = filter,
+            onValueChange = onFilter,
+            label = "Rechercher",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 10.dp),
+        )
+        LazyColumn(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = 420.dp),
+        ) {
+            if (noneLabel != null && filter.isBlank()) {
+                item(key = "none") {
+                    PickerRow(onClick = { onPick(null) }) {
+                        AppGlyphDisc(null, 32.dp, placeholder = "∅", ring = 1.dp)
+                        Spacer(Modifier.width(14.dp))
+                        Text(noneLabel, style = PaperStyle.item.copy(fontStyle = FontStyle.Italic))
+                    }
+                }
+            }
+            items(shown, key = { it.key }) { app ->
+                PickerRow(onClick = { onPick(app) }) {
+                    AppGlyphDisc(app, 32.dp)
+                    Spacer(Modifier.width(14.dp))
+                    Text(app.label, style = PaperStyle.item, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        // La liste défile sous ce filet, au-dessus des actions.
+        PaperRule()
+    }
+}
+
+@Composable
+private fun PickerRow(onClick: () -> Unit, content: @Composable () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .inkClickable(onClick = onClick)
+            .padding(vertical = 5.dp),
+    ) { content() }
 }

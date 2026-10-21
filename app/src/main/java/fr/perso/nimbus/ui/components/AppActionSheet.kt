@@ -29,7 +29,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -50,6 +49,13 @@ import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherHost
 import fr.perso.nimbus.ui.LauncherViewModel
+import fr.perso.nimbus.ui.theme.LocalPaperUi
+import fr.perso.nimbus.ui.theme.NimbusBottomSheet
+import fr.perso.nimbus.ui.theme.PaperColors
+import fr.perso.nimbus.ui.theme.PaperMargin
+import fr.perso.nimbus.ui.theme.PaperRule
+import fr.perso.nimbus.ui.theme.PaperStyle
+import fr.perso.nimbus.ui.theme.inkClickable
 import kotlinx.coroutines.launch
 
 private enum class SheetDialog { CATEGORY, RENAME, SWIPE }
@@ -89,29 +95,35 @@ fun AppActionSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = vm::dismissAppSheet, sheetState = sheetState) {
+    val paper = LocalPaperUi.current
+    NimbusBottomSheet(onDismissRequest = vm::dismissAppSheet, sheetState = sheetState) {
         Column(
             Modifier
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 16.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-            ) {
-                Image(app.icon, contentDescription = null, modifier = Modifier.size(48.dp))
-                Spacer(Modifier.width(16.dp))
-                Column {
-                    Text(app.label, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        buildString {
-                            append(if (isPrivate) "Espace privé" else app.category.label)
-                            if (app.profile == ProfileType.WORK) append(" · Profil professionnel")
-                            if (app.isPaused) append(" (en pause)")
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            val detail = buildString {
+                append(if (isPrivate) "Espace privé" else app.category.label)
+                if (app.profile == ProfileType.WORK) append(" · Profil professionnel")
+                if (app.isPaused) append(" (en pause)")
+            }
+            if (paper) {
+                PaperSheetHeader(app, detail)
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                ) {
+                    Image(app.icon, contentDescription = null, modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Text(app.label, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            detail,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
@@ -127,7 +139,8 @@ fun AppActionSheet(
                         },
                     )
                 }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp, horizontal = 24.dp))
+                if (paper) PaperRule(Modifier.padding(vertical = 8.dp, horizontal = PaperMargin))
+                else HorizontalDivider(Modifier.padding(vertical = 8.dp, horizontal = 24.dp))
             }
 
             // L'espace privé ne doit pas fuiter sur l'accueil ni dans le dock.
@@ -222,8 +235,32 @@ fun AppActionSheet(
     }
 }
 
+/** En-tête papier de la feuille : pastille de l'app, nom en gras, catégorie en italique, filet. */
+@Composable
+internal fun PaperSheetHeader(app: AppEntry, detail: String) {
+    Column(Modifier.padding(horizontal = PaperMargin)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp)) {
+            AppGlyphDisc(app, 46.dp)
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text(app.label, style = PaperStyle.serif(21f, 26f, bold = true), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(detail, style = PaperStyle.note.copy(fontSize = PaperStyle.body.fontSize))
+            }
+        }
+        PaperRule()
+    }
+}
+
 @Composable
 private fun SectionTitle(text: String) {
+    if (LocalPaperUi.current) {
+        Text(
+            text,
+            style = PaperStyle.smallCaps(13.5f, PaperColors.Soft, spacing = 0.08f),
+            modifier = Modifier.padding(start = PaperMargin, end = PaperMargin, top = 14.dp, bottom = 2.dp),
+        )
+        return
+    }
     Text(
         text,
         style = MaterialTheme.typography.labelLarge,
@@ -239,6 +276,20 @@ private fun SheetRow(
     icon: ImageVector? = null,
     leading: (@Composable () -> Unit)? = null,
 ) {
+    if (LocalPaperUi.current) {
+        // Papier : une ligne de texte, sans icône.
+        Text(
+            label,
+            style = PaperStyle.item,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .fillMaxWidth()
+                .inkClickable(onClick = onClick)
+                .padding(horizontal = PaperMargin, vertical = 12.dp),
+        )
+        return
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
