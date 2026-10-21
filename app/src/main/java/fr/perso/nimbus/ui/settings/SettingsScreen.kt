@@ -404,6 +404,15 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                 }
             }
             SettingsSection.DRAWER -> SettingsPage("Page des applications", onBack = back, folio = folio(page)) {
+                if (paper) {
+                    item {
+                        SettingsEntry(
+                            R.drawable.ms_sort, SettingsColors.Blue, "Table des matières",
+                            "Les apps en sommaire, rangées par catégorie",
+                            checked = settings.drawerToc,
+                        ) { update { it.copy(drawerToc = !it.drawerToc) } }
+                    }
+                }
                 item {
                     SettingsEntry(R.drawable.ms_dark_mode, SettingsColors.Blue, "Mode nuit", settings.drawerTheme.label, chevron = true) {
                         dialog = SettingsDialog.DrawerThemeChoice

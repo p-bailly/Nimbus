@@ -205,6 +205,8 @@ data class LauncherSettings(
     val hideNavigationOnHome: Boolean = true,
     /** Ligne des apps les plus utilisées en haut du tiroir. */
     val showFrequentApps: Boolean = true,
+    /** Thème papier : tiroir en table des matières plutôt qu'en grille d'icônes. */
+    val drawerToc: Boolean = true,
     val webSearchEngine: SearchEngine = SearchEngine.SYSTEM,
     /** Ne pas afficher l'espace privé verrouillé dans le tiroir (accès par la recherche). */
     val hidePrivateSpaceWhenLocked: Boolean = false,

@@ -118,6 +118,7 @@ class Prefs private constructor(context: Context) {
         e.putString("badgeStyle", s.badgeStyle.name)
         e.putInt("dockColumns", s.dockColumns)
         e.putBoolean("showFrequentApps", s.showFrequentApps)
+        e.putBoolean("drawerToc", s.drawerToc)
         e.putString("webSearchEngine", s.webSearchEngine.name)
         e.putBoolean("hidePrivateSpaceWhenLocked", s.hidePrivateSpaceWhenLocked)
         e.putInt("homeColumns", s.homeColumns)
@@ -166,6 +167,7 @@ class Prefs private constructor(context: Context) {
             badgeStyle = enumPref("badgeStyle", d.badgeStyle),
             dockColumns = sp.getInt("dockColumns", d.dockColumns).coerceIn(3, 7),
             showFrequentApps = sp.getBoolean("showFrequentApps", d.showFrequentApps),
+            drawerToc = sp.getBoolean("drawerToc", d.drawerToc),
             webSearchEngine = enumPref("webSearchEngine", d.webSearchEngine),
             hidePrivateSpaceWhenLocked = sp.getBoolean("hidePrivateSpaceWhenLocked", d.hidePrivateSpaceWhenLocked),
             // Bornées : un fichier importé modifié à la main ne doit pas casser l'accueil.

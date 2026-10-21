@@ -87,6 +87,11 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   d'écran, toutes les apps, réglages de la page, tous les paramètres).
 
 **Tiroir d'applications**
+- Sous le thème « Papier (LaTeX) », une table des matières : chaque catégorie est une section
+  numérotée, chaque app une sous-section avec points de conduite et numéro de page ; les fréquentes
+  viennent avant (pages en chiffres romains), l'espace privé en annexe A, et les notifications d'une
+  app sont un appel de note. Appui : ouvrir ; appui long : actions ou glisser vers l'accueil.
+  Réglable (Paramètres › Page des applications › « Table des matières ») pour revenir à la grille.
 - Onglets de catégories automatiques, balayables (catégorie modifiable par app).
 - Ligne « Fréquentes », défilement rapide A–Z, tri alphabétique ou par usage.
 - Recherche insensible aux accents (« eco » trouve « École »), par initiales
@@ -251,7 +256,7 @@ app/src/main/java/fr/perso/nimbus/
     ├── theme/Theme.kt       Thèmes Ambiant, Material You, Sombre, Clair, Papier (PaperTheme.kt)
     ├── home/                Accueil, pages, grille d'icônes et de widgets
     ├── paper/               Accueils « papier » : repère, en-tête, pastilles, sept pages (layouts/)
-    ├── drawer/              Tiroir, recherche sans accents, défilement A–Z
+    ├── drawer/              Tiroir, recherche sans accents, défilement A–Z, sommaire (DrawerToc)
     ├── unlock/              Page de déverrouillage : activité par-dessus l'écran verrouillé,
     │                        page, données (UnlockFeed), lancement à l'extinction (UnlockLauncher)
     ├── components/          Icône d'app, feuille d'actions, dialogues (choix, PIN,

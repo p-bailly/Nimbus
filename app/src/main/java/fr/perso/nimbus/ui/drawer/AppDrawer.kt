@@ -381,6 +381,12 @@ private fun CategoryPager(
     val pagerState = rememberPagerState { tabs.size }
     val scope = rememberCoroutineScope()
 
+    // Papier : le sommaire range déjà les apps par catégorie, sans onglets.
+    if (LocalPaperUi.current && settings.drawerToc) {
+        TocPage(apps = apps, settings = settings, badges = badges, vm = vm)
+        return
+    }
+
     Column {
         if (tabs.size > 1 && LocalPaperUi.current) {
             PaperTabs(
@@ -741,6 +747,12 @@ private fun SearchResultsGrid(
     val showPrivateEntry = privateSpace != null && normalized.length >= 3 &&
         PRIVATE_SPACE_WORDS.any { it.startsWith(normalized) }
     val paper = LocalPaperUi.current
+    val toc = paper && settings.drawerToc
+    // Sommaire : chaque app garde son numéro et sa page.
+    val tocEntries = remember(toc, apps.visible, apps.categories) {
+        if (!toc) emptyMap()
+        else tableOfContents(apps.visible, apps.categories).filterIsInstance<TocLine.Entry>().associateBy { it.app.key }
+    }
     AppGrid(columns = settings.drawerColumns) {
         if (results.apps.isEmpty()) {
             item(span = fullSpan) {
@@ -749,6 +761,17 @@ private fun SearchResultsGrid(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = if (paper) PaperStyle.note.copy(fontSize = PaperStyle.body.fontSize) else LocalTextStyle.current,
                     modifier = Modifier.padding(16.dp),
+                )
+            }
+        } else if (toc) {
+            items(results.apps, key = { it.key }, span = { fullSpan() }) { app ->
+                TocEntry(
+                    tocEntries[app.key] ?: TocLine.Entry(null, app, "", app.key),
+                    settings,
+                    badges,
+                    vm,
+                    indent = false,
+                    modifier = Modifier.padding(horizontal = 14.dp),
                 )
             }
         } else {

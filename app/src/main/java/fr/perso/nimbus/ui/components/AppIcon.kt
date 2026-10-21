@@ -127,58 +127,68 @@ fun DrawerAppIcon(
     onLongClick: (Rect) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .drawerAppGestures(app, canDrag, onClick, onLongClick)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+    ) {
+        AppIconContent(app, iconSizeDp, showLabel, badgeCount, badgeDot, onWallpaper = false)
+    }
+}
+
+/** Gestes d'une app du tiroir (voir [DrawerAppIcon]), pour une icône ou une ligne du sommaire. */
+fun Modifier.drawerAppGestures(
+    app: AppEntry,
+    canDrag: Boolean,
+    onClick: () -> Unit,
+    onLongClick: (Rect) -> Unit,
+): Modifier = composed {
     val haptics = LocalHapticFeedback.current
     val homeDrag = LocalHomeDrag.current
     val current by rememberUpdatedState(app)
     val click by rememberUpdatedState(onClick)
     val longClick by rememberUpdatedState(onLongClick)
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .onGloballyPositioned { coords = it }
-            .semantics {
-                onClick(label = "Ouvrir ${app.label}") { click(); true }
-                onLongClick(label = "Actions pour ${app.label}") { longClick(coords?.boundsInWindow() ?: Rect.Zero); true }
-            }
-            // Ordre important : le glisser (dernier) voit les événements avant l'appui simple.
-            .pointerInput(Unit) { detectTapGestures(onTap = { click() }) }
-            .pointerInput(canDrag) {
-                val slop = viewConfiguration.touchSlop
-                var total = Offset.Zero
-                var dragging = false
-                detectDragGesturesAfterLongPress(
-                    onDragStart = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        total = Offset.Zero
-                        dragging = false
-                    },
-                    onDrag = { change, amount ->
-                        change.consume()
-                        total += amount
-                        val c = coords
-                        if (!dragging && canDrag && c != null && total.getDistance() > slop) {
-                            dragging = true
-                            homeDrag.start(DragItem.App(current, from = null), c.localToRoot(change.position))
-                        }
-                        if (dragging && c != null) homeDrag.position = c.localToRoot(change.position)
-                    },
-                    onDragEnd = {
-                        if (dragging) homeDrag.drop() else longClick(coords?.boundsInWindow() ?: Rect.Zero)
-                        dragging = false
-                    },
-                    onDragCancel = {
-                        if (dragging) homeDrag.cancel()
-                        dragging = false
-                    },
-                )
-            }
-            .padding(horizontal = 4.dp, vertical = 8.dp),
-    ) {
-        AppIconContent(app, iconSizeDp, showLabel, badgeCount, badgeDot, onWallpaper = false)
-    }
+    this
+        .onGloballyPositioned { coords = it }
+        .semantics {
+            onClick(label = "Ouvrir ${app.label}") { click(); true }
+            onLongClick(label = "Actions pour ${app.label}") { longClick(coords?.boundsInWindow() ?: Rect.Zero); true }
+        }
+        // Ordre important : le glisser (dernier) voit les événements avant l'appui simple.
+        .pointerInput(Unit) { detectTapGestures(onTap = { click() }) }
+        .pointerInput(canDrag) {
+            val slop = viewConfiguration.touchSlop
+            var total = Offset.Zero
+            var dragging = false
+            detectDragGesturesAfterLongPress(
+                onDragStart = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    total = Offset.Zero
+                    dragging = false
+                },
+                onDrag = { change, amount ->
+                    change.consume()
+                    total += amount
+                    val c = coords
+                    if (!dragging && canDrag && c != null && total.getDistance() > slop) {
+                        dragging = true
+                        homeDrag.start(DragItem.App(current, from = null), c.localToRoot(change.position))
+                    }
+                    if (dragging && c != null) homeDrag.position = c.localToRoot(change.position)
+                },
+                onDragEnd = {
+                    if (dragging) homeDrag.drop() else longClick(coords?.boundsInWindow() ?: Rect.Zero)
+                    dragging = false
+                },
+                onDragCancel = {
+                    if (dragging) homeDrag.cancel()
+                    dragging = false
+                },
+            )
+        }
 }
 
 /**
