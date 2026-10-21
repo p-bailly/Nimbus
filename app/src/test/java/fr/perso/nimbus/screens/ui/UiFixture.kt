@@ -125,6 +125,7 @@ object FakeHost : LauncherHost {
     override fun requestFilesPermission() = Unit
     override fun requestDefaultLauncher() = Unit
     override fun setLightSystemBars(light: Boolean) = Unit
+    override fun setNavigationBarHidden(hidden: Boolean) = Unit
     override fun exportBackup() = Unit
     override fun importBackup() = Unit
     override fun chooseAutoBackupFolder() = Unit

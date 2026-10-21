@@ -49,6 +49,8 @@ fun PaperHome(vm: LauncherViewModel, settings: LauncherSettings, onLongPress: (O
             onActions = { slot, anchor ->
                 paperApps[slot]?.let { vm.showAppPopup(it, anchor, slot) } ?: vm.showPaperSlotPicker(slot)
             },
+            // L'heure et la date sont déjà dans la barre d'état : la place va aux applis.
+            clock = false,
             sites = sites,
             onSites = vm::setVoronoiSites,
         )

@@ -286,6 +286,17 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                         dialog = SettingsDialog.HomeStyleChoice
                     }
                 }
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_swipe_up,
+                        SettingsColors.Blue,
+                        "Masquer les boutons de navigation",
+                        "Sur l'accueil ; glisser depuis le bas de l'écran pour les voir",
+                        checked = settings.hideNavigationOnHome,
+                    ) {
+                        update { it.copy(hideNavigationOnHome = !it.hideNavigationOnHome) }
+                    }
+                }
                 if (settings.homeStyle.paper) {
                     settingsSection("Applis de la page")
                     items(PaperSlot.entries, key = { "slot:${it.name}" }) { slot ->

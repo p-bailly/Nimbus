@@ -19,6 +19,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.FilesSearch
@@ -208,6 +211,13 @@ class MainActivity : ComponentActivity(), LauncherHost {
             SystemBarStyle.dark(Color.TRANSPARENT)
         }
         enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+    }
+
+    override fun setNavigationBarHidden(hidden: Boolean) {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (hidden) controller.hide(WindowInsetsCompat.Type.navigationBars())
+        else controller.show(WindowInsetsCompat.Type.navigationBars())
     }
 
     override fun exportBackup() {

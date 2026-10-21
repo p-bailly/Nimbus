@@ -21,6 +21,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Dock (favoris) de 4 à 6 icônes par rangée.
 - Horloge (appui : alarmes), date (appui : agenda), batterie, barre de recherche :
   chacun peut être masqué.
+- Boutons de navigation masqués sur l'accueil (réglable : Paramètres › Page d'accueil) : un glissé
+  depuis le bas de l'écran les montre un instant ; le tiroir et les paramètres les gardent.
 - Glisser-déposer depuis le tiroir : appui long sur une app puis glisser, le tiroir
   s'efface et l'app se pose sur la case où on la lâche.
 - Widgets dans la grille (appui long sur l'accueil › Ajouter un widget) : posés sur la
@@ -49,6 +51,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   sinon premier plan de l'icône, sinon l'initiale), teintée de la couleur de leur famille.
 - Le thème « Papier (LaTeX) » (choisi avec un accueil papier) met toute l'interface en Computer
   Modern sur fond crème. La page est dessinée sur un repère de 412 × 916 mis à l'échelle de l'écran.
+- En tête de page, seulement le titre courant et le numéro : l'heure et la date sont déjà dans la
+  barre d'état. La page grandit de la place gagnée, jusqu'à la largeur de l'écran.
 
 **Page de déverrouillage (papier)**
 - Au réveil, par-dessus l'écran verrouillé : une page d'article (titre courant « Déverrouillage »,
@@ -218,8 +222,8 @@ renommés « Nimbus Papier » comme le demandent les licences. Licences et scrip
 
 ```bash
 ./gradlew recordRoborazziDebug --tests 'fr.perso.nimbus.screens.paper.*'
-# → app/build/outputs/roborazzi/paper/*.png (pages « papier » avec des applis fictives, 20 h 35 ;
-#   h8_*.png : page de déverrouillage avec les données de la maquette, et sans ses sections)
+# → app/build/outputs/roborazzi/paper/*.png (pages « papier » avec des applis fictives ;
+#   h8_*.png : page de déverrouillage à 20 h 35 avec les données de la maquette, et sans ses sections)
 ```
 
 ## Architecture

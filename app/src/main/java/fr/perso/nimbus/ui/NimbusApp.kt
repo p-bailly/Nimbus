@@ -66,6 +66,9 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     LaunchedEffect(dark, onWallpaper, paperHome) {
         host.setLightSystemBars(if (onWallpaper) paperHome else !dark)
     }
+    // Boutons de navigation : masqués sur l'accueil seulement (tiroir et réglages les gardent).
+    val hideNavigation = onWallpaper && settings.hideNavigationOnHome
+    LaunchedEffect(hideNavigation) { host.setNavigationBarHidden(hideNavigation) }
 
     // Un launcher ne se ferme pas avec Retour : ce gestionnaire, déclaré en premier,
     // n'est utilisé que si aucun écran au-dessus n'intercepte le geste.

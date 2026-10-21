@@ -26,6 +26,9 @@ interface LauncherHost {
     /** Icônes sombres dans les barres système (true) ou claires (false). */
     fun setLightSystemBars(light: Boolean)
 
+    /** Masque les boutons de navigation (un glissé depuis le bas les montre un instant) ou les réaffiche. */
+    fun setNavigationBarHidden(hidden: Boolean)
+
     /** Enregistre la configuration dans un fichier choisi par l'utilisateur. */
     fun exportBackup()
 

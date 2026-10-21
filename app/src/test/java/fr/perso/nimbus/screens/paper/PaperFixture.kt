@@ -15,8 +15,8 @@ import java.time.LocalDateTime
 
 /**
  * Banc des captures des pages « papier » : 27 apps fictives (leur motif est l'initiale), heure figée
- * à 20 h 35 le mardi 20 octobre 2026, barres système de 30 et 24 dp (le repère tombe alors pile sur
- * celui des maquettes, 1 unité = 1 dp), animations arrêtées.
+ * à 20 h 35 le mardi 20 octobre 2026, barres système de 30 et 24 dp (1 unité = 1 dp), animations
+ * arrêtées. Comme sur l'accueil, l'en-tête n'a ni l'heure ni la date.
  *
  *   ./gradlew recordRoborazziDebug --tests 'fr.perso.nimbus.screens.paper.*'
  * → app/build/outputs/roborazzi/paper/<page>.png
@@ -38,6 +38,7 @@ object PaperFixture {
         }
         return PaperEnv(
             apps = apps,
+            clock = false,
             fixedTime = LocalDateTime.of(2026, 10, 20, 20, 35),
             fixedInsets = 30f to 24f,
             animate = false,

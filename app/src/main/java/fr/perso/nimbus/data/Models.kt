@@ -201,6 +201,8 @@ data class LauncherSettings(
     val homeRows: Int = 6,
     val homeShowLabels: Boolean = true,
     val showSearchBar: Boolean = true,
+    /** Boutons de navigation masqués quand l'accueil est affiché (un glissé depuis le bas les fait revenir). */
+    val hideNavigationOnHome: Boolean = true,
     /** Ligne des apps les plus utilisées en haut du tiroir. */
     val showFrequentApps: Boolean = true,
     val webSearchEngine: SearchEngine = SearchEngine.SYSTEM,

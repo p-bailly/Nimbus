@@ -94,6 +94,9 @@ const val PAPER_HEIGHT = 916
 private const val SAFE_TOP = 30
 private const val SAFE_BOTTOM = 890
 
+/** Hauteur de l'heure et de la date sous le filet de l'en-tête : sans elles, l'en-tête descend d'autant. */
+private const val CLOCK_HEIGHT = 76
+
 /** Encre d'une famille. */
 val PaperFamily.color: Color get() = Color(argb)
 
@@ -106,6 +109,8 @@ class PaperEnv(
     val onOpen: (PaperSlot) -> Unit = {},
     /** Appui long sur une place, avec sa position à l'écran (pour le pop-up). */
     val onActions: (PaperSlot, Rect) -> Unit = { _, _ -> },
+    /** Heure et date sous le titre courant ; false sur l'accueil, où la barre d'état les affiche déjà. */
+    val clock: Boolean = true,
     /** Heure figée (aperçus, captures) ; null = heure du téléphone. */
     val fixedTime: LocalDateTime? = null,
     /** Barres système (dp de l'écran) imposées, pour les captures ; null = celles de la fenêtre. */
@@ -135,8 +140,8 @@ val LocalPaper = staticCompositionLocalOf { PaperEnv.Empty }
 
 /**
  * Fond papier sur tout l'écran et repère de 412 × 916 unités, mis à l'échelle pour que la bande
- * utile (30 à 890) tienne entre les barres système, et centré horizontalement. Dans [content],
- * 1.dp = 1 unité et 1.sp = 1 unité (la taille de police du système ne déforme pas la page).
+ * utile (30 à 890, ou 106 à 890 sans l'heure et la date) tienne entre les barres système, et centré.
+ * Dans [content], 1.dp = 1 unité et 1.sp = 1 unité (la taille de police du système ne déforme pas la page).
  */
 @Composable
 fun PaperCanvas(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
@@ -147,10 +152,12 @@ fun PaperCanvas(modifier: Modifier = Modifier, content: @Composable BoxScope.() 
         val topPx = env.fixedInsets?.first?.let { with(density) { it.dp.toPx() } } ?: bars.getTop(density).toFloat()
         val bottomPx = env.fixedInsets?.second?.let { with(density) { it.dp.toPx() } } ?: bars.getBottom(density).toFloat()
         val w = constraints.maxWidth.toFloat()
-        val h = constraints.maxHeight.toFloat()
-        val scale = min(w / PAPER_WIDTH, (h - topPx - bottomPx) / (SAFE_BOTTOM - SAFE_TOP))
+        val free = constraints.maxHeight - topPx - bottomPx
+        val top = if (env.clock) SAFE_TOP else SAFE_TOP + CLOCK_HEIGHT
+        val scale = min(w / PAPER_WIDTH, free / (SAFE_BOTTOM - top))
         val x = ((w - PAPER_WIDTH * scale) / 2f).roundToInt()
-        val y = (topPx - SAFE_TOP * scale).roundToInt()
+        // Page limitée par la largeur : la hauteur en trop se partage au-dessus et au-dessous.
+        val y = (topPx + (free - (SAFE_BOTTOM - top) * scale) / 2f - top * scale).roundToInt()
         CompositionLocalProvider(LocalDensity provides Density(scale, fontScale = 1f)) {
             Box(
                 Modifier
@@ -167,7 +174,7 @@ fun Modifier.at(x: Number, y: Number): Modifier = offset(x.toFloat().dp, y.toFlo
 
 /**
  * Page complète : titre courant (petites capitales) et numéro de page sur un filet, puis l'heure
- * et la date centrées. Le contenu commence vers y = 142.
+ * et la date centrées ([PaperEnv.clock]). Le contenu commence vers y = 142.
  */
 @Composable
 fun PaperPage(runningHead: String, pageNumber: String, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
@@ -179,6 +186,21 @@ fun PaperPage(runningHead: String, pageNumber: String, modifier: Modifier = Modi
 
 @Composable
 fun PaperHeader(runningHead: String, pageNumber: String) {
+    val clock = LocalPaper.current.clock
+    // Sans l'heure ni la date, le titre courant descend juste au-dessus du contenu.
+    val shift = if (clock) 0 else CLOCK_HEIGHT
+    val head = Paper.text(12f, 14f).copy(fontFeatureSettings = "smcp", letterSpacing = 0.08.em)
+    Box(Modifier.at(22, 36 + shift).width(368.dp)) {
+        Text(runningHead, style = head, modifier = Modifier.align(Alignment.CenterStart))
+        Text(pageNumber, style = head, modifier = Modifier.align(Alignment.CenterEnd))
+    }
+    HRule(22, 55 + shift, 368, 0.6f)
+    if (clock) PaperClock()
+}
+
+/** Heure (appui : alarmes) et date (appui : agenda), centrées sous le filet de l'en-tête. */
+@Composable
+private fun PaperClock() {
     val context = LocalContext.current
     val now by rememberPaperTime()
     val locale = Locale.FRANCE
@@ -189,12 +211,6 @@ fun PaperHeader(runningHead: String, pageNumber: String) {
     val day = if (now.dayOfMonth == 1) "d'er'" else "d"
     val date = now.format(DateTimeFormatter.ofPattern("EEEE $day MMMM yyyy", locale))
 
-    val head = Paper.text(12f, 14f).copy(fontFeatureSettings = "smcp", letterSpacing = 0.08.em)
-    Box(Modifier.at(22, 36).width(368.dp)) {
-        Text(runningHead, style = head, modifier = Modifier.align(Alignment.CenterStart))
-        Text(pageNumber, style = head, modifier = Modifier.align(Alignment.CenterEnd))
-    }
-    HRule(22, 55, 368, 0.6f)
     Text(
         time,
         style = Paper.text(44f, 44f).copy(textAlign = TextAlign.Center),
