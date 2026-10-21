@@ -89,12 +89,52 @@ class UnlockActivityTest {
     }
 
     @Test
-    fun screenOnTooEarlyCancels() {
+    fun screenOnBeforeTheLockPutsThePageOnWake() {
+        // Rallumé une seconde après l'extinction, le verrouillage arrivé entre-temps : la page vient au réveil.
         keyguard.setKeyguardLocked(false)
         UnlockLauncher.onScreenOff(app)
-        UnlockLauncher.onScreenOn()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(900))
+        assertNull(started())
         keyguard.setKeyguardLocked(true)
+        power.setIsInteractive(true)
+        UnlockLauncher.onScreenOn(app)
+        assertEquals(ComponentName(app, UnlockActivity::class.java), started())
+        // Et une seule fois.
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(70))
+        assertNull(started())
+    }
+
+    @Test
+    fun nothingOnWakeIfStillUnlocked() {
+        // Rallumé pendant le délai de verrouillage : le téléphone n'est pas verrouillé, rien à poser.
+        keyguard.setKeyguardLocked(false)
+        UnlockLauncher.onScreenOff(app)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(900))
+        power.setIsInteractive(true)
+        UnlockLauncher.onScreenOn(app)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(70))
+        assertNull(started())
+    }
+
+    @Test
+    fun doublePressForTheCameraCancels() {
+        // Double appui sur Marche/Arrêt : l'écran se rallume aussitôt pour l'appareil photo, la page ne vient pas.
+        keyguard.setKeyguardLocked(false)
+        UnlockLauncher.onScreenOff(app)
+        keyguard.setKeyguardLocked(true)
+        power.setIsInteractive(true)
+        UnlockLauncher.onScreenOn(app)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(70))
+        assertNull(started())
+    }
+
+    @Test
+    fun alreadyPutPageIsNotPutTwice() {
+        UnlockLauncher.onScreenOff(app)
+        assertEquals(ComponentName(app, UnlockActivity::class.java), started())
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
+        power.setIsInteractive(true)
+        UnlockLauncher.onScreenOn(app)
         assertNull(started())
     }
 

@@ -24,7 +24,7 @@ class GestureService : AccessibilityService() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
                 Intent.ACTION_SCREEN_OFF -> UnlockLauncher.onScreenOff(this@GestureService)
-                Intent.ACTION_SCREEN_ON -> UnlockLauncher.onScreenOn()
+                Intent.ACTION_SCREEN_ON -> UnlockLauncher.onScreenOn(this@GestureService)
             }
         }
     }
@@ -61,7 +61,7 @@ class GestureService : AccessibilityService() {
     private fun stopListening() {
         if (!listening) return
         listening = false
-        UnlockLauncher.onScreenOn()
+        UnlockLauncher.cancel()
         try {
             unregisterReceiver(screen)
         } catch (e: IllegalArgumentException) {

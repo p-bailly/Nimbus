@@ -55,8 +55,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   barre d'état. La page grandit de la place gagnée, jusqu'à la largeur de l'écran.
 
 **Page de déverrouillage (papier)**
-- Au réveil, par-dessus l'écran verrouillé : une page d'article (titre courant « Déverrouillage »,
-  heure, date), puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
+- Au réveil, par-dessus l'écran verrouillé : une page d'article sans en-tête (l'heure en grand, la
+  date), puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
   ressenti, ciel, maximum en orange et minimum en bleu, et son coloriage en figure), les matchs
   en direct des équipes favorites de l'appli Basket Live (trois au plus, mi-temps et fin de période
   comprises), l'exercice du jour (calcul de tête, huit familles à tour de rôle) et la solution de
@@ -64,6 +64,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Glisser vers le haut, toucher le bas de la page ou Retour : le système demande l'empreinte, le
   visage ou le code, puis la page s'efface. Toucher la météo ouvre Météo, toucher les matchs ouvre
   Basket Live (après le déverrouillage). Un appel, une alarme ou l'appareil photo passent devant.
+- Écran rallumé aussitôt après l'extinction, avant que le verrouillage n'arrive : la page est posée au
+  réveil, par-dessus l'écran verrouillé (sauf double appui sur Marche/Arrêt, pour l'appareil photo).
 - Activer : Paramètres › Sécurité et confidentialité › « Page de déverrouillage », avec le service
   d'accessibilité « Gestes Nimbus » (il pose la page à l'extinction de l'écran) et un verrouillage
   (code, schéma ou mot de passe). Désactivée par défaut ; le réglage est dans la sauvegarde.

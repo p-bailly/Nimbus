@@ -198,9 +198,12 @@ fun PaperHeader(runningHead: String, pageNumber: String) {
     if (clock) PaperClock()
 }
 
-/** Heure (appui : alarmes) et date (appui : agenda), centrées sous le filet de l'en-tête. */
+/**
+ * Heure (appui : alarmes) et date (appui : agenda), centrées sous le filet de l'en-tête ; la page de
+ * déverrouillage, sans en-tête, les pose plus haut et plus grandes ([top], [timeSize], [dateTop], [dateSize]).
+ */
 @Composable
-private fun PaperClock() {
+fun PaperClock(top: Float = 66f, timeSize: Float = 44f, dateTop: Float = 114f, dateSize: Float = 13f) {
     val context = LocalContext.current
     val now by rememberPaperTime()
     val locale = Locale.FRANCE
@@ -213,18 +216,19 @@ private fun PaperClock() {
 
     Text(
         time,
-        style = Paper.text(44f, 44f).copy(textAlign = TextAlign.Center),
+        style = Paper.text(timeSize, timeSize).copy(textAlign = TextAlign.Center),
         modifier = Modifier
-            .at(0, 66)
+            .at(0, top)
             .width(PAPER_WIDTH.dp)
             .semantics { contentDescription = "Heure : $time" }
             .clickable(onClickLabel = "Ouvrir l'horloge") { SystemActions.openAlarms(context) },
     )
     Text(
         date,
-        style = Paper.text(13f, 16f).copy(fontFeatureSettings = "smcp", letterSpacing = 0.06.em, textAlign = TextAlign.Center),
+        style = Paper.text(dateSize, dateSize * 16f / 13f)
+            .copy(fontFeatureSettings = "smcp", letterSpacing = 0.06.em, textAlign = TextAlign.Center),
         modifier = Modifier
-            .at(0, 114)
+            .at(0, dateTop)
             .width(PAPER_WIDTH.dp)
             .clickable(onClickLabel = "Ouvrir l'agenda") { SystemActions.openCalendar(context) },
     )
