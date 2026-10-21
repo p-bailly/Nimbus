@@ -206,6 +206,8 @@ data class LauncherSettings(
     val webSearchEngine: SearchEngine = SearchEngine.SYSTEM,
     /** Ne pas afficher l'espace privé verrouillé dans le tiroir (accès par la recherche). */
     val hidePrivateSpaceWhenLocked: Boolean = false,
+    /** Page de déverrouillage (météo, matchs en direct, exercice du jour) par-dessus l'écran verrouillé. */
+    val unlockPage: Boolean = false,
 ) {
     fun actionFor(gesture: Gesture): GestureAction = when (gesture) {
         Gesture.DOUBLE_TAP -> doubleTapAction

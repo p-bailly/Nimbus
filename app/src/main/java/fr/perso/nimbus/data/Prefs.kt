@@ -124,6 +124,7 @@ class Prefs private constructor(context: Context) {
         e.putInt("homeRows", s.homeRows)
         e.putBoolean("homeShowLabels", s.homeShowLabels)
         e.putBoolean("showSearchBar", s.showSearchBar)
+        e.putBoolean("unlockPage", s.unlockPage)
         e.apply()
     }
 
@@ -171,6 +172,7 @@ class Prefs private constructor(context: Context) {
             homeRows = sp.getInt("homeRows", d.homeRows).coerceIn(3, 14),
             homeShowLabels = sp.getBoolean("homeShowLabels", d.homeShowLabels),
             showSearchBar = sp.getBoolean("showSearchBar", d.showSearchBar),
+            unlockPage = sp.getBoolean("unlockPage", d.unlockPage),
         )
     }
 

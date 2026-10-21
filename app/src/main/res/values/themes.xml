@@ -10,6 +10,17 @@
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
+    <!-- Page de déverrouillage : papier crème plein écran, barres système transparentes aux icônes sombres -->
+    <style name="Theme.Nimbus.Unlock" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
     <!-- Écran de dictée : transparent, par-dessus l'appli en cours -->
     <style name="Theme.Nimbus.Dictation" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>

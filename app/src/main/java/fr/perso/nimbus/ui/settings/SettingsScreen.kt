@@ -608,6 +608,26 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
             }
             SettingsSection.PRIVACY -> SettingsPage("Sécurité et confidentialité", onBack = back, folio = folio(page)) {
                 item {
+                    SettingsEntry(
+                        R.drawable.ms_lock, SettingsColors.Teal, "Page de déverrouillage",
+                        "Au réveil, par-dessus l'écran verrouillé : la météo de l'appli Météo, les matchs en direct de " +
+                            "Basket Live et l'exercice du jour ; glisser vers le haut pour déverrouiller" +
+                            if (status.gestureService) "." else " (nécessite le service « Gestes Nimbus »).",
+                        checked = settings.unlockPage,
+                    ) {
+                        val enable = !settings.unlockPage
+                        update { it.copy(unlockPage = enable) }
+                        if (enable && !status.gestureService) SystemActions.openAccessibilitySettings(context)
+                    }
+                }
+                if (settings.unlockPage && !status.gestureService) {
+                    item {
+                        SettingsBanner(R.drawable.ms_accessibility_new, "Activer le service « Gestes Nimbus »") {
+                            SystemActions.openAccessibilitySettings(context)
+                        }
+                    }
+                }
+                item {
                     val count = apps.hidden.size
                     SettingsEntry(
                         R.drawable.ms_visibility_off, SettingsColors.Teal, "Apps masquées",
@@ -735,7 +755,7 @@ private fun LazyListScope.mainBanners(
             }
         }
     }
-    val needsService = Gesture.entries.any { settings.actionFor(it) in SERVICE_ACTIONS }
+    val needsService = settings.unlockPage || Gesture.entries.any { settings.actionFor(it) in SERVICE_ACTIONS }
     if (needsService && !status.gestureService) {
         val n = ++mark
         item {

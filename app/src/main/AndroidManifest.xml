@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Page de déverrouillage : scores en direct (API publique d'ESPN) -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Recherche de contacts depuis la barre de recherche -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Recherche de fichiers depuis la barre de recherche -->
@@ -52,6 +54,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Page de déverrouillage : par-dessus l'écran verrouillé, dans sa propre tâche, hors des récents -->
+        <activity
+            android:name=".ui.unlock.UnlockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity="fr.perso.nimbus.unlock"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.Nimbus.Unlock"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize" />
 
         <!-- Dictée vers Claude : écran transparent par-dessus l'appli en cours -->
         <activity

@@ -50,6 +50,27 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Le thème « Papier (LaTeX) » (choisi avec un accueil papier) met toute l'interface en Computer
   Modern sur fond crème. La page est dessinée sur un repère de 412 × 916 mis à l'échelle de l'écran.
 
+**Page de déverrouillage (papier)**
+- Au réveil, par-dessus l'écran verrouillé : une page d'article (titre courant « Déverrouillage »,
+  heure, date), puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
+  ressenti, ciel, maximum en orange et minimum en bleu, et son coloriage en figure), les matchs
+  en direct des équipes favorites de l'appli Basket Live (trois au plus, mi-temps et fin de période
+  comprises), l'exercice du jour (calcul de tête, huit familles à tour de rôle) et la solution de
+  celui de la veille. Une section sans données (appli absente, rien en direct) disparaît.
+- Glisser vers le haut, toucher le bas de la page ou Retour : le système demande l'empreinte, le
+  visage ou le code, puis la page s'efface. Toucher la météo ouvre Météo, toucher les matchs ouvre
+  Basket Live (après le déverrouillage). Un appel, une alarme ou l'appareil photo passent devant.
+- Activer : Paramètres › Sécurité et confidentialité › « Page de déverrouillage », avec le service
+  d'accessibilité « Gestes Nimbus » (il pose la page à l'extinction de l'écran) et un verrouillage
+  (code, schéma ou mot de passe). Désactivée par défaut ; le réglage est dans la sauvegarde.
+- Données : Météo et Basket Live (applis personnelles) les partagent avec Nimbus seul, en lecture
+  (`content://io.github.pbailly.meteo.nimbus` : `now` et le coloriage `sketch` ;
+  `content://com.pbailly.superfanbasket.nimbus/favorites`), et préviennent à chaque changement. Les
+  scores viennent de l'API publique d'ESPN (`site.api.espn.com`, comme Basket Live) : relus à
+  chaque affichage, puis toutes les 15 s tant qu'un match de favori est en cours et la page visible,
+  toutes les 5 min sinon. Rien n'est lu écran éteint, sauf une fois à l'extinction pour être à jour
+  au réveil.
+
 **Gestes (à la Nova)**
 - Double tap, glisser vers le haut / le bas, glisser à deux doigts vers le haut /
   le bas, pincer, écarter.
@@ -183,7 +204,8 @@ Puis, dans Nimbus (appui long sur l'accueil › Paramètres Nimbus) :
    aux notifications.
 4. **Gestes système** : activer le service d'accessibilité « Gestes Nimbus ».
    Il ne lit rien à l'écran ; il sert uniquement au verrouillage, aux réglages
-   rapides, aux applis récentes, à la capture d'écran et au menu Marche/Arrêt.
+   rapides, aux applis récentes, à la capture d'écran, au menu Marche/Arrêt et à la
+   page de déverrouillage.
 5. **Contacts** : accepter la permission pour les voir dans la recherche.
 
 ## Polices
@@ -196,7 +218,8 @@ renommés « Nimbus Papier » comme le demandent les licences. Licences et scrip
 
 ```bash
 ./gradlew recordRoborazziDebug --tests 'fr.perso.nimbus.screens.paper.*'
-# → app/build/outputs/roborazzi/paper/*.png (pages « papier » avec des applis fictives, 20 h 35)
+# → app/build/outputs/roborazzi/paper/*.png (pages « papier » avec des applis fictives, 20 h 35 ;
+#   h8_*.png : page de déverrouillage avec les données de la maquette, et sans ses sections)
 ```
 
 ## Architecture
@@ -210,7 +233,8 @@ app/src/main/java/fr/perso/nimbus/
 ├── data/                    Modèles, réglages (Prefs), apps et profils (AppRepository),
 │                            icônes (IconFactory, CustomIcons, IconPack), catégories,
 │                            contacts, sauvegardes (BackupManager, SmartLauncherImport),
-│                            places des accueils papier (PaperSlots), silhouettes (GlyphFactory)
+│                            places des accueils papier (PaperSlots), silhouettes (GlyphFactory),
+│                            page de déverrouillage (MeteoShare, BasketShare, DailyExercise)
 ├── service/                 Pastilles (NotificationListener), gestes (accessibilité),
 │                            actions système
 ├── widgets/                 Hôte des widgets (AppWidgetHost)
@@ -224,6 +248,8 @@ app/src/main/java/fr/perso/nimbus/
     ├── home/                Accueil, pages, grille d'icônes et de widgets
     ├── paper/               Accueils « papier » : repère, en-tête, pastilles, sept pages (layouts/)
     ├── drawer/              Tiroir, recherche sans accents, défilement A–Z
+    ├── unlock/              Page de déverrouillage : activité par-dessus l'écran verrouillé,
+    │                        page, données (UnlockFeed), lancement à l'extinction (UnlockLauncher)
     ├── components/          Icône d'app, feuille d'actions, dialogues (choix, PIN,
     │                        texte, choix d'app), sélecteur de widgets
     └── settings/            Paramètres et écran des apps masquées
