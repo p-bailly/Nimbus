@@ -18,6 +18,9 @@ import java.time.format.DateTimeFormatter
 // fournisseur (content://com.pbailly.superfanbasket.nimbus), les scores de l'API publique d'ESPN,
 // la même que l'appli.
 
+/** Morceau de texte : [text], puis l'exposant [sup] (vide : aucun) ; [italic] pour une variable. */
+data class Seg(val text: String, val sup: String = "", val italic: Boolean = false)
+
 /** Une équipe favorite de Basket Live (identifiant ESPN). */
 data class FavoriteTeam(val id: String, val abbr: String?, val name: String?)
 

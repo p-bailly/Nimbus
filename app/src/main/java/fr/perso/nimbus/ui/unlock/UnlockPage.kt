@@ -10,37 +10,25 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.InlineTextContent
-import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -59,8 +47,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.Placeholder
-import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -70,7 +56,6 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
@@ -84,8 +69,8 @@ import androidx.lifecycle.compose.currentStateAsState
 import fr.perso.nimbus.R
 import fr.perso.nimbus.data.BasketShare
 import fr.perso.nimbus.data.CrayonLogos
-import fr.perso.nimbus.data.DailyExercise
-import fr.perso.nimbus.data.Exercise
+import fr.perso.nimbus.data.DailyFigure
+import fr.perso.nimbus.data.DailyFigures
 import fr.perso.nimbus.data.GameTeam
 import fr.perso.nimbus.data.LiveLine
 import fr.perso.nimbus.data.MeteoNow
@@ -116,8 +101,8 @@ import kotlin.math.roundToInt
 // Page de déverrouillage (maquette H8a, sans en-tête et en plus gros) : sous l'heure, la météo comme l'écran Aujourd'hui de l'appli
 // Météo (et son coloriage, agrandi et ravivé), les messages reçus (WhatsApp, Discord, Messages, Claude…) dans
 // des bandeaux coloriés à la couleur de leur appli, les matchs en direct et les résultats de la nuit des
-// équipes favorites de Basket Live dans un bandeau colorié orange, puis l'énigme du jour et la solution de
-// celle d'hier, cachée sous un bandeau. Une section sans données disparaît, la suite remonte.
+// équipes favorites de Basket Live dans un bandeau colorié orange, puis la figure du jour, dessinée au
+// crayon. Une section sans données disparaît, la suite remonte.
 //
 // Chaque texte est posé par sa ligne de base, relevée dans la maquette (Chrome arrondit ascendante et
 // descendante au pixel, et pose la ligne de base en conséquence) : haut = base − interligne / 2 − k × taille,
@@ -143,13 +128,13 @@ private val Live = Color(0xFFD92D2D)
 private val Win = Color(0xFF2E8540)
 private val Loss = Color(0xFFB0413E)
 
-/** Titres des sections (Basket, Exercice du jour, Solution d'hier), en gras. */
+/** Titre de la section Basket, en gras. */
 private const val TITLE = 19f
 
 /** Étiquettes à droite des titres, en petites capitales. */
 private const val LABEL = 13.5f
 
-/** Texte courant, le même pour les matchs et pour l'exercice. */
+/** Texte des matchs. */
 private const val BODY = 19f
 
 /** Face de la police, et son k = (ascendante − descendante) / 2, en em. */
@@ -170,9 +155,6 @@ private fun style(size: Float, line: Float = size, face: Face = Face.ROMAN, colo
     )
 
 private fun TextStyle.smallCaps(spacing: Float): TextStyle = copy(fontFeatureSettings = "smcp", letterSpacing = spacing.em)
-
-/** Interligne « normal » de la maquette : 1,385 em. */
-private const val NORMAL = 1.385f
 
 /** Heure (sa case de [TIME] unités) puis date, en haut de la page : il n'y a pas d'en-tête. */
 private const val CLOCK_TOP = 30f
@@ -214,13 +196,10 @@ fun UnlockPage(
     onUnlock: () -> Unit,
     /** Ouvrir une notification (après le déverrouillage). */
     onNote: (UnlockNote) -> Unit = {},
-    /** Solution d'hier montrée d'emblée (captures). */
-    solutionShown: Boolean = false,
 ) {
     val now by rememberPaperTime()
     val today = now.toLocalDate()
-    val exercise = remember(today) { DailyExercise.of(today) }
-    val yesterday = remember(today) { DailyExercise.of(today.minusDays(1)) }
+    val figure = remember(today) { DailyFigures.of(today) }
     val unlock by rememberUpdatedState(onUnlock)
 
     PaperCanvas(
@@ -258,7 +237,9 @@ fun UnlockPage(
         if (state.lines.isNotEmpty() || state.results.isNotEmpty()) {
             y = BasketSection(y, state.lines + state.results, onBasket) + AFTER_BANNER
         }
-        ExerciseSection(y, exercise, yesterday, solutionShown, onUnlock)
+        // La figure du jour, numérotée après le coloriage de Météo s'il est là ; sous elle, un appui déverrouille.
+        FigureSection(y, figure, if (state.meteo != null && state.sketch != null) 2 else 1)
+        TapZone("Déverrouiller", Modifier.at(0, y).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - y).coerceAtLeast(0f).dp), onUnlock)
     }
 }
 
@@ -730,151 +711,44 @@ private fun noteTime(ms: Long, today: LocalDate): String {
     }
 }
 
-// ---------------------------------------------------------------- Exercice
+// ---------------------------------------------------------------- Figure du jour
 
-@Composable
-private fun ExerciseSection(e0: Float, exercise: Exercise, yesterday: Exercise, solutionShown: Boolean, onUnlock: () -> Unit) {
-    // Titre et numéro, sur la même ligne de base.
-    Text("Exercice du jour", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(e0 + 18, TITLE, face = Face.BOLD)))
-    RightText("n° ${exercise.number} · niveau : ${exercise.level}", style(LABEL).smallCaps(0.06f), top(e0 + 18, LABEL))
+/** Hauteur de la figure, au plus ; plus bas, la page s'arrête vers [PAGE_BOTTOM]. */
+private const val FIGURE_MAX = FH
+private const val PAGE_BOTTOM = 884f
 
-    // Énoncé, puis la suite s'il y en a une : sous l'énoncé, selon son nombre de lignes.
-    val statement = fine(exercise.statement)
-    val statementStyle = style(BODY, 26f).copy(textIndent = TextIndent(firstLine = 1.2.em), lineBreak = LineBreak.Simple)
-    Text(
-        statement,
-        style = statementStyle,
-        modifier = Modifier.at(22, top(e0 + 52, BODY, 26f)).width(368.dp),
-    )
-    var last = e0 + 52 + 26f * (lineCount(statement, statementStyle, 368f) - 1)
-    if (exercise.formula.isNotEmpty()) {
-        // La suite de l'énigme, centrée, assez petite pour tenir sur la ligne.
-        last += 44
-        PaperText(
-            segs(exercise.formula, supRatio = 0.62f, nowrap = false),
-            style = style(FORMULA, FORMULA * NORMAL).copy(textAlign = TextAlign.Center),
-            softWrap = false,
-            inlineContent = Inline,
-            modifier = Modifier.at(22, top(last, FORMULA, FORMULA * NORMAL)).width(368.dp),
-        )
-    }
-
-    val rule = last + 22
-    HRule(22, rule, 368, 0.6f)
-    Text("Solution d'hier", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(22, top(rule + 30, TITLE, face = Face.BOLD)))
-    RightText("n° ${yesterday.number}", style(LABEL).smallCaps(0.06f), top(rule + 30, LABEL))
-
-    // L'énoncé d'hier en italique, sa formule à la suite (insécable) ; l'explication et la réponse restent
-    // sous un bandeau hachuré tant qu'on ne l'a pas touché (de nouveau caché à chaque réveil).
-    // Sous le texte, le bas de la page : un appui déverrouille.
-    var revealed by remember(yesterday.date) { mutableStateOf(solutionShown) }
-    val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val lifecycleState by lifecycle.currentStateAsState()
-    val awake = lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
-    LaunchedEffect(awake) { if (!awake) revealed = false }
-
-    val body = style(BODY, 25f).copy(lineBreak = LineBreak.Simple)
-    val solution = rule + 42
-    // Page très remplie (messages, matchs) : la solution passe sous le bas de l'écran, sans place pour l'appui.
-    Column(Modifier.at(0, solution).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - solution).coerceAtLeast(0f).dp)) {
-        PaperText(
-            buildAnnotatedString {
-                withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { appendFine(yesterday.statement) }
-                if (yesterday.formula.isNotEmpty()) {
-                    append(" ")
-                    append(segs(yesterday.formula, supRatio = 0.68f, nowrap = true))
-                }
-            },
-            style = body,
-            inlineContent = Inline,
-            modifier = Modifier.padding(horizontal = 22.dp).fillMaxWidth(),
-        )
-        Spacer(Modifier.height(8.dp))
-        if (revealed) {
-            PaperText(
-                buildAnnotatedString {
-                    appendInlineContent(INDENT, " ")
-                    append(WJ)
-                    append(segs(yesterday.explanation, supRatio = 0.68f, nowrap = false))
-                    append(" ")
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { appendFine("Réponse : ${yesterday.answer}.") }
-                },
-                style = body,
-                inlineContent = Inline,
-                modifier = Modifier.padding(horizontal = 22.dp).fillMaxWidth(),
-            )
-        } else {
-            SolutionBanner { revealed = true }
-        }
-        TapZone("Déverrouiller", Modifier.fillMaxWidth().weight(1f), onUnlock)
-    }
-}
-
-/** Taille de la suite d'une énigme, sous l'énoncé. */
-private const val FORMULA = 26f
-
-/** Hauteur du bandeau qui cache la solution d'hier. */
-private const val BANNER = 42f
-
-/** Le bandeau qui cache la solution : des hachures, comme un coloriage, et l'invitation à toucher. */
-@Composable
-private fun SolutionBanner(onReveal: () -> Unit) {
-    Box(
-        Modifier
-            .padding(horizontal = 22.dp)
-            .fillMaxWidth()
-            .height(BANNER.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(BannerFill)
-            .drawBehind {
-                val step = 9.dp.toPx()
-                var x = -size.height
-                while (x < size.width) {
-                    drawLine(BannerHatch, Offset(x, size.height), Offset(x + size.height, 0f), strokeWidth = 1.2.dp.toPx())
-                    x += step
-                }
-            }
-            .clickable(
-                remember { MutableInteractionSource() },
-                indication = null,
-                onClickLabel = "Afficher",
-                role = Role.Button,
-                onClick = onReveal,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            "Toucher pour voir la solution",
-            style = style(16f, 20f, Face.ITALIC, PaperColors.Ink),
-            softWrap = false,
-            modifier = Modifier
-                .background(BannerFill, RoundedCornerShape(4.dp))
-                .padding(horizontal = 10.dp, vertical = 2.dp),
-        )
-    }
-}
-
-/** Couleurs du bandeau : un jaune pâle, hachuré d'ocre. */
-private val BannerFill = Color(0xFFFBEFC8)
-private val BannerHatch = Color(0xFFE2BE62)
+/** En dessous de cette hauteur, la figure ne se lit plus : la page s'en passe. */
+private const val FIGURE_MIN = 110f
 
 /**
- * Morceaux de texte : exposants (à [supRatio] em, posés par [PaperText]), variables en italique, « ⋯ »
- * dessinés ; [nowrap] : espaces insécables (la formule ne se coupe pas). Android permet une coupure
- * devant tout emplacement en ligne (exposant, points) : un gluon (U+2060, sans chasse) l'interdit.
+ * La figure du jour dessinée au crayon, et sa légende dessous comme celle du coloriage de Météo,
+ * centrées dans la place qui reste sous les sections.
+ */
+@Composable
+private fun FigureSection(y0: Float, figure: DailyFigure, number: Int) {
+    val caption = buildAnnotatedString {
+        withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure $number") }
+        append(" – ${figure.kind.title} : ${figure.caption}")
+    }
+    val captionStyle = Paper.caption.copy(lineBreak = LineBreak.Heading)
+    val captionH = 16f * lineCount(caption, captionStyle, 368f)
+    val room = PAGE_BOTTOM - y0
+    val h = minOf(FIGURE_MAX, room - captionH - 12f)
+    if (h < FIGURE_MIN) return
+    val top = y0 + (room - (h + 12f + captionH)) / 2f
+    FigureArt(figure, Modifier.at(22, top).size(368.dp, h.dp))
+    Text(caption, style = captionStyle, modifier = Modifier.at(22, top(top + h + 12f + 12f, 12.5f, 16f)).width(368.dp))
+}
+
+/**
+ * Morceaux de texte de l'état d'un match : exposants (à [supRatio] em, posés par [PaperText]) ;
+ * [nowrap] : espaces insécables. Android permet une coupure devant un exposant : un gluon (U+2060,
+ * sans chasse) l'interdit.
  */
 private fun segs(list: List<Seg>, supRatio: Float, nowrap: Boolean): AnnotatedString = buildAnnotatedString {
     for (seg in list) {
-        val text = if (nowrap) seg.text.replace(' ', '\u00A0') else seg.text
         withStyle(SpanStyle(fontStyle = if (seg.italic) FontStyle.Italic else FontStyle.Normal)) {
-            text.split('⋯').forEachIndexed { i, part ->
-                if (i > 0) {
-                    if (nowrap) append(WJ)
-                    appendInlineContent(DOTS, "⋯")
-                    if (nowrap) append(WJ)
-                }
-                appendFine(part)
-            }
+            append(if (nowrap) seg.text.replace(' ', '\u00A0') else seg.text)
         }
         if (seg.sup.isNotEmpty()) {
             append(WJ)
@@ -884,46 +758,8 @@ private fun segs(list: List<Seg>, supRatio: Float, nowrap: Boolean): AnnotatedSt
     }
 }
 
-private const val DOTS = "unlock.dots"
-private const val INDENT = "unlock.indent"
-
 /** Gluon (WORD JOINER) : invisible, sans chasse, interdit la coupure de part et d'autre. */
 private const val WJ = '\u2060'
-
-/**
- * Ajoute [text] ; l'espace fine insécable, absente de la police, devient une espace insécable de
- * demi-corps : 1/6 em, la chasse que lui donne le navigateur de la maquette.
- */
-private fun AnnotatedString.Builder.appendFine(text: String) {
-    text.split(DailyExercise.THIN).forEachIndexed { i, part ->
-        if (i > 0) withStyle(SpanStyle(fontSize = 0.5.em)) { append('\u00A0') }
-        append(part)
-    }
-}
-
-private fun fine(text: String): AnnotatedString = buildAnnotatedString { appendFine(text) }
-
-/** Contenus en ligne des textes de l'exercice. */
-private val Inline: Map<String, InlineTextContent> = mapOf(
-    // Alinéa de 1,2 em, en emplacement : avec TextIndent, Android décale les emplacements des lignes
-    // suivantes de la valeur de l'alinéa (les exposants s'écartent de leur base).
-    INDENT to InlineTextContent(Placeholder(1.2.em, 0.1.em, PlaceholderVerticalAlign.AboveBaseline)) {},
-    // « ⋯ », absent de la police : les trois points carrés de la police de repli de la maquette (DejaVu
-    // Sans, chasse 1 em), dessinés sur la ligne de base (le bas de l'emplacement).
-    DOTS to InlineTextContent(Placeholder(1.em, 0.5.em, PlaceholderVerticalAlign.AboveBaseline)) {
-        Canvas(Modifier.fillMaxSize()) {
-            val em = size.width
-            val u = em / 2048f
-            for (x in floatArrayOf(236f, 918f, 1600f)) {
-                drawRect(
-                    PaperColors.Ink,
-                    topLeft = Offset(x * u, size.height - 764f * u),
-                    size = Size(211f * u, 254f * u),
-                )
-            }
-        }
-    },
-)
 
 // ---------------------------------------------------------------- Outils
 
