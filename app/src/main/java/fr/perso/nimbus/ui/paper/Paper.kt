@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -58,6 +59,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
@@ -112,6 +114,10 @@ class PaperEnv(
     val animate: Boolean = true,
     /** Motifs des applis calculés tout de suite (captures) plutôt qu'en arrière-plan. */
     val syncGlyphs: Boolean = false,
+    /** Page « Voronoï » : sites déplacés par l'utilisateur (repère de la figure). */
+    val sites: Map<PaperSlot, Offset> = emptyMap(),
+    /** Un site vient d'être posé : nouvelle carte de tous les sites déplacés. */
+    val onSites: (Map<PaperSlot, Offset>) -> Unit = {},
 ) {
     fun app(slot: PaperSlot): AppEntry? = apps[slot]
 
@@ -327,11 +333,13 @@ fun SlotGlyph(slot: PaperSlot, size: Float, tint: Color, modifier: Modifier = Mo
                 colorFilter = ColorFilter.tint(tint),
                 modifier = Modifier.size(size.dp),
             )
+            // Débordement visible : l'italique (« W ») dépasse de sa chasse à droite.
             is Glyph.Letters -> Text(
                 glyph.text,
                 style = Paper.text(size * if (glyph.text.length > 1) 0.78f else 1.02f, size, tint)
                     .copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center),
                 maxLines = 1,
+                overflow = TextOverflow.Visible,
             )
             null -> Unit
         }
@@ -408,6 +416,7 @@ fun SlotDisc(
                 Text(
                     slot.title.take(if (slot.title.length <= 2) 2 else 1),
                     style = Paper.text(size * 0.42f, size * 0.5f, color).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center),
+                    overflow = TextOverflow.Visible,
                 )
             } else {
                 SlotGlyph(slot, size * glyphScale, glyphColor ?: if (style == DiscStyle.FILL) Color.White else color)

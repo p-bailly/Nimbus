@@ -42,6 +42,9 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   πr) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
   long sur une appli › « Changer », ou Paramètres › Page d'accueil › « Applis de la page ». Une place
   vide est en pointillés : un appui permet de choisir son appli.
+- Voronoï : appui long sur une cellule puis glisser pour déplacer le site de son appli dans le
+  carré Ω ; les cellules suivent le doigt, et les pastilles ne sortent pas du carré, ne se touchent
+  pas et laissent le « Ω » libre. Appui long sur le fond › « Sites d'origine » pour tout remettre.
 - Les applis sont dessinées avec leur silhouette monochrome (calque des icônes à thème du Pixel,
   sinon premier plan de l'icône, sinon l'initiale), teintée de la couleur de leur famille.
 - Le thème « Papier (LaTeX) » (choisi avec un accueil papier) met toute l'interface en Computer

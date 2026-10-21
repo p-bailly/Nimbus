@@ -40,7 +40,8 @@ fun PaperHome(vm: LauncherViewModel, settings: LauncherSettings, onLongPress: (O
     val haptics = LocalHapticFeedback.current
     val paperApps by vm.paperApps.collectAsStateWithLifecycle()
     val badges by vm.badges.collectAsStateWithLifecycle()
-    val env = remember(paperApps, badges) {
+    val sites by vm.voronoiSites.collectAsStateWithLifecycle()
+    val env = remember(paperApps, badges, sites) {
         PaperEnv(
             apps = paperApps,
             badges = badges,
@@ -48,6 +49,8 @@ fun PaperHome(vm: LauncherViewModel, settings: LauncherSettings, onLongPress: (O
             onActions = { slot, anchor ->
                 paperApps[slot]?.let { vm.showAppPopup(it, anchor, slot) } ?: vm.showPaperSlotPicker(slot)
             },
+            sites = sites,
+            onSites = vm::setVoronoiSites,
         )
     }
     val doubleTapEnabled = settings.doubleTapAction != GestureAction.NONE

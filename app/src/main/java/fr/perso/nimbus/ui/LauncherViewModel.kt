@@ -530,6 +530,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     /** [app] null : la place revient au choix automatique. */
     fun assignPaperSlot(slot: PaperSlot, app: AppEntry?) = prefs.setPaperSlot(slot, app?.key)
 
+    /** Accueil « Voronoï » : sites déplacés par l'utilisateur. */
+    val voronoiSites: StateFlow<Map<PaperSlot, Offset>> = prefs.voronoiSites
+
+    fun setVoronoiSites(sites: Map<PaperSlot, Offset>) = prefs.setVoronoiSites(sites)
+
     /** Un accueil « papier » passe aussi l'interface au thème papier (on peut en changer ensuite). */
     fun setHomeStyle(style: HomeStyle) = updateSettings {
         it.copy(homeStyle = style, themeMode = if (style.paper) ThemeMode.PAPER else it.themeMode)
