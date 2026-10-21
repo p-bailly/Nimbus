@@ -76,6 +76,10 @@ class Prefs private constructor(context: Context) {
     /** Accueil « Voronoï » : sites déplacés par l'utilisateur (repère de la figure) ; les autres restent à leur place. */
     val voronoiSites: StateFlow<Map<PaperSlot, Offset>> = _voronoiSites.asStateFlow()
 
+    private val _ensemblesSites = MutableStateFlow(readSites(KEY_ENSEMBLES_SITES))
+    /** Accueil « Ensembles » : pastilles déplacées par l'utilisateur (repère de la figure). */
+    val ensemblesSites: StateFlow<Map<PaperSlot, Offset>> = _ensemblesSites.asStateFlow()
+
     private val _glyphChoices = MutableStateFlow(readMap(KEY_GLYPHS))
     /** Motifs choisis (accueils papier, sommaire) : clé d'app -> [GlyphChoice.spec]. */
     val glyphChoices: StateFlow<Map<String, String>> = _glyphChoices.asStateFlow()
@@ -145,7 +149,9 @@ class Prefs private constructor(context: Context) {
         val d = LauncherSettings()
         return LauncherSettings(
             themeMode = enumPref("themeMode", d.themeMode),
-            homeStyle = enumPref("homeStyle", d.homeStyle),
+            // Lapin de Douady et Remerciements ont été retirés : leur accueil devient la page Groupes.
+            homeStyle = sp.getString("homeStyle", null)?.takeIf { it in RETIRED_STYLES }?.let { HomeStyle.GROUPES }
+                ?: enumPref("homeStyle", d.homeStyle),
             iconShape = enumPref("iconShape", d.iconShape),
             iconPack = sp.getString("iconPack", d.iconPack),
             wrapLegacyIcons = sp.getBoolean("wrapLegacyIcons", d.wrapLegacyIcons),
@@ -494,8 +500,16 @@ class Prefs private constructor(context: Context) {
         writeMap(KEY_VORONOI_SITES, sites.entries.associate { (slot, p) -> slot.name to "${p.x},${p.y}" })
     }
 
-    private fun readVoronoiSites(): Map<PaperSlot, Offset> =
-        readMap(KEY_VORONOI_SITES).mapNotNull { (name, value) ->
+    /** Vide : toutes les pastilles reviennent à leur place d'origine. */
+    fun setEnsemblesSites(sites: Map<PaperSlot, Offset>) {
+        _ensemblesSites.value = sites
+        writeMap(KEY_ENSEMBLES_SITES, sites.entries.associate { (slot, p) -> slot.name to "${p.x},${p.y}" })
+    }
+
+    private fun readVoronoiSites(): Map<PaperSlot, Offset> = readSites(KEY_VORONOI_SITES)
+
+    private fun readSites(key: String): Map<PaperSlot, Offset> =
+        readMap(key).mapNotNull { (name, value) ->
             val slot = PaperSlot.entries.firstOrNull { it.name == name } ?: return@mapNotNull null
             val (x, y) = value.split(',').mapNotNull { it.toFloatOrNull() }.takeIf { it.size == 2 } ?: return@mapNotNull null
             slot to Offset(x, y)
@@ -584,6 +598,7 @@ class Prefs private constructor(context: Context) {
         _gestureApps.value = readGestureApps()
         _paperSlots.value = readPaperSlots()
         _voronoiSites.value = readVoronoiSites()
+        _ensemblesSites.value = readSites(KEY_ENSEMBLES_SITES)
         _homeIcons.value = readHomeIcons()
         _homePage.value = sp.getInt(KEY_HOME_PAGE, 0)
         return true
@@ -636,6 +651,10 @@ class Prefs private constructor(context: Context) {
         private const val KEY_GLYPHS = "glyphChoices"
         private const val KEY_PAPER_SLOTS = "paperSlots"
         private const val KEY_VORONOI_SITES = "voronoiSites"
+        private const val KEY_ENSEMBLES_SITES = "ensemblesSites"
+
+        /** Styles d'accueil supprimés (encore possibles dans une ancienne sauvegarde). */
+        private val RETIRED_STYLES = setOf("LAPIN", "REMERCIEMENTS")
         private const val KEY_HOME_ICONS = "homeIcons"
         private const val KEY_HOME_WIDGETS = "homeWidgets"
 

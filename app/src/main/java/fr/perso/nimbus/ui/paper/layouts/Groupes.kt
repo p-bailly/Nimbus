@@ -22,7 +22,9 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,7 +38,6 @@ import fr.perso.nimbus.ui.paper.Paper
 import fr.perso.nimbus.ui.paper.PaperPage
 import fr.perso.nimbus.ui.paper.SlotDisc
 import fr.perso.nimbus.ui.paper.at
-import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.color
 import fr.perso.nimbus.ui.paper.tex
 import kotlin.math.hypot
@@ -87,9 +88,14 @@ private fun Morphism() {
     Row(Modifier.at(22, 142)) {
         Text("1", style = heading(Paper.Ink))
         Text(
+            // Premier théorème d'isomorphisme : φ est surjective de noyau {0, 3}, donc ℤ/6ℤ / ker φ ≅ ℤ/3ℤ.
             tex {
                 color(Blue) { +"Échanges" }
-                +" → "
+                b.withStyle(SpanStyle(fontWeight = FontWeight.Normal)) {
+                    append(" / ker ")
+                    withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append("φ") }
+                    append(" ≅ ")
+                }
                 color(Green) { +"Trajets" }
             },
             style = heading(Paper.Ink),
@@ -262,7 +268,7 @@ private fun heading(color: Color): TextStyle = Paper.text(15f, 18f, color).copy(
 /** Pastille de 34 unités des sections 2 à 4 (cerclée : motif de la couleur sur fond blanc). */
 @Composable
 private fun Element(slot: PaperSlot, cx: Float, cy: Float, color: Color, ring: Boolean = false) {
-    SlotDisc(slot, cx, cy, 34f, style = if (ring) DiscStyle.RING else DiscStyle.FILL, color = LocalPaper.current.colorOf(slot, color), glyphScale = 16f / 34f)
+    SlotDisc(slot, cx, cy, 34f, style = if (ring) DiscStyle.RING else DiscStyle.FILL, color = color, glyphScale = 16f / 34f)
 }
 
 /** Petit numéro en italique centré en ([cx], [cy]). */

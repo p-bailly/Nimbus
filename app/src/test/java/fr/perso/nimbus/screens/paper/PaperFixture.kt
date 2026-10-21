@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.os.Process
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import com.github.takahirom.roborazzi.captureRoboImage
 import fr.perso.nimbus.data.AppCategory
@@ -47,34 +46,11 @@ object PaperFixture {
         )
     }
 
-    /**
-     * Couleurs propres d'applis vraisemblables (celles du sommaire : WhatsApp vert, YouTube rouge,
-     * Google bleu…), pour les pages aux couleurs des applis.
-     */
-    val ownColors: Map<PaperSlot, Color> = PaperSlot.entries.associateWith { slot ->
-        Color(
-            when (slot) {
-                PaperSlot.WHATSAPP -> 0xFF1D9E52
-                PaperSlot.YOUTUBE -> 0xFFE0201B
-                PaperSlot.REDDIT -> 0xFFD63C08
-                PaperSlot.DISCORD -> 0xFF4752C4
-                PaperSlot.SPOTIFY -> 0xFF168D40
-                PaperSlot.TWITCH -> 0xFF7A2FE6
-                PaperSlot.CLAUDE -> 0xFFC2582F
-                PaperSlot.AMAZON -> 0xFFC4620A
-                PaperSlot.WAZE -> 0xFF0A8FC2
-                PaperSlot.BANQUE -> 0xFF00579D
-                PaperSlot.BASKET -> 0xFFE0560C
-                PaperSlot.GITHUB, PaperSlot.LICHESS -> 0xFF14141A
-                else -> 0xFF1A73E8
-            },
-        )
-    }
-
-    fun shoot(name: String, colors: Map<PaperSlot, Color> = emptyMap(), content: @Composable () -> Unit) {
+    /** [ownColors] : motifs aux couleurs des applis (ici l'encre : les applis fictives n'ont pas d'icône). */
+    fun shoot(name: String, ownColors: Boolean = false, content: @Composable () -> Unit) {
         val env = env()
         captureRoboImage("build/outputs/roborazzi/paper/$name.png") {
-            CompositionLocalProvider(LocalPaper provides PaperEnv(env.apps, clock = env.clock, fixedTime = env.fixedTime, fixedInsets = env.fixedInsets, animate = false, syncGlyphs = true, colors = colors)) {
+            CompositionLocalProvider(LocalPaper provides PaperEnv(env.apps, clock = env.clock, fixedTime = env.fixedTime, fixedInsets = env.fixedInsets, animate = false, syncGlyphs = true, ownColors = ownColors)) {
                 content()
             }
         }

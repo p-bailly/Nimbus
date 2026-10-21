@@ -39,22 +39,29 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 
 **Accueils « papier » (style LaTeX)**
 - Appui long sur le fond › « Style de l'accueil » (ou Paramètres › Page d'accueil) : la grille
-  d'icônes, ou l'une des sept pages d'article : Groupes, Voronoï, Ensembles, Sierpiński, Fourier
-  (les applis tournent sur des épicycles), Lapin de Douady (ensemble de Julia), Remerciements.
+  d'icônes, ou l'une des cinq pages d'article : Groupes, Voronoï, Ensembles, Sierpiński, Fourier
+  (les applis tournent sur des épicycles).
 - Chaque page place 27 applis sur une figure mathématique : leurs places (WhatsApp, Messages…
   πr) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
   long sur une appli › « Changer », ou Paramètres › Page d'accueil › « Applis de la page ». Une place
   vide est en pointillés : un appui permet de choisir son appli.
+- Échanger deux applis d'un même groupe : appui long sur une appli › « Échanger », puis l'autre appli
+  de sa famille ; chacune prend la place de l'autre.
+- Ensembles : appui long sur une pastille puis glisser pour la déplacer dans le cadre (sans chevaucher
+  les autres) ; appui long sur le fond › « Places d'origine » pour tout remettre.
 - Voronoï : appui long sur une cellule puis glisser pour déplacer le site de son appli dans le
   carré Ω ; les cellules suivent le doigt, et les pastilles ne sortent pas du carré, ne se touchent
   pas et laissent le « Ω » libre. Appui long sur le fond › « Sites d'origine » pour tout remettre.
 - Les applis sont dessinées avec leur silhouette monochrome (calque des icônes à thème du Pixel,
   sinon premier plan de l'icône, sinon l'initiale), à la couleur propre de l'appli comme dans le
-  sommaire (réglable : Paramètres › Page d'accueil › « Couleurs des applis », sinon couleur de la famille). La
+  sommaire, dans une pastille qui garde la couleur de sa famille (cercle, triangle de Sierpiński) ;
+  réglable : Paramètres › Page d'accueil › « Couleurs des applis » (sinon motif blanc ou de la famille). La
   silhouette est redessinée à sa taille finale (nette même quand le motif est petit dans l'icône).
 - Motif au choix (appui long › Plus › « Motif ») : silhouette de l'app, logo YouTube, lettres
   (« +x », « πr »…) ou silhouette d'une autre app. Par défaut, la place YouTube prend YouTube ReVanced
-  avec le logo de YouTube, Banque Populaire s'écrit « +x » et la place πr (Prof de maths) « πr ».
+  avec le logo de YouTube, Banque Populaire a son logo « +x » et la place πr (Prof de maths) « πr » ;
+  Mes applis, Cartes IGN et SNCF ont aussi un logo dessiné, les applis Google et Chrome sont dans leurs
+  couleurs.
 - Le thème « Papier (LaTeX) » (choisi avec un accueil papier) met toute l'interface en Computer
   Modern sur fond crème. La page est dessinée sur un repère de 412 × 916 mis à l'échelle de l'écran.
 - Pas d'en-tête (ni titre courant, ni numéro, ni heure : elle est dans la barre d'état) : la page
@@ -292,7 +299,7 @@ app/src/main/java/fr/perso/nimbus/
     ├── HomeDrag.kt          Glisser-déposer sur l'accueil (calque sous le doigt)
     ├── theme/Theme.kt       Thèmes Ambiant, Material You, Sombre, Clair, Papier (PaperTheme.kt)
     ├── home/                Accueil, pages, grille d'icônes et de widgets
-    ├── paper/               Accueils « papier » : repère, en-tête, pastilles, sept pages (layouts/)
+    ├── paper/               Accueils « papier » : repère, en-tête, pastilles, cinq pages (layouts/)
     ├── drawer/              Tiroir, recherche sans accents, défilement A–Z, sommaire (DrawerToc)
     ├── unlock/              Page de déverrouillage : activité par-dessus l'écran verrouillé,
     │                        page, données (UnlockFeed), lancement à l'extinction (UnlockLauncher)

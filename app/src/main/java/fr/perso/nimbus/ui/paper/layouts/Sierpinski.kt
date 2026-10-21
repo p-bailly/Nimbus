@@ -177,7 +177,6 @@ private fun Definition() {
 /** T₀ en filet léger, les 27 triangles pleins de T₃, et une place touchable par triangle. */
 @Composable
 private fun Figure() {
-    val env = LocalPaper.current
     Canvas(Modifier.size(412.dp, 916.dp)) {
         val u = 1.dp.toPx()
         val outline = Path().apply {
@@ -194,7 +193,7 @@ private fun Figure() {
                 lineTo(c.x * u, (c.y + c.height) * u)
                 close()
             }
-            drawPath(p, env.colorOf(c.slot, c.color))
+            drawPath(p, c.color)
         }
     }
     for (c in CELLS) TriangleSlot(c)
@@ -213,7 +212,17 @@ private fun TriangleSlot(c: Cell) {
             .slot(c.slot, TriangleShape),
     ) {
         val glyph = Modifier.offset((c.side / 2f - 8.5f).dp, (2f * c.height / 3f - 8.5f).dp)
-        if (app != null) {
+        if (app != null && env.ownColors) {
+            // Aux couleurs des applis : le triangle garde la couleur de la famille, le motif prend celle de
+            // l'appli sur un petit disque blanc.
+            Box(
+                Modifier
+                    .offset((c.side / 2f - 12f).dp, (2f * c.height / 3f - 12f).dp)
+                    .size(24.dp)
+                    .background(Color.White, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { SlotGlyph(c.slot, 15f, Color.White, own = true) }
+        } else if (app != null) {
             SlotGlyph(c.slot, 17f, Color.White, glyph)
         } else {
             // Place sans appli : son initiale ; un appui permet de la choisir.

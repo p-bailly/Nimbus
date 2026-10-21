@@ -14,7 +14,7 @@ class GroupesScreenshot {
     @Test
     fun page() = PaperFixture.shoot("h1_groupes") { GroupesPage() }
 
-    /** Aux couleurs des applis (réglage par défaut) : chaque pastille à la couleur de son appli. */
+    /** Aux couleurs des applis (réglage par défaut) : pastilles cerclées de la famille, motif à la couleur de l'appli. */
     @Test
-    fun ownColors() = PaperFixture.shoot("h1_groupes_couleurs", PaperFixture.ownColors) { GroupesPage() }
+    fun ownColors() = PaperFixture.shoot("h1_groupes_couleurs", ownColors = true) { GroupesPage() }
 }

@@ -117,6 +117,8 @@ data class UiState(
     val pageRequest: PageRequest = PageRequest(0, 0),
     /** Place d'un accueil « papier » dont on choisit l'app. */
     val paperSlotPicker: PaperSlot? = null,
+    /** Place d'un accueil « papier » dont on échange l'app avec une autre place de la même famille. */
+    val paperSwap: PaperSlot? = null,
     /** Bandeau papier (réglages rapides et notifications) ouvert. */
     val panelOpen: Boolean = false,
 )
@@ -616,10 +618,29 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     /** [app] null : la place revient au choix automatique. */
     fun assignPaperSlot(slot: PaperSlot, app: AppEntry?) = prefs.setPaperSlot(slot, app?.key)
 
+    fun showPaperSwap(slot: PaperSlot?) = _ui.update { it.copy(paperSwap = slot, appPopup = null) }
+
+    /**
+     * Échange les applis de deux places (de la même famille) : chacune prend l'appli de l'autre, choisie
+     * à la main pour que le choix automatique ne la remette pas. Une place vide le reste… à l'autre bout.
+     */
+    fun swapPaperSlots(a: PaperSlot, b: PaperSlot) {
+        val apps = paperApps.value
+        val appA = apps[a]
+        val appB = apps[b]
+        prefs.setPaperSlot(a, appB?.key)
+        prefs.setPaperSlot(b, appA?.key)
+    }
+
     /** Accueil « Voronoï » : sites déplacés par l'utilisateur. */
     val voronoiSites: StateFlow<Map<PaperSlot, Offset>> = prefs.voronoiSites
 
     fun setVoronoiSites(sites: Map<PaperSlot, Offset>) = prefs.setVoronoiSites(sites)
+
+    /** Accueil « Ensembles » : pastilles déplacées (repère de la figure). */
+    val ensemblesSites: StateFlow<Map<PaperSlot, Offset>> = prefs.ensemblesSites
+
+    fun setEnsemblesSites(sites: Map<PaperSlot, Offset>) = prefs.setEnsemblesSites(sites)
 
     /** Un accueil « papier » passe aussi l'interface au thème papier (on peut en changer ensuite). */
     fun setHomeStyle(style: HomeStyle) = updateSettings {

@@ -13,4 +13,8 @@ import org.robolectric.annotation.GraphicsMode
 class SierpinskiScreenshot {
     @Test
     fun page() = PaperFixture.shoot("h4_sierpinski") { SierpinskiPage() }
+
+    /** Aux couleurs des applis : triangles de la famille, motif de l'appli sur un disque blanc. */
+    @Test
+    fun ownColors() = PaperFixture.shoot("h4_sierpinski_couleurs", ownColors = true) { SierpinskiPage() }
 }

@@ -83,7 +83,12 @@ class GlyphsAndCategoriesTest {
         assertEquals(GlyphChoice.Colored, AppBrands.glyph(app("Drive", "com.google.android.apps.docs")))
         assertEquals(GlyphChoice.Colored, AppBrands.glyph(app("Play Store", "com.android.vending")))
         assertEquals(GlyphChoice.Detoured, AppBrands.glyph(app("BlaBlaCar", "com.comuto")))
-        assertEquals(GlyphChoice.Detoured, AppBrands.glyph(app("SNCF Connect", "com.vsct.vsc.mobileticket")))
+        assertEquals(GlyphChoice.Logo(PaperLogo.SNCF), AppBrands.glyph(app("SNCF Connect", "com.vsct.vsc.mobileticket")))
+        assertEquals(GlyphChoice.Colored, AppBrands.glyph(app("Chrome", "com.android.chrome")))
+        assertEquals(GlyphChoice.Logo(PaperLogo.MES_APPLIS), AppBrands.glyph(app("Mes applis", "fr.perso.managingapps")))
+        assertEquals(GlyphChoice.Logo(PaperLogo.IGN), AppBrands.glyph(app("Cartes IGN", "fr.ign.guichetcartes")))
+        // « ign » au milieu d'un mot (Signal) n'est pas IGN.
+        assertNull(AppBrands.glyph(app("Signal", "org.thoughtcrime.securesms")))
         assertEquals(GlyphChoice.Logo(PaperLogo.PLUS_X), AppBrands.glyph(app("Banque Populaire", "fr.banquepopulaire.cyberplus")))
         assertEquals(GlyphChoice.Logo(PaperLogo.YOUTUBE), AppBrands.glyph(app("YouTube ReVanced", "app.revanced.android.youtube")))
         assertEquals(0xFF000091, AppBrands.color(app("France Identité", "fr.gouv.franceidentite")))
