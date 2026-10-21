@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import fr.perso.nimbus.data.AppCategory
+import fr.perso.nimbus.data.AppBrands
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.Category
 import fr.perso.nimbus.data.PaperSlot
@@ -300,9 +301,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         PaperSlot.resolve(state.visible, chosen, state.byKey)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
-    /** Motifs des apps : choix de l'utilisateur, sinon motif de la place qu'occupe l'app (logo YouTube…). */
+    /**
+     * Motifs des apps : choix de l'utilisateur, sinon motif de la place qu'occupe l'app (logo YouTube…),
+     * sinon celui de [AppBrands] (applis Google en couleur, BlaBlaCar détouré…).
+     */
     val glyphChoices: StateFlow<GlyphChoices> = combine(prefs.glyphChoices, paperApps, apps) { chosen, slots, state ->
         val map = HashMap<String, GlyphChoice>()
+        for (app in state.byKey.values) AppBrands.glyph(app)?.let { map[app.key] = it }
         for ((slot, app) in slots) {
             val glyph = slot.glyph
             if (app != null && glyph != null) map[app.key] = glyph

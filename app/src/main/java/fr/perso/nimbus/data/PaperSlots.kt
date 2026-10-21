@@ -73,14 +73,14 @@ enum class PaperSlot(
     ),
     BANQUE(
         "Banque Populaire", PaperFamily.OUTILS, listOf("fr.banquepopulaire.cyberplus"), listOf("banque populaire", "+x"),
-        GlyphChoice.Text("+x"),
+        GlyphChoice.Logo(PaperLogo.PLUS_X),
     ),
     PLAY("Play Store", PaperFamily.OUTILS, listOf("com.android.vending"), listOf("play store")),
     AMAZON("Amazon", PaperFamily.OUTILS, listOf("com.amazon.mShop.android.shopping"), listOf("amazon")),
     PRONOTE("Pronote", PaperFamily.OUTILS, listOf("com.IndexEducation.Pronote", "xyz.getpapillon.app"), listOf("pronote", "papillon")),
     LICHESS("Lichess", PaperFamily.JEUX, listOf("org.lichess.mobileV2", "org.lichess.mobileapp"), listOf("lichess")),
     BASKET("Basket", PaperFamily.JEUX, emptyList(), listOf("basket", "nba")),
-    PIR("πr", PaperFamily.JEUX, emptyList(), listOf("πr", "pir", "pi r", "prof de maths"), GlyphChoice.Text("πr")),
+    PIR("πr", PaperFamily.JEUX, emptyList(), listOf("πr", "pir", "pi r", "prof de maths"), GlyphChoice.Logo(PaperLogo.PI_R)),
     ;
 
     companion object {

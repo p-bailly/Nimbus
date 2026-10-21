@@ -102,6 +102,8 @@ data class UnlockState(
     /** Coloriage d'Aujourd'hui (411 × 287 dp de composition) ; sans lui, la météo tient en quelques lignes. */
     val sketch: ImageBitmap? = null,
     val lines: List<LiveLine> = emptyList(),
+    /** Résultats de la nuit des équipes favorites (matchs terminés), sous le direct. */
+    val results: List<LiveLine> = emptyList(),
 )
 
 /** Couleurs de Météo (extrêmes du jour) et de Basket Live (direct, étoile des favoris). */
@@ -201,8 +203,8 @@ fun UnlockPage(
             HRule(22, end + RULE_GAP, 368, 0.6f)
             y = end + RULE_GAP + AFTER_RULE
         }
-        if (state.lines.isNotEmpty()) {
-            val end = BasketSection(y, state.lines, onBasket)
+        if (state.lines.isNotEmpty() || state.results.isNotEmpty()) {
+            val end = BasketSection(y, state.lines + state.results, onBasket)
             HRule(22, end + RULE_GAP, 368, 0.6f)
             y = end + RULE_GAP + AFTER_RULE
         }
@@ -331,12 +333,22 @@ private fun spoken(t: Double): String = "${t.roundToInt()}"
 
 // ---------------------------------------------------------------- Basket
 
-/** Les matchs en direct ; rend le bas de la section. */
+/** Les matchs en direct, puis les résultats de la nuit (matchs terminés) ; rend le bas de la section. */
 @Composable
 private fun BasketSection(y0: Float, lines: List<LiveLine>, onOpen: () -> Unit): Float {
     val b = y0 + 15
     Text("Basket", style = style(15f, face = Face.BOLD), modifier = Modifier.at(22, top(b, 15f, face = Face.BOLD)))
-    RightText("en direct", style(12f).smallCaps(0.06f), top(b, 12f))
+    val live = lines.any { it.game.live }
+    val done = lines.any { it.game.finished }
+    RightText(
+        when {
+            live && done -> "en direct · cette nuit"
+            live -> "en direct"
+            else -> "cette nuit"
+        },
+        style(12f).smallCaps(0.06f),
+        top(b, 12f),
+    )
 
     val rows = rememberRows(lines)
     rows.forEachIndexed { i, row -> GameRow(y0 + 38 + ROW_PITCH * i, row) }
@@ -406,17 +418,21 @@ private fun GameRow(baseline: Float, row: GameLine) {
     Score(game.home.score?.toString(), Modifier.at(158 + dx, top(baseline, 14f)).width(40.dp), Alignment.TopStart)
     TeamCell(row.home, row.line.homeFavorite, baseline, left = HOME_START + dx)
 
-    // État : point de 6 (5 avant le texte, son bas 1 au-dessus de la ligne de base), puis le texte.
+    // État : point de 6 (5 avant le texte, son bas 1 au-dessus de la ligne de base), puis le texte, en
+    // rouge ; un résultat de la nuit (« fin ») est à l'encre pâle, sans point.
     val statusTop = top(baseline, 12.5f)
+    val live = !game.finished
     Box(Modifier.at(22, statusTop).width(368.dp)) {
         Row(Modifier.align(Alignment.TopEnd)) {
-            Box(
-                Modifier
-                    .padding(top = (baseline - 7 - statusTop).dp, end = 5.dp)
-                    .size(6.dp)
-                    .background(Live, CircleShape),
-            )
-            PaperText(row.status, style = style(12.5f, color = Live), softWrap = false)
+            if (live) {
+                Box(
+                    Modifier
+                        .padding(top = (baseline - 7 - statusTop).dp, end = 5.dp)
+                        .size(6.dp)
+                        .background(Live, CircleShape),
+                )
+            }
+            PaperText(row.status, style = style(12.5f, color = if (live) Live else Paper.Soft), softWrap = false)
         }
     }
 }

@@ -81,6 +81,17 @@ class UnlockScreenshot {
     @Test
     fun page() = shoot("h8_deverrouillage", UnlockState(meteo, sketch, listOf(spurs)))
 
+    /** Au réveil : plus de direct, les résultats de la nuit des favorites (dont une prolongation). */
+    @Test
+    fun lastNight() {
+        fun final(id: String, period: Int, home: GameTeam, away: GameTeam) = Game(id, "post", "STATUS_FINAL", period, "0.0", home, away)
+        val results = listOf(
+            LiveLine(final("5", 4, GameTeam("6", "DAL", "Mavericks", 104), GameTeam("24", "SA", "Spurs", 112)), awayFavorite = true, homeFavorite = false),
+            LiveLine(final("6", 5, GameTeam("2", "BOS", "Celtics", 118), GameTeam("18", "NY", "Knicks", 121)), awayFavorite = false, homeFavorite = true),
+        )
+        shoot("h8_cette_nuit", UnlockState(meteo, sketch, results = results), LocalDateTime.of(2026, 10, 21, 7, 40))
+    }
+
     /** Aucun match en direct : la section « Basket » disparaît, l'exercice remonte. */
     @Test
     fun noLiveGame() = shoot("h8_sans_direct", UnlockState(meteo, sketch, emptyList()))

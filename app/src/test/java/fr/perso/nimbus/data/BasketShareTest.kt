@@ -114,6 +114,39 @@ class BasketShareTest {
     }
 
     @Test
+    fun lastNightResultsOfFavorites() {
+        fun final(id: String, start: String, period: Int, home: Triple<String, String, String>, away: Triple<String, String, String>) =
+            event(id, "post", "STATUS_FINAL", period, "0.0", home, away).put("date", start)
+        val events = JSONArray()
+            .put(event("1", "in", "STATUS_IN_PROGRESS", 3, "4:12", Triple("6", "Mavericks", "81"), Triple("24", "Spurs", "83")).put("date", "2026-10-21T00:00Z"))
+            // Celtics : vainqueurs cette nuit après prolongation ; Knicks : match d'avant-hier, trop vieux.
+            .put(final("2", "2026-10-20T23:30Z", 5, Triple("2", "Celtics", "112"), Triple("18", "Knicks", "108")))
+            .put(final("3", "2026-10-19T00:00Z", 4, Triple("18", "Knicks", "99"), Triple("13", "Lakers", "101")))
+            // Spurs : un match terminé plus tôt, mais ils jouent en ce moment : seul le direct compte.
+            .put(final("4", "2026-10-19T23:00Z", 4, Triple("24", "Spurs", "120"), Triple("1", "Hawks", "100")))
+        val games = BasketShare.parseScoreboard(JSONObject().put("events", events).toString())
+        val now = java.time.Instant.parse("2026-10-21T06:30:00Z")
+        val favorites = listOf(spurs, celtics, knicks, lakers)
+        val live = BasketShare.liveLines(favorites, games)
+        val results = BasketShare.resultLines(favorites, games, live, now)
+        assertEquals(listOf("1"), live.map { it.game.id })
+        // Celtics et Knicks dans le même match : une ligne ; Lakers : leur match a 54 h.
+        assertEquals(listOf("2"), results.map { it.game.id })
+        assertTrue(results[0].homeFavorite && results[0].awayFavorite)
+        assertEquals(listOf(Seg("fin · prol.")), BasketShare.status(results[0].game))
+        assertEquals("terminé après prolongation", BasketShare.spokenStatus(results[0].game))
+    }
+
+    @Test
+    fun scoreDaysAreYesterdayAndTodayInNewYork() {
+        val paris = ZoneId.of("Europe/Paris")
+        assertEquals(
+            listOf(LocalDate.of(2026, 10, 19), LocalDate.of(2026, 10, 20)),
+            BasketShare.scoreDays(ZonedDateTime.of(2026, 10, 20, 20, 35, 0, 0, paris)),
+        )
+    }
+
+    @Test
     fun newYorkDays() {
         val paris = ZoneId.of("Europe/Paris")
         // 20 h 35 à Paris = 14 h 35 à New York : la journée du 20.

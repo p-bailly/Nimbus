@@ -286,6 +286,7 @@ internal fun TocEntry(
                 app,
                 GlyphSize,
                 tint = rememberAppColor(app),
+                colored = true,
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
                     .padding(end = GlyphGap),

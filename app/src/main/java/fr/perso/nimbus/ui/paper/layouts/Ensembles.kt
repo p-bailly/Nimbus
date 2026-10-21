@@ -222,6 +222,8 @@ private fun VennFigure() {
             color = PaperColors.Ink,
             ring = DISC_RING * FIG_SCALE,
             glyphScale = DISC_GLYPH / (DISC + 2 * DISC_RING),
+            // Les motifs du sommaire : chaque appli à sa couleur.
+            ownColors = true,
         )
     }
 }

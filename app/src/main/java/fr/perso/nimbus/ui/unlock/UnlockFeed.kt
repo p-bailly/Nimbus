@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.ZonedDateTime
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -56,8 +57,8 @@ class UnlockFeed private constructor(context: Context) {
 
     /**
      * Tant que la page est visible : tout relire tout de suite, suivre Météo et Basket Live (leurs
-     * fournisseurs préviennent à chaque changement), puis les scores toutes les 15 s si un match de
-     * favori est en cours, toutes les 5 min sinon.
+     * fournisseurs préviennent à chaque changement), puis les scores (direct et résultats de la nuit)
+     * toutes les 15 s si un match de favori est en cours, toutes les 5 min sinon.
      */
     suspend fun run(): Unit = coroutineScope {
         launch {
@@ -132,11 +133,12 @@ class UnlockFeed private constructor(context: Context) {
                 games = emptyList()
             } else {
                 try {
-                    games = BasketShare.liveDays(ZonedDateTime.now()).flatMap { BasketShare.fetchScoreboard(it) }
+                    games = BasketShare.scoreDays(ZonedDateTime.now()).flatMap { BasketShare.fetchScoreboard(it) }
                     scoresAt = SystemClock.elapsedRealtime()
                 } catch (e: Exception) {
-                    // Hors réseau : les derniers scores restent un moment, puis ne sont plus « en direct ».
-                    if (SystemClock.elapsedRealtime() - scoresAt > MAX_SCORES_AGE) games = emptyList()
+                    // Hors réseau : les derniers scores restent un moment, puis ne sont plus « en direct » ;
+                    // les résultats, eux, ne changent plus.
+                    if (SystemClock.elapsedRealtime() - scoresAt > MAX_SCORES_AGE) games = games.filter { it.finished }
                 }
             }
             publishLines()
@@ -145,7 +147,8 @@ class UnlockFeed private constructor(context: Context) {
 
     private fun publishLines() {
         val lines = BasketShare.liveLines(favorites, games)
-        _state.update { it.copy(lines = lines) }
+        val results = BasketShare.resultLines(favorites, games, lines, Instant.now())
+        _state.update { it.copy(lines = lines, results = results) }
     }
 
     /**

@@ -37,6 +37,9 @@ class GlyphsAndCategoriesTest {
             GlyphChoice.Text("πr"),
             GlyphChoice.OfApp("com.google.android.apps.docs/Main#0"),
             GlyphChoice.Own,
+            GlyphChoice.Colored,
+            GlyphChoice.Detoured,
+            GlyphChoice.Logo(PaperLogo.PLUS_X),
         )
         for (choice in choices) assertEquals(choice, GlyphChoice.parse(choice.spec))
         assertNull(GlyphChoice.parse("logo:INCONNU"))
@@ -71,8 +74,38 @@ class GlyphsAndCategoriesTest {
         assertEquals(revanced, slots[PaperSlot.YOUTUBE])
         assertEquals(GlyphChoice.Logo(PaperLogo.YOUTUBE), PaperSlot.YOUTUBE.glyph)
         assertEquals(maths, slots[PaperSlot.PIR])
-        assertEquals(GlyphChoice.Text("πr"), PaperSlot.PIR.glyph)
-        assertEquals(GlyphChoice.Text("+x"), PaperSlot.BANQUE.glyph)
+        assertEquals(GlyphChoice.Logo(PaperLogo.PI_R), PaperSlot.PIR.glyph)
+        assertEquals(GlyphChoice.Logo(PaperLogo.PLUS_X), PaperSlot.BANQUE.glyph)
+    }
+
+    @Test
+    fun brandDefaults() {
+        assertEquals(GlyphChoice.Colored, AppBrands.glyph(app("Drive", "com.google.android.apps.docs")))
+        assertEquals(GlyphChoice.Colored, AppBrands.glyph(app("Play Store", "com.android.vending")))
+        assertEquals(GlyphChoice.Detoured, AppBrands.glyph(app("BlaBlaCar", "com.comuto")))
+        assertEquals(GlyphChoice.Detoured, AppBrands.glyph(app("SNCF Connect", "com.vsct.vsc.mobileticket")))
+        assertEquals(GlyphChoice.Logo(PaperLogo.PLUS_X), AppBrands.glyph(app("Banque Populaire", "fr.banquepopulaire.cyberplus")))
+        assertEquals(GlyphChoice.Logo(PaperLogo.YOUTUBE), AppBrands.glyph(app("YouTube ReVanced", "app.revanced.android.youtube")))
+        assertEquals(0xFF000091, AppBrands.color(app("France Identité", "fr.gouv.franceidentite")))
+        assertNull(AppBrands.glyph(app("WhatsApp", "com.whatsapp")))
+        assertNull(AppBrands.color(app("WhatsApp", "com.whatsapp")))
+    }
+
+    @Test
+    fun detouringFindsTheWhiteLogoOnAPlainBackground() {
+        val n = 100
+        // Fond bleu, une barre blanche au centre.
+        val pixels = IntArray(n * n) { i ->
+            val x = i % n
+            val y = i / n
+            if (x in 40..59 && y in 30..69) 0xFFFFFFFF.toInt() else 0xFF0AA5E6.toInt()
+        }
+        val alpha = GlyphFactory.detourAlpha(pixels, n)!!
+        assertEquals(255, alpha[50 * n + 50])
+        assertEquals(0, alpha[10 * n + 10])
+        // Pas de fond uni (moitié rouge, moitié verte) : pas de détourage.
+        val split = IntArray(n * n) { i -> if (i % n < 50) 0xFFFF0000.toInt() else 0xFF00FF00.toInt() }
+        assertNull(GlyphFactory.detourAlpha(split, n))
     }
 
     @Test

@@ -75,6 +75,8 @@ private fun describe(choice: GlyphChoice?, apps: AppsState): String = when (choi
     is GlyphChoice.Logo -> choice.logo.label.replaceFirstChar { it.lowercase() }
     is GlyphChoice.Text -> "lettres ${choice.text}"
     is GlyphChoice.OfApp -> "silhouette de ${apps.byKey[choice.key]?.label ?: "l'app choisie"}"
+    GlyphChoice.Colored -> "en couleur"
+    GlyphChoice.Detoured -> "logo détouré"
     GlyphChoice.Own, null -> "sa silhouette"
 }
 
@@ -295,7 +297,7 @@ fun AppActionSheet(
         )
         SheetDialog.GLYPH -> {
             val user = vm.userGlyphChoice(app)
-            val options = listOf(GLYPH_AUTO, GlyphChoice.Own.spec) +
+            val options = listOf(GLYPH_AUTO, GlyphChoice.Own.spec, GlyphChoice.Colored.spec, GlyphChoice.Detoured.spec) +
                 PaperLogo.entries.map { GlyphChoice.Logo(it).spec } + listOf(GLYPH_TEXT, GLYPH_APP)
             ChoiceDialog(
                 title = "Motif de ${app.label}",
@@ -310,6 +312,8 @@ fun AppActionSheet(
                     when (option) {
                         GLYPH_AUTO -> "Automatique"
                         GlyphChoice.Own.spec -> "Silhouette de l'app"
+                        GlyphChoice.Colored.spec -> "Silhouette en couleur (sommaire)"
+                        GlyphChoice.Detoured.spec -> "Logo détouré de l'icône"
                         GLYPH_TEXT -> "Lettres…" + ((user as? GlyphChoice.Text)?.let { " (${it.text})" } ?: "")
                         GLYPH_APP -> "Silhouette d'une autre app…" +
                             ((user as? GlyphChoice.OfApp)?.let { " (${apps.byKey[it.key]?.label ?: "?"})" } ?: "")
@@ -327,7 +331,9 @@ fun AppActionSheet(
                     }
                 },
                 onDismiss = { dialog = null },
-                footer = "Automatique : le motif de la place de l'app sur l'accueil (logo YouTube, +x, πr), sinon sa silhouette.",
+                footer = "Automatique : le motif de la place de l'app sur l'accueil (logo YouTube, +x, πr), ou celui prévu " +
+                    "pour l'app (Google en couleur, BlaBlaCar et SNCF détourés), sinon sa silhouette. « Logo détouré » : " +
+                    "le dessin qui se détache du fond de l'icône, pour une icône pleine.",
             )
         }
         SheetDialog.GLYPH_TEXT -> {

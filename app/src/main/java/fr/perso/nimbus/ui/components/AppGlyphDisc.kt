@@ -132,20 +132,30 @@ fun rememberAppColor(app: AppEntry): Color {
     }.value
 }
 
-/** Silhouette de l'app teinte de [tint] dans un carré de [size], ou ses lettres en italique. */
+/**
+ * Silhouette de l'app teinte de [tint] dans un carré de [size], ou ses lettres en italique ; avec
+ * [colored], dans les couleurs de l'icône quand le motif les a gardées (applis Google).
+ */
 @Composable
-fun AppGlyph(app: AppEntry, size: Dp, tint: Color, modifier: Modifier = Modifier) {
+fun AppGlyph(app: AppEntry, size: Dp, tint: Color, modifier: Modifier = Modifier, colored: Boolean = false) {
     val density = LocalDensity.current
     val px = with(density) { size.roundToPx() }.coerceAtLeast(8)
     val glyph = rememberAppGlyph(app, px)
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         when (glyph) {
-            is Glyph.Mask -> Image(
-                bitmap = glyph.bitmap,
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(tint),
-                modifier = Modifier.size(size),
-            )
+            is Glyph.Mask -> {
+                val colors = glyph.colors
+                if (colored && colors != null) {
+                    Image(bitmap = colors, contentDescription = null, modifier = Modifier.size(size))
+                } else {
+                    Image(
+                        bitmap = glyph.bitmap,
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(tint),
+                        modifier = Modifier.size(size),
+                    )
+                }
+            }
             is Glyph.Letters -> {
                 val fontSize = with(density) { (size * if (glyph.text.length > 1) 0.78f else 1.02f).toSp() }
                 Text(

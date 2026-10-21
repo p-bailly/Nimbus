@@ -71,6 +71,7 @@ import fr.perso.nimbus.data.Glyph
 import fr.perso.nimbus.data.PaperFamily
 import fr.perso.nimbus.data.PaperSlot
 import fr.perso.nimbus.service.SystemActions
+import fr.perso.nimbus.ui.components.rememberAppColor
 import fr.perso.nimbus.ui.components.rememberAppGlyph
 import fr.perso.nimbus.ui.theme.PaperColors
 import fr.perso.nimbus.ui.theme.PaperTextBase
@@ -335,24 +336,29 @@ fun Modifier.slot(slot: PaperSlot, shape: Shape = CircleShape, label: String? = 
         )
 }
 
-/** Motif monochrome de l'app d'une place, teint de [tint], dans un carré de [size] unités. */
+/**
+ * Motif monochrome de l'app d'une place, teint de [tint], dans un carré de [size] unités ; avec [own],
+ * comme dans le sommaire : à la couleur propre de l'app, ou dans ses couleurs (applis Google).
+ */
 @Composable
-fun SlotGlyph(slot: PaperSlot, size: Float, tint: Color, modifier: Modifier = Modifier) {
+fun SlotGlyph(slot: PaperSlot, size: Float, tint: Color, modifier: Modifier = Modifier, own: Boolean = false) {
     val env = LocalPaper.current
     val px = with(LocalDensity.current) { size.dp.roundToPx() }.coerceAtLeast(8)
-    val glyph = rememberAppGlyph(env.app(slot), px, fallback = slot.glyph, sync = env.syncGlyphs)
+    val app = env.app(slot)
+    val glyph = rememberAppGlyph(app, px, fallback = slot.glyph, sync = env.syncGlyphs)
+    val ink = if (own && app != null) rememberAppColor(app) else tint
     Box(modifier.size(size.dp), contentAlignment = Alignment.Center) {
         when (glyph) {
             is Glyph.Mask -> Image(
-                bitmap = glyph.bitmap,
+                bitmap = glyph.colors?.takeIf { own } ?: glyph.bitmap,
                 contentDescription = null,
-                colorFilter = ColorFilter.tint(tint),
+                colorFilter = if (own && glyph.colors != null) null else ColorFilter.tint(ink),
                 modifier = Modifier.size(size.dp),
             )
             // Débordement visible : l'italique (« W ») dépasse de sa chasse à droite.
             is Glyph.Letters -> Text(
                 glyph.text,
-                style = Paper.text(size * if (glyph.text.length > 1) 0.78f else 1.02f, size, tint)
+                style = Paper.text(size * if (glyph.text.length > 1) 0.78f else 1.02f, size, ink)
                     .copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center),
                 maxLines = 1,
                 overflow = TextOverflow.Visible,
@@ -384,6 +390,8 @@ fun SlotDisc(
     ring: Float = 1.5f,
     glyphScale: Float = 0.48f,
     glyphColor: Color? = null,
+    /** Motif à la couleur propre de l'app, comme dans le sommaire (disque cerclé seulement). */
+    ownColors: Boolean = false,
 ) {
     val env = LocalPaper.current
     val app = env.app(slot)
@@ -417,7 +425,7 @@ fun SlotDisc(
                     overflow = TextOverflow.Visible,
                 )
             } else {
-                SlotGlyph(slot, size * glyphScale, glyphColor ?: if (style == DiscStyle.FILL) Color.White else color)
+                SlotGlyph(slot, size * glyphScale, glyphColor ?: if (style == DiscStyle.FILL) Color.White else color, own = ownColors)
             }
         }
         if (badge > 0) {

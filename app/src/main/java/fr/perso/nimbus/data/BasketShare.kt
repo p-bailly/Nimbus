@@ -6,12 +6,15 @@ import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-// Matchs en direct des équipes favorites de l'appli Basket Live : les favoris viennent de son
+// Matchs en direct, et résultats de la nuit, des équipes favorites de l'appli Basket Live : les favoris viennent de son
 // fournisseur (content://com.pbailly.superfanbasket.nimbus), les scores de l'API publique d'ESPN,
 // la même que l'appli.
 
@@ -32,8 +35,11 @@ data class Game(
     val displayClock: String,
     val home: GameTeam,
     val away: GameTeam,
+    /** Coup d'envoi (null s'il manque au tableau). */
+    val start: Instant? = null,
 ) {
     val live: Boolean get() = state == "in"
+    val finished: Boolean get() = state == "post"
 }
 
 /** Une ligne de la page : le match, et les équipes favorites (en gras, étoilées). */
@@ -48,8 +54,12 @@ object BasketShare {
     private val NEW_YORK: ZoneId = ZoneId.of("America/New_York")
     private val YMD: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
 
-    /** Au plus trois lignes : la page reste courte. */
+    /** Au plus trois matchs en direct, et quatre lignes en tout avec les résultats : la page reste courte. */
     const val MAX_LINES = 3
+    const val MAX_TOTAL = 4
+
+    /** Un résultat de plus de 36 h n'est plus « de la nuit ». */
+    private val RESULT_AGE: Duration = Duration.ofHours(36)
 
     /**
      * Les équipes favorites, dans l'ordre de l'appli ; null si Basket Live n'est pas installée (ou trop
@@ -76,6 +86,15 @@ object BasketShare {
         val ny = now.withZoneSameInstant(NEW_YORK)
         val today = ny.toLocalDate()
         return if (ny.hour < 6) listOf(today.minusDays(1), today) else listOf(today)
+    }
+
+    /**
+     * Journées à lire pour le direct et les résultats de la nuit : hier et aujourd'hui à New York (les
+     * matchs du soir américain se jouent la nuit en France).
+     */
+    fun scoreDays(now: ZonedDateTime): List<LocalDate> {
+        val today = now.withZoneSameInstant(NEW_YORK).toLocalDate()
+        return listOf(today.minusDays(1), today)
     }
 
     /** Le tableau des matchs d'une journée d'ESPN (réseau : hors du fil principal). */
@@ -128,6 +147,8 @@ object BasketShare {
             displayClock = status.optString("displayClock"),
             home = parseTeam(home) ?: return null,
             away = parseTeam(away) ?: return null,
+            // « 2026-10-21T23:30Z » : les secondes manquent souvent.
+            start = runCatching { OffsetDateTime.parse(e.optString("date")).toInstant() }.getOrNull(),
         )
     }
 
@@ -163,6 +184,27 @@ object BasketShare {
     }
 
     /**
+     * Les résultats de la nuit : pour chaque favorite, dans l'ordre, son dernier match terminé depuis
+     * moins de 36 h (coup d'envoi), s'il ne joue pas en ce moment ; un match entre deux favorites n'apparaît
+     * qu'une fois ; de quoi compléter [live] jusqu'à [MAX_TOTAL] lignes.
+     */
+    fun resultLines(favorites: List<FavoriteTeam>, games: List<Game>, live: List<LiveLine>, now: Instant): List<LiveLine> {
+        val ids = favorites.map { it.id }.toSet()
+        val playing = live.flatMap { listOf(it.game.home.id, it.game.away.id) }.toSet()
+        val done = games.filter { g -> g.finished && g.start?.let { Duration.between(it, now) < RESULT_AGE } != false }
+            .sortedByDescending { it.start }
+        val lines = mutableListOf<LiveLine>()
+        for (fav in favorites) {
+            if (live.size + lines.size >= MAX_TOTAL) break
+            if (fav.id in playing) continue
+            val game = done.firstOrNull { it.home.id == fav.id || it.away.id == fav.id } ?: continue
+            if (lines.any { it.game.id == game.id }) continue
+            lines += LiveLine(game, awayFavorite = game.away.id in ids, homeFavorite = game.home.id in ids)
+        }
+        return lines
+    }
+
+    /**
      * État d'un match en cours, en morceaux (l'ordinal en exposant) : « 3ᵉ qt · 4:12 », « mi-temps »,
      * « fin du 3ᵉ qt », « prol. · 2:31 », « 2ᵉ prol. · 0:45 ».
      */
@@ -171,6 +213,7 @@ object BasketShare {
         val clock = game.displayClock.trim().takeIf { it.isNotEmpty() }?.let { " · $it" }.orEmpty()
         fun ordinal(n: Int) = Seg("$n", if (n == 1) "er" else "e")
         return when {
+            game.finished -> listOf(Seg(if (p > 5) "fin · ${p - 4} prol." else if (p == 5) "fin · prol." else "fin"))
             game.statusName == "STATUS_HALFTIME" -> listOf(Seg("mi-temps"))
             p <= 0 -> listOf(Seg("en cours"))
             game.statusName == "STATUS_END_PERIOD" -> when {
@@ -190,6 +233,7 @@ object BasketShare {
         val clock = game.displayClock.trim().takeIf { it.isNotEmpty() }?.let { ", $it à jouer" }.orEmpty()
         fun nth(n: Int) = if (n == 1) "1er" else "${n}e"
         return when {
+            game.finished -> if (p > 4) "terminé après prolongation" else "terminé"
             game.statusName == "STATUS_HALFTIME" -> "mi-temps"
             p <= 0 -> "en cours"
             game.statusName == "STATUS_END_PERIOD" -> if (p <= 4) "fin du ${nth(p)} quart-temps" else "fin de la prolongation"
