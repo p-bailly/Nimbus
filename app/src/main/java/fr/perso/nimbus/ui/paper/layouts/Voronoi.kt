@@ -221,10 +221,11 @@ fun VoronoiPage() {
                 },
                 style = Paper.text(14.5f, LINE),
             )
+            // Espace insécable devant « = » : une ligne ne commence jamais par un signe de relation.
             Text(
                 tex {
                     bf("Exercice."); +" On prend Ω = ℝ², "; it("A"); +" = {"; it("a"); +", "; it("b"); +"}, "
-                    it("a"); +" = (0, 0) et "; it("b"); +" = (2, 0). Déterminer "; it("V"); +"("; it("a"); +")."
+                    it("a"); +" = (0, 0) et "; it("b"); +" = (2, 0). Déterminer "; it("V"); +"("; it("a"); +")."
                 },
                 style = Paper.text(14.5f, LINE),
             )
