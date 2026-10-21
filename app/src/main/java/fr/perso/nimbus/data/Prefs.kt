@@ -2,6 +2,7 @@ package fr.perso.nimbus.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.ui.geometry.Offset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,6 +66,10 @@ class Prefs private constructor(context: Context) {
     private val _paperSlots = MutableStateFlow(readPaperSlots())
     /** Accueils « papier » : app choisie pour chaque place (sinon, choix automatique). */
     val paperSlots: StateFlow<Map<PaperSlot, String>> = _paperSlots.asStateFlow()
+
+    private val _voronoiSites = MutableStateFlow(readVoronoiSites())
+    /** Accueil « Voronoï » : sites déplacés par l'utilisateur (repère de la figure) ; les autres restent à leur place. */
+    val voronoiSites: StateFlow<Map<PaperSlot, Offset>> = _voronoiSites.asStateFlow()
 
     private val _gestureApps = MutableStateFlow(readGestureApps())
     /** App ouverte par un geste réglé sur « Ouvrir une app ». */
@@ -415,6 +420,19 @@ class Prefs private constructor(context: Context) {
         writeMap(KEY_PAPER_SLOTS, map.mapKeys { it.key.name })
     }
 
+    /** Vide : tous les sites reviennent à leur place d'origine. */
+    fun setVoronoiSites(sites: Map<PaperSlot, Offset>) {
+        _voronoiSites.value = sites
+        writeMap(KEY_VORONOI_SITES, sites.entries.associate { (slot, p) -> slot.name to "${p.x},${p.y}" })
+    }
+
+    private fun readVoronoiSites(): Map<PaperSlot, Offset> =
+        readMap(KEY_VORONOI_SITES).mapNotNull { (name, value) ->
+            val slot = PaperSlot.entries.firstOrNull { it.name == name } ?: return@mapNotNull null
+            val (x, y) = value.split(',').mapNotNull { it.toFloatOrNull() }.takeIf { it.size == 2 } ?: return@mapNotNull null
+            slot to Offset(x, y)
+        }.toMap()
+
     private fun readPaperSlots(): Map<PaperSlot, String> =
         readMap(KEY_PAPER_SLOTS).mapNotNull { (name, app) ->
             PaperSlot.entries.firstOrNull { it.name == name }?.let { it to app }
@@ -495,6 +513,7 @@ class Prefs private constructor(context: Context) {
         _iconSwipeActions.value = readMap(KEY_ICON_SWIPES)
         _gestureApps.value = readGestureApps()
         _paperSlots.value = readPaperSlots()
+        _voronoiSites.value = readVoronoiSites()
         _homeIcons.value = readHomeIcons()
         _homePage.value = sp.getInt(KEY_HOME_PAGE, 0)
         return true
@@ -544,6 +563,7 @@ class Prefs private constructor(context: Context) {
         private const val KEY_ICON_SWIPES = "iconSwipeActions"
         private const val KEY_GESTURE_APPS = "gestureApps"
         private const val KEY_PAPER_SLOTS = "paperSlots"
+        private const val KEY_VORONOI_SITES = "voronoiSites"
         private const val KEY_HOME_ICONS = "homeIcons"
         private const val KEY_HOME_WIDGETS = "homeWidgets"
 

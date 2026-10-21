@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.R
 import fr.perso.nimbus.data.HomeStyle
 import fr.perso.nimbus.data.LauncherSettings
@@ -95,6 +96,7 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
     var pickingIcon by remember { mutableStateOf(false) }
     var pickingStyle by remember { mutableStateOf(false) }
     val paper = settings.homeStyle.paper
+    val voronoiSites by vm.voronoiSites.collectAsStateWithLifecycle()
 
     ModalBottomSheet(
         onDismissRequest = vm::closeHomeMenu,
@@ -116,6 +118,12 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
                     .padding(horizontal = 12.dp),
             ) {
                 MenuTile(R.drawable.ms_style, "Style de l'accueil") { pickingStyle = true }
+                if (settings.homeStyle == HomeStyle.VORONOI && voronoiSites.isNotEmpty()) {
+                    MenuTile(R.drawable.ms_history, "Sites d'origine") {
+                        vm.closeHomeMenu()
+                        vm.setVoronoiSites(emptyMap())
+                    }
+                }
                 if (!paper) {
                     MenuTile(R.drawable.ms_add_box, "Ajouter une icône") { pickingIcon = true }
                     MenuTile(R.drawable.ms_dashboard_customize, "Ajouter un widget") { vm.openWidgetPicker() }
@@ -174,7 +182,8 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
                 vm.setHomeStyle(style)
             },
             onDismiss = { pickingStyle = false },
-            footer = "Les styles « papier » placent 27 applis sur une page d'article ; appui long sur une appli pour en changer.",
+            footer = "Les styles « papier » placent 27 applis sur une page d'article ; appui long sur une appli pour en changer. " +
+                "Voronoï : appui long puis glisser pour déplacer une appli dans le carré.",
         )
     }
 

@@ -2,6 +2,8 @@ package fr.perso.nimbus.ui.paper.layouts
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,17 +16,32 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -42,17 +59,18 @@ import fr.perso.nimbus.ui.paper.PaperPage
 import fr.perso.nimbus.ui.paper.SlotDisc
 import fr.perso.nimbus.ui.paper.at
 import fr.perso.nimbus.ui.paper.color
-import fr.perso.nimbus.ui.paper.slot
 import fr.perso.nimbus.ui.paper.tex
+import kotlin.math.hypot
 
 // Page « Voronoï » : chaque appli possède sa cellule, les points de Ω plus proches de son site que
-// de tout autre. Un appui n'importe où dans la cellule ouvre l'appli.
+// de tout autre. Un appui n'importe où dans la cellule ouvre l'appli ; un appui long puis un glissé
+// déplace son site dans Ω, et les cellules suivent le doigt.
 
 /** Site d'une appli, dans le repère de la figure (avant mise à l'échelle). */
 private class Site(val slot: PaperSlot, val x: Double, val y: Double)
 
-// Sites obtenus par relaxation de Lloyd dans Ω, écartés de moins d'un point de l'optimum symétrique
-// pour que quatre sites ne soient jamais cocycliques.
+// Sites d'origine, obtenus par relaxation de Lloyd dans Ω, écartés de moins d'un point de l'optimum
+// symétrique pour que quatre sites ne soient jamais cocycliques.
 private val SITES = listOf(
     Site(PaperSlot.WHATSAPP, 63.4, 205.5), Site(PaperSlot.MESSAGES, 168.5, 199.5), Site(PaperSlot.DISCORD, 137.9, 275.0),
     Site(PaperSlot.REDDIT, 57.0, 304.3), Site(PaperSlot.TELEPHONE, 159.2, 361.0), Site(PaperSlot.GMAIL, 56.9, 397.2),
@@ -70,6 +88,18 @@ private const val X0 = 14.0
 private const val Y0 = 160.0
 private const val X1 = 398.0
 private const val Y1 = 736.0
+
+/**
+ * Un site déplacé reste à [MARGIN] du cadre et à [GAP] des autres sites (repère de la figure) : sa
+ * pastille (rayon 20,5) tient entière dans sa cellule, avec 2,5 de blanc jusqu'au bord.
+ */
+private const val MARGIN = 23.0
+private const val GAP = 46.0
+
+/** Le « Ω » du coin (centre de son dessin) : une pastille reste à [OMEGA_GAP] de son centre. */
+private const val OMEGA_X = 27.5
+private const val OMEGA_Y = 174.3
+private const val OMEGA_GAP = 31.0
 
 /** La figure est réduite à 0,9 et décalée de (20,6 ; 54) sur la page. */
 private const val SCALE = 0.9f
@@ -119,11 +149,52 @@ private fun clip(poly: List<Vertex>, a: Site, b: Site, j: Int): List<Vertex> {
 }
 
 /** V(a) = Ω ∩ ⋂_b {x : ‖x − a‖ ≤ ‖x − b‖} : Ω découpé par le demi-plan de chaque médiatrice. */
-private fun cell(i: Int): List<Vertex> {
+private fun cell(sites: List<Site>, i: Int): List<Vertex> {
     var poly = listOf(Vertex(X0, Y0, -1), Vertex(X1, Y0, -1), Vertex(X1, Y1, -1), Vertex(X0, Y1, -1))
-    SITES.forEachIndexed { j, b -> if (j != i) poly = clip(poly, SITES[i], b, j) }
+    sites.forEachIndexed { j, b -> if (j != i) poly = clip(poly, sites[i], b, j) }
     return poly
 }
+
+/** Sites de la page : ceux d'origine, sauf ceux que l'utilisateur a déplacés. */
+private fun sites(moved: Map<PaperSlot, Offset>): List<Site> = SITES.map { site ->
+    moved[site.slot]?.let { Site(site.slot, it.x.toDouble(), it.y.toDouble()) } ?: site
+}
+
+/**
+ * Position permise la plus proche de [p] pour le site [i] : dans Ω à [MARGIN] du cadre, à [GAP] au
+ * moins des autres sites, hors du « Ω ». null si le site est coincé (il garde alors sa place).
+ */
+private fun allowed(p: Offset, i: Int, sites: List<Site>): Offset? {
+    var x = p.x.toDouble()
+    var y = p.y.toDouble()
+    repeat(8) {
+        x = x.coerceIn(X0 + MARGIN, X1 - MARGIN)
+        y = y.coerceIn(Y0 + MARGIN, Y1 - MARGIN)
+        var free = true
+        // Trop près de (cx, cy) : repoussé sur le cercle de rayon [gap] autour de ce point.
+        fun keepAway(cx: Double, cy: Double, gap: Double) {
+            val dx = x - cx
+            val dy = y - cy
+            val d = hypot(dx, dy)
+            if (d >= gap) return
+            free = false
+            if (d < 1e-6) {
+                x = cx + gap + 1e-3
+            } else {
+                x = cx + dx * (gap + 1e-3) / d
+                y = cy + dy * (gap + 1e-3) / d
+            }
+        }
+        sites.forEachIndexed { j, other -> if (j != i) keepAway(other.x, other.y, GAP) }
+        keepAway(OMEGA_X, OMEGA_Y, OMEGA_GAP)
+        if (free) return Offset(x.toFloat(), y.toFloat())
+    }
+    return null
+}
+
+/** Indice du site le plus proche de ([x], [y]) : la cellule qui contient ce point. */
+private fun nearest(sites: List<Site>, x: Double, y: Double): Int =
+    sites.indices.minBy { hypot(sites[it].x - x, sites[it].y - y) }
 
 /**
  * Tracés de la figure (repère de la figure) : un aplat par famille, les frontières intérieures à
@@ -136,12 +207,12 @@ private class Diagram(
     val cells: List<List<Offset>>,
 )
 
-private fun diagram(): Diagram {
+private fun diagram(sites: List<Site>): Diagram {
     val fills = PaperFamily.entries.associateWith { Path() }
     val inner = Path()
     val outer = Path()
-    val cells = SITES.mapIndexed { i, site ->
-        val poly = cell(i)
+    val cells = sites.mapIndexed { i, site ->
+        val poly = cell(sites, i)
         fills.getValue(site.slot.family).apply {
             poly.forEachIndexed { k, p -> if (k == 0) moveTo(p.x.toFloat(), p.y.toFloat()) else lineTo(p.x.toFloat(), p.y.toFloat()) }
             close()
@@ -150,7 +221,7 @@ private fun diagram(): Diagram {
         poly.forEachIndexed { k, p ->
             if (p.edge > i) {
                 val q = poly[(k + 1) % poly.size]
-                val path = if (SITES[p.edge].slot.family == site.slot.family) inner else outer
+                val path = if (sites[p.edge].slot.family == site.slot.family) inner else outer
                 path.moveTo(p.x.toFloat(), p.y.toFloat())
                 path.lineTo(q.x.toFloat(), q.y.toFloat())
             }
@@ -165,7 +236,12 @@ private fun page(x: Double, y: Double) = Offset(SHIFT_X + SCALE * x.toFloat(), S
 
 @Composable
 fun VoronoiPage() {
-    val diagram = remember { diagram() }
+    val env = LocalPaper.current
+    // Sites posés (à jour dès le lâcher, sans attendre l'enregistrement) et site qui suit le doigt.
+    var placed by remember(env.sites) { mutableStateOf(env.sites) }
+    var dragged by remember { mutableStateOf<Pair<PaperSlot, Offset>?>(null) }
+    val sites = remember(placed, dragged) { sites(dragged?.let { placed + it } ?: placed) }
+    val diagram = remember(sites) { diagram(sites) }
     PaperPage("Voronoï", "2") {
         Text(
             tex { bf("Définition."); +" Pour "; it("a"); +" ∈ "; it("A"); +" = {applis}, la cellule de "; it("a"); +" est" },
@@ -189,7 +265,19 @@ fun VoronoiPage() {
             Text("(1)", style = Paper.body)
         }
 
-        Figure(diagram)
+        Figure(
+            diagram,
+            sites,
+            onMove = { slot, at -> dragged = slot to at },
+            onDrop = {
+                dragged?.let {
+                    placed = placed + it
+                    env.onSites(placed)
+                }
+                dragged = null
+            },
+            onCancel = { dragged = null },
+        )
 
         Text(
             tex {
@@ -235,7 +323,13 @@ fun VoronoiPage() {
 
 /** Le diagramme, « Ω », puis les applis : chacune occupe toute sa cellule, pastille au site. */
 @Composable
-private fun Figure(diagram: Diagram) {
+private fun Figure(
+    diagram: Diagram,
+    sites: List<Site>,
+    onMove: (PaperSlot, Offset) -> Unit,
+    onDrop: () -> Unit,
+    onCancel: () -> Unit,
+) {
     Canvas(Modifier.size(PAPER_WIDTH.dp, PAPER_HEIGHT.dp)) {
         val u = 1.dp.toPx()
         withTransform({
@@ -259,7 +353,74 @@ private fun Figure(diagram: Diagram) {
         style = Paper.text(15f * SCALE, 15f * 1.385f * SCALE).copy(fontStyle = FontStyle.Italic),
         modifier = Modifier.at(SHIFT_X + 21 * SCALE, SHIFT_Y + 164 * SCALE),
     )
-    SITES.forEachIndexed { i, site -> Cell(site, diagram.cells[i]) }
+    sites.forEachIndexed { i, site -> key(site.slot) { Cell(site, diagram.cells[i]) } }
+    Touch(sites, onMove, onDrop, onCancel)
+}
+
+/**
+ * Touchers de toute la figure, au-dessus des cellules : le point touché est dans la cellule du site
+ * le plus proche. Appui : ouvrir l'appli ; appui long : ses actions ; appui long puis glissé :
+ * déplacer son site ([onMove] à chaque pas, [onDrop] au lâcher). Une seule zone qui ne bouge pas :
+ * les cellules changent de forme sous le doigt sans interrompre le geste.
+ */
+@Composable
+private fun Touch(sites: List<Site>, onMove: (PaperSlot, Offset) -> Unit, onDrop: () -> Unit, onCancel: () -> Unit) {
+    val env by rememberUpdatedState(LocalPaper.current)
+    val current by rememberUpdatedState(sites)
+    val haptics = LocalHapticFeedback.current
+    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val origin = page(X0, Y0)
+    Box(
+        Modifier
+            .at(origin.x, origin.y)
+            .size(((X1 - X0) * SCALE).dp, ((Y1 - Y0) * SCALE).dp)
+            .onGloballyPositioned { coords = it }
+            // Ordre important : le glissé (dernier) voit les événements avant l'appui simple.
+            .pointerInput(Unit) {
+                val unit = 1.dp.toPx() * SCALE
+                detectTapGestures(onTap = { env.onOpen(current[nearest(current, X0 + it.x / unit, Y0 + it.y / unit)].slot) })
+            }
+            .pointerInput(Unit) {
+                // Pixels par unité de la figure.
+                val unit = 1.dp.toPx() * SCALE
+                val slop = viewConfiguration.touchSlop
+                var index = 0
+                var start = Offset.Zero
+                var total = Offset.Zero
+                var moving = false
+                // Pastille du site à l'écran : ancre du pop-up des actions.
+                fun disc(site: Site): Rect {
+                    val c = coords ?: return Rect.Zero
+                    val r = DISC / SCALE / 2
+                    val x = ((site.x - X0) * unit).toFloat()
+                    val y = ((site.y - Y0) * unit).toFloat()
+                    return Rect(c.localToWindow(Offset(x - r * unit, y - r * unit)), c.localToWindow(Offset(x + r * unit, y + r * unit)))
+                }
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { at ->
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        index = nearest(current, X0 + at.x / unit, Y0 + at.y / unit)
+                        start = Offset(current[index].x.toFloat(), current[index].y.toFloat())
+                        total = Offset.Zero
+                        moving = false
+                    },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        total += amount
+                        if (!moving && total.getDistance() > slop) moving = true
+                        if (moving) allowed(start + total / unit, index, current)?.let { onMove(current[index].slot, it) }
+                    },
+                    onDragEnd = {
+                        if (moving) onDrop() else current[index].let { env.onActions(it.slot, disc(it)) }
+                        moving = false
+                    },
+                    onDragCancel = {
+                        if (moving) onCancel()
+                        moving = false
+                    },
+                )
+            },
+    )
 }
 
 /** Zone d'une appli : sa cellule entière (polygone), avec la pastille au site, découpée par la cellule. */
@@ -282,12 +443,20 @@ private fun Cell(site: Site, poly: List<Offset>) {
         }
     }
     val center = page(site.x, site.y)
+    val env = LocalPaper.current
+    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    // Touchers : [Touch], au-dessus ; ici, la cellule ne porte que l'accessibilité.
     Box(
         Modifier
             .at(left, top)
             .size(width.dp, height.dp)
-            .semantics { contentDescription = "$name, ${site.slot.family.label}" }
-            .slot(site.slot, shape),
+            .onGloballyPositioned { coords = it }
+            .semantics {
+                contentDescription = "$name, ${site.slot.family.label}"
+                onClick(label = "Ouvrir $name") { env.onOpen(site.slot); true }
+                onLongClick(label = "Actions pour $name") { env.onActions(site.slot, coords?.boundsInWindow() ?: Rect.Zero); true }
+            }
+            .clip(shape),
     ) {
         // La cellule porte seule la description : la pastille n'est qu'un dessin.
         Box(Modifier.fillMaxSize().clearAndSetSemantics {}) {
