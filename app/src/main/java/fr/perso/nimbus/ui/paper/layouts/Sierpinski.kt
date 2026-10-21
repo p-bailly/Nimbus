@@ -164,7 +164,7 @@ private fun Definition() {
             it("f"); lo("2"); +"("; it("T"); lo("n", italic = true); +") ∪ "
             it("f"); lo("3"); +"("; it("T"); lo("n", italic = true); +")."
         },
-        style = Paper.text(14.5f, 25.9f),
+        style = Paper.text(15f, 26.5f),
         modifier = Modifier.baseline(22f, 157.1f).width(368.dp),
     )
 }
@@ -256,14 +256,14 @@ private fun Caption() {
     Text(
         tex {
             b.withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure 1") }
-            +" – Le triangle "; it("T"); lo("3", parent = 12.5f, size = 9f); +" ; couleur : famille de l'appli."
+            +" – Le triangle "; it("T"); lo("3", parent = 13.5f, size = 10f); +" ; couleur : famille de l'appli."
         },
-        style = Paper.text(12.5f, 16f).copy(textAlign = TextAlign.Center),
-        modifier = Modifier.baseline(22f, 632f).width(368.dp),
+        style = Paper.text(13.5f, 17f).copy(textAlign = TextAlign.Center),
+        modifier = Modifier.baseline(22f, 634f).width(368.dp),
     )
     Row(
-        Modifier.baseline(22f, 658f).width(368.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
+        Modifier.baseline(22f, 661f).width(368.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         for ((label, color) in KEY) {
@@ -280,7 +280,7 @@ private fun Caption() {
                     )
                 }
                 Spacer(Modifier.width(5.dp))
-                Text(label, style = Paper.text(12f, 16f, color), maxLines = 1)
+                Text(label, style = Paper.text(12.5f, 17f, color), maxLines = 1)
             }
         }
     }
@@ -288,58 +288,59 @@ private fun Caption() {
 
 @Composable
 private fun Theorem() {
-    val body = Paper.text(14.5f, 20.3f)
+    val body = Paper.text(16f, 22.4f)
     Text(
         tex {
-            bf("Théorème."); +" "; it("T"); lo("n", italic = true); +" "; it("est formé de"); +" 3"; hi("n", italic = true)
-            +" "; it("triangles et")
+            bf("Théorème."); +" "; it("T"); lo("n", italic = true, parent = 16f, size = 11f); +" "; it("est formé de"); +" 3"
+            hi("n", italic = true, parent = 16f, size = 11f); +" "; it("triangles et")
         },
         style = body,
-        modifier = Modifier.baseline(22f, 712f),
+        modifier = Modifier.baseline(22f, 716f),
     )
     // aire(T_n) = (3/4)ⁿ aire(T₀) ⟶ 0, centrée sur la colonne de gauche ; numéro à droite.
-    Box(Modifier.baseline(22f, 750.3f).width(338.dp), contentAlignment = Alignment.TopCenter) { AreaFormula() }
+    Box(Modifier.baseline(22f, 758f).width(338.dp), contentAlignment = Alignment.TopCenter) { AreaFormula() }
     Text(
         "(1)",
-        style = Paper.text(17f, 23.8f).copy(textAlign = TextAlign.End),
-        modifier = Modifier.baseline(22f, 751.3f).width(368.dp),
+        style = Paper.text(18.5f, 25.9f).copy(textAlign = TextAlign.End),
+        modifier = Modifier.baseline(22f, 759f).width(368.dp),
     )
     Text(
         tex {
-            it("Les "); +"27"; it(" applis sont les "); +"27"; it(" triangles de "); it("T"); lo("3"); it(".")
+            it("Les "); +"27"; it(" applis sont les "); +"27"; it(" triangles de "); it("T"); lo("3", parent = 16f, size = 11f); it(".")
         },
         style = body,
-        modifier = Modifier.baseline(22f, 787.3f),
+        modifier = Modifier.baseline(22f, 798f),
     )
 }
 
 @Composable
 private fun AreaFormula() {
-    val eq = Paper.text(17f, 23.8f)
-    val big = Paper.text(30f, 30f)
-    val digit = Paper.text(17f, 17.85f)
+    // Corps 18,5 : la formule de la maquette (17) agrandie de 18,5 / 17, décalages compris.
+    val eq = Paper.text(18.5f, 25.9f)
+    val big = Paper.text(32.6f, 32.6f)
+    val digit = Paper.text(18.5f, 19.4f)
     Formula {
-        Text(tex { +"aire("; it("T"); lo("n", italic = true, parent = 17f); +") =" }, style = eq)
-        Gap(5.67f)
-        Text("(", style = big, modifier = Modifier.layoutId(6.3f))
+        Text(tex { +"aire("; it("T"); lo("n", italic = true, parent = 18.5f, size = 10.9f); +") =" }, style = eq)
+        Gap(6.17f)
+        Text("(", style = big, modifier = Modifier.layoutId(6.86f))
         Column(
-            Modifier.layoutId(-8f).padding(horizontal = 1.dp),
+            Modifier.layoutId(-8.7f).padding(horizontal = 1.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // Filet et dénominateur aux hauteurs relevées sur la maquette.
             Text("3", style = digit, modifier = Modifier.padding(horizontal = 2.dp))
-            Box(Modifier.padding(top = 0.6.dp).width(12.5.dp).height(0.8.dp).background(PaperColors.Ink))
+            Box(Modifier.padding(top = 0.6.dp).width(13.6.dp).height(0.85.dp).background(PaperColors.Ink))
             Text("4", style = digit, modifier = Modifier.offset(y = (-0.3).dp).padding(horizontal = 2.dp))
         }
-        Text(")", style = big, modifier = Modifier.layoutId(6.3f))
-        Text("n", style = Paper.text(11f, 14f).copy(fontStyle = FontStyle.Italic), modifier = Modifier.layoutId(-6.67f))
-        Gap(5.67f)
-        Text(tex { +"aire("; it("T"); lo("0", parent = 17f); +")" }, style = eq)
+        Text(")", style = big, modifier = Modifier.layoutId(6.86f))
+        Text("n", style = Paper.text(12f, 15.2f).copy(fontStyle = FontStyle.Italic), modifier = Modifier.layoutId(-7.26f))
+        Gap(6.17f)
+        Text(tex { +"aire("; it("T"); lo("0", parent = 18.5f, size = 10.9f); +")" }, style = eq)
         // Espace + 6 unités de chaque côté dans la maquette ; la flèche longue de Latin Modern est
-        // 3 unités plus large que celle de la maquette : 4,5 unités suffisent pour garder les positions.
-        Gap(5.67f + 4.5f)
+        // 3 unités plus large que celle de la maquette : 4,5 unités (4,9 en corps 18,5) suffisent.
+        Gap(6.17f + 4.9f)
         Text("⟶", style = eq)
-        Gap(4.5f + 5.67f)
+        Gap(4.9f + 6.17f)
         Text("0.", style = eq)
     }
 }

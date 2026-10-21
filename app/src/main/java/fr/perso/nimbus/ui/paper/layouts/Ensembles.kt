@@ -130,7 +130,7 @@ fun EnsemblesPage() {
                 bf("Notations.")
                 +" "; it("S"); +", "; it("M"); +", "; it("U"); +" ⊂ "; it("A"); +" = {applis}, |"; it("A"); +"| = 27."
             },
-            style = Paper.body,
+            style = Paper.text(15.5f, 21f),
             modifier = Modifier.at(22, 142).width(368.dp),
         )
 
@@ -141,21 +141,20 @@ fun EnsemblesPage() {
                 b.withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure 1") }
                 +" – Les applis sociales "; it("S"); +", médias "; it("M"); +" et utiles "; it("U"); +"."
             },
-            style = Paper.caption,
-            modifier = Modifier.at(22, 778).width(368.dp),
+            style = Paper.text(13.5f, 17f).copy(textAlign = TextAlign.Center),
+            modifier = Modifier.at(22, 777).width(368.dp),
         )
 
         Text(
             tex { bf("Proposition"); +" (crible)"; bf(".") },
-            style = Paper.body,
-            modifier = Modifier.at(22, 804),
+            style = Paper.text(15.5f, 21f),
+            modifier = Modifier.at(22, 801),
         )
-        // Colonne de la maquette, écarts de 6 : dans le navigateur, les italiques portent chaque
-        // rangée de formule à 21 unités (804 + 20 + 6, puis + 21 + 6).
-        Equation(1, 830f) {
+        // Colonne de la maquette, écarts de 5 : rangées de formule de 22 unités (801 + 21 + 5, puis + 22 + 5).
+        Equation(1, 827f) {
             +"|"; it("S"); +" ∪ "; it("M"); +" ∪ "; it("U"); +"| = 7 + 9 + 15 − 3 − 2 − 3 + 1 = 24"
         }
-        Equation(2, 857f) {
+        Equation(2, 854f) {
             +"|"; it("A"); +" ∖ ("; it("S"); +" ∪ "; it("M"); +" ∪ "; it("U"); +")| = 27 − 24 = 3"
         }
     }
@@ -170,13 +169,13 @@ fun EnsemblesPage() {
 private fun Equation(number: Int, top: Float, content: MathBuilder.() -> Unit) {
     Text(
         tex(content),
-        style = Paper.body.copy(textAlign = TextAlign.Center),
+        style = Paper.text(15f, 22f).copy(textAlign = TextAlign.Center),
         softWrap = false,
         modifier = Modifier.at(22, top).width(340.dp),
     )
     Text(
         "($number)",
-        style = Paper.body.copy(textAlign = TextAlign.End),
+        style = Paper.text(15f, 22f).copy(textAlign = TextAlign.End),
         modifier = Modifier.at(362, top + 0.5f).width(28.dp),
     )
 }
@@ -204,9 +203,9 @@ private fun VennFigure() {
         }
     }
 
-    // Noms des ensembles (15 unités, 13 pour le complémentaire), avant réduction, en interligne
+    // Noms des ensembles (16,5 unités, 14,5 pour le complémentaire), avant réduction, en interligne
     // « normal » du navigateur (1,385 em).
-    val label = Paper.text(15f * FIG_SCALE, 15f * NORMAL * FIG_SCALE)
+    val label = Paper.text(16.5f * FIG_SCALE, 16.5f * NORMAL * FIG_SCALE)
     SetLabel("S", "sociales", InkS, label, Modifier.at(fx(26f), fy(170f)))
     SetLabel(
         "M", "médias", InkM, label.copy(textAlign = TextAlign.End),
@@ -215,7 +214,7 @@ private fun VennFigure() {
     SetLabel("U", "utiles", InkU, label, Modifier.at(fx(310f), fy(690f)))
     Text(
         "A ∖ (S ∪ M ∪ U)",
-        style = Paper.text(13f * FIG_SCALE, 13f * NORMAL * FIG_SCALE).copy(fontStyle = FontStyle.Italic),
+        style = Paper.text(14.5f * FIG_SCALE, 14.5f * NORMAL * FIG_SCALE).copy(fontStyle = FontStyle.Italic),
         modifier = Modifier.at(fx(150f), fy(760f)),
     )
 
