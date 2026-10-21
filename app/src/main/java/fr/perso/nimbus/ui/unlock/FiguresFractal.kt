@@ -12,7 +12,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 // Figures du thème « Fractales » : courbes de Lévy, de Gosper, de Minkowski, pointe de flèche,
-// Cantor, arbre, fougère, Vicsek, H, pentaflocon, Pascal modulo p et Mandelbrot.
+// Cantor, arbre, fougère, Vicsek, H, pentaflocon, Pascal modulo p, Mandelbrot, Julia et Newton.
 
 internal val fractalFigures: List<FigureSpec> = listOf(
     FigureSpec("levy", "Courbe de Lévy", "Fractales", { _ -> "" }) { levy(it) },
@@ -27,6 +27,8 @@ internal val fractalFigures: List<FigureSpec> = listOf(
     FigureSpec("minkowski", "Saucisse de Minkowski", "Fractales", { _ -> "" }) { minkowski(it) },
     FigureSpec("pascal_mod", "Triangle de Pascal modulo", "Fractales", { _ -> "" }) { pascalMod(it) },
     FigureSpec("mandelbrot", "Ensemble de Mandelbrot", "Fractales", { _ -> "" }) { mandelbrot(it) },
+    FigureSpec("julia", "Ensemble de Julia", "Fractales", { _ -> "" }) { julia(it) },
+    FigureSpec("newton", "Fractale de Newton", "Fractales", { _ -> "" }) { newton(it) },
 )
 
 /** Paramètres des variantes, communs au dessin et à l'explication. */
@@ -346,4 +348,92 @@ private fun Pencil.mandelbrot(v: Int) {
             alpha = alpha,
         )
     }
+}
+
+/** Paramètres c des ensembles de Julia, un par variante. */
+private val JULIA_C = listOf(-0.8f to 0.156f, -0.4f to 0.6f, 0.285f to 0.01f, -0.70176f to -0.3842f)
+
+/** Une case de [cell] unités, colonne [col] et ligne [row] d'une grille de [cols] × [lines] centrée. */
+private fun Pencil.gridCell(col: Int, row: Int, cols: Int, lines: Int, cell: Float, color: Color, alpha: Float) =
+    scope.drawRect(
+        color,
+        topLeft = px(pt((FW - cols * cell) / 2 + col * cell + j(0.3f), (FH - lines * cell) / 2 + row * cell + j(0.3f))),
+        size = Size(cell * k * 1.05f, cell * k * 1.05f),
+        alpha = alpha,
+    )
+
+private fun Pencil.julia(v: Int) {
+    val cell = 2.5f
+    val cols = (FW / cell).toInt()
+    val lines = (FH / cell).toInt()
+    val (cr, ci) = JULIA_C[v % JULIA_C.size]
+    // Vue de −1,75 à 1,75 sur l'axe réel, centrée sur l'origine.
+    val span = 3.5f / cols
+    val x0 = -span * cols / 2
+    val y0 = -span * lines / 2
+    // Quatre couleurs voisines pour les bandes, une cinquième pour l'intérieur (les points qui ne s'échappent pas).
+    val pal = Crayons.rainbow.rot((v * 5 + 2) % 8)
+    val bands = pal.take(4)
+    val inside = pal[5]
+    val max = 70
+    for (row in 0 until lines) for (col in 0 until cols) {
+        var zr = x0 + (col + 0.5f) * span
+        var zi = y0 + (row + 0.5f) * span
+        var n = 0
+        while (n < max && zr * zr + zi * zi <= 4f) {
+            val t = zr * zr - zi * zi + cr
+            zi = 2 * zr * zi + ci
+            zr = t
+            n++
+        }
+        if (n < 3) continue
+        val color = if (n == max) inside else bands[(n / 3) % bands.size]
+        val alpha = if (n == max) 0.7f else (0.16f + min(0.5f, n / 30f))
+        gridCell(col, row, cols, lines, cell, color, alpha)
+    }
+}
+
+private fun Pencil.newton(v: Int) {
+    // Un cadre de 10 unités de marge, comme les pavages.
+    val cell = 2.5f
+    val cols = ((FW - 20f) / cell).toInt()
+    val lines = ((FH - 18f) / cell).toInt()
+    // Les trois racines cubiques de l'unité.
+    val roots = List(3) { cos(2 * PI.toFloat() * it / 3) to sin(2 * PI.toFloat() * it / 3) }
+    val pal = listOf(Crayons.rouge, Crayons.bleu, Crayons.jaune, Crayons.vert, Crayons.violet, Crayons.turquoise).rot((v * 2) % 6)
+    val span = 3.4f / cols
+    val x0 = -span * cols / 2
+    val y0 = -span * lines / 2
+    val max = 40
+    for (row in 0 until lines) for (col in 0 until cols) {
+        var zr = x0 + (col + 0.5f) * span
+        var zi = y0 + (row + 0.5f) * span
+        var n = 0
+        var root = -1
+        while (n < max) {
+            // z ← z − (z³ − 1) / (3z²)
+            val r2 = zr * zr - zi * zi
+            val i2 = 2 * zr * zi
+            val z3r = r2 * zr - i2 * zi - 1
+            val z3i = r2 * zi + i2 * zr
+            val dr = 3 * r2
+            val di = 3 * i2
+            val den = dr * dr + di * di
+            if (den < 1e-12f) break
+            zr -= (z3r * dr + z3i * di) / den
+            zi -= (z3i * dr - z3r * di) / den
+            n++
+            root = roots.indexOfFirst { (rr, ri) -> (zr - rr) * (zr - rr) + (zi - ri) * (zi - ri) < 1e-4f }
+            if (root >= 0) break
+        }
+        if (root < 0) continue
+        gridCell(col, row, cols, lines, cell, pal[root], (0.78f - n * 0.045f).coerceAtLeast(0.12f))
+    }
+    for ((rr, ri) in roots) {
+        val c = pt(FW / 2 + rr / span * cell, FH / 2 + ri / span * cell)
+        fill(circle(c.x, c.y, 3.2f, 14), Crayons.jaune, hatch = false, wash = 0.9f, lw = 1f)
+    }
+    val left = (FW - cols * cell) / 2
+    val top = (FH - lines * cell) / 2
+    outline(listOf(pt(left, top), pt(left + cols * cell, top), pt(left + cols * cell, top + lines * cell), pt(left, top + lines * cell)), lw = 1.6f)
 }

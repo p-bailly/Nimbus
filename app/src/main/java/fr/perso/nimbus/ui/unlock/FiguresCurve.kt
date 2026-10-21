@@ -67,6 +67,7 @@ internal val curveFigures: List<FigureSpec> = listOf(
     FigureSpec("heart", "Courbe du cœur", "Courbes", { _ -> "" }) { heart(it) },
     FigureSpec("baravelle", "Spirale de Baravelle", "Courbes", { _ -> "" }) { baravelle(it) },
     FigureSpec("triskele", "Triskèle", "Courbes", { _ -> "" }) { triskele(it) },
+    FigureSpec("epicycloid", "Épicycloïdes", "Courbes", { _ -> "" }) { epicycloid(it) },
 )
 
 // ------------------------------------------------------------ Les dessins
@@ -363,6 +364,40 @@ private fun Pencil.hypocycloid(v: Int) {
         outline(circle(sc.x, sc.y, rr / kk, 30), lw = 0.8f, color = Graphite.copy(alpha = 0.7f))
         dot(sc + pt((rr / kk) * cos((kk - 1) * t), -(rr / kk) * sin((kk - 1) * t)), 2f, Crayons.rouge)
     }
+}
+
+/**
+ * Épicycloïdes emboîtées comme une fleur : un cercle de rayon R / k roule à l'extérieur d'un cercle
+ * fixe de rayon R et trace k arches ; dans le cercle fixe, une épicycloïde plus petite, tournée d'une
+ * demi-arche, et ainsi de suite.
+ */
+private fun Pencil.epicycloid(v: Int) {
+    val k = intArrayOf(5, 6, 4, 7)[v % 4]
+    val pal = Crayons.rainbow.rot((v * 3 + 1) % 8)
+    var big = 118f / (1 + 2f / k)
+    var turn = -PI.toFloat() / 2
+    for (layer in 0 until 3) {
+        val r = big / k
+        val c = center
+        val arches = curve(0f, TAU, 360) { t ->
+            val x = (big + r) * cos(t) - r * cos((big + r) / r * t)
+            val y = (big + r) * sin(t) - r * sin((big + r) / r * t)
+            c + pt(x * cos(turn) - y * sin(turn), x * sin(turn) + y * cos(turn))
+        }
+        fill(arches, pal[layer * 2], wash = 0.34f, gap = 3.6f + layer * 0.3f, angle = -58f + 40f * layer, lw = 1.2f - layer * 0.15f)
+        fill(circle(c.x, c.y, big, 90), pal[layer * 2 + 1], wash = 0.22f, gap = 4.6f, strokeAlpha = 0.5f, angle = 32f + 40f * layer, lw = 0.9f)
+        if (layer == 0) {
+            // Le cercle qui roule, arrêté entre deux pointes, et le crayon fixé sur son bord.
+            val a = turn + PI.toFloat() / k
+            val rc = c + dir(a) * (big + r)
+            outline(circle(rc.x, rc.y, r, 36), lw = 0.9f, color = Graphite.copy(alpha = 0.75f))
+            dot(rc + dir(a) * r, 2.2f, Crayons.rouge)
+        }
+        // L'étage suivant tient dans le cercle fixe, tourné d'une demi-arche.
+        big /= 1 + 2f / k
+        turn += PI.toFloat() / k
+    }
+    fill(circle(center.x, center.y, big * 0.5f, 24), Crayons.jaune, gap = 2.8f, lw = 1f)
 }
 
 private fun Pencil.superellipse(v: Int) {

@@ -20,6 +20,7 @@ internal val numberFigures: List<FigureSpec> = listOf(
     FigureSpec("galton", "Planche de Galton", "Hasard", { _ -> "" }) { galton(it) },
     FigureSpec("random_walk", "Marches aléatoires", "Hasard", { _ -> "" }) { randomWalk(it) },
     FigureSpec("monte_carlo", "Pluie de points", "Hasard", { _ -> "" }) { monteCarlo(it) },
+    FigureSpec("maze", "Labyrinthe", "Graphes", { _ -> "" }) { maze(it) },
 )
 
 private val TWO_PI = 2 * PI.toFloat()
@@ -243,5 +244,83 @@ private fun Pencil.monteCarlo(v: Int) {
         val inside = x * x + y * y <= 1
         dot(pt(center.x + x * side / 2, center.y + y * side / 2), 1.7f, if (inside) Crayons.rouge else Crayons.marine, 0.8f)
     }
+}
+
+/**
+ * Labyrinthe parfait : un arbre couvrant de la grille, tiré par un parcours en profondeur (on avance
+ * vers une case voisine pas encore visitée en abattant le mur, on recule quand on est bloqué). Entre
+ * deux cases, un seul chemin : celui de l'entrée à la sortie est colorié.
+ */
+private fun Pencil.maze(v: Int) {
+    val cols = 25
+    val lines = 17
+    val cell = 13.6f
+    val x0 = (FW - cols * cell) / 2
+    val y0 = (FH - lines * cell) / 2
+    val random = Random(7 + v * 13)
+    // open[i][d] : passage depuis la case i dans la direction d (0 droite, 1 bas, 2 gauche, 3 haut).
+    val open = Array(cols * lines) { BooleanArray(4) }
+    val dx = intArrayOf(1, 0, -1, 0)
+    val dy = intArrayOf(0, 1, 0, -1)
+    val seen = BooleanArray(cols * lines)
+    val stack = ArrayDeque<Int>()
+    stack.addLast(0)
+    seen[0] = true
+    while (stack.isNotEmpty()) {
+        val i = stack.last()
+        val x = i % cols
+        val y = i / cols
+        val next = (0 until 4).filter { d ->
+            val nx = x + dx[d]
+            val ny = y + dy[d]
+            nx in 0 until cols && ny in 0 until lines && !seen[ny * cols + nx]
+        }
+        if (next.isEmpty()) {
+            stack.removeLast()
+            continue
+        }
+        val d = next[random.nextInt(next.size)]
+        val n = (y + dy[d]) * cols + x + dx[d]
+        open[i][d] = true
+        open[n][(d + 2) % 4] = true
+        seen[n] = true
+        stack.addLast(n)
+    }
+
+    // Le chemin de l'entrée (en haut à gauche) à la sortie (en bas à droite), par un parcours en largeur.
+    val from = IntArray(cols * lines) { -1 }
+    val queue = ArrayDeque<Int>()
+    queue.addLast(0)
+    from[0] = 0
+    while (queue.isNotEmpty()) {
+        val i = queue.removeFirst()
+        for (d in 0 until 4) if (open[i][d]) {
+            val n = (i / cols + dy[d]) * cols + i % cols + dx[d]
+            if (from[n] < 0) { from[n] = i; queue.addLast(n) }
+        }
+    }
+    val path = mutableListOf(cols * lines - 1)
+    while (path.last() != 0) path += from[path.last()]
+    path.reverse()
+
+    val pal = Crayons.rainbow.rot((v * 3) % 8)
+    fun corner(x: Int, y: Int) = pt(x0 + x * cell, y0 + y * cell)
+    path.forEachIndexed { idx, i ->
+        val x = i % cols
+        val y = i / cols
+        val color = pal[(idx * pal.size / path.size).coerceAtMost(pal.size - 1)]
+        fill(listOf(corner(x, y), corner(x + 1, y), corner(x + 1, y + 1), corner(x, y + 1)), color, hatch = false, wash = 0.5f, outline = false)
+    }
+    line(path.map { pt(x0 + (it % cols + 0.5f) * cell, y0 + (it / cols + 0.5f) * cell) }, Crayons.rouge, 1.4f, 0.7f)
+
+    // Les murs : à droite et en bas de chaque case fermée, puis le bord, ouvert à l'entrée et à la sortie.
+    for (i in 0 until cols * lines) {
+        val x = i % cols
+        val y = i / cols
+        if (x < cols - 1 && !open[i][0]) stroke(corner(x + 1, y), corner(x + 1, y + 1), Graphite, 1.5f, 0.9f)
+        if (y < lines - 1 && !open[i][1]) stroke(corner(x, y + 1), corner(x + 1, y + 1), Graphite, 1.5f, 0.9f)
+    }
+    outline(listOf(corner(0, 1), corner(0, lines), corner(cols, lines)), close = false, lw = 1.8f)
+    outline(listOf(corner(cols, lines - 1), corner(cols, 0), corner(0, 0)), close = false, lw = 1.8f)
 }
 
