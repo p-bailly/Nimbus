@@ -110,6 +110,8 @@ class PaperEnv(
     val fixedInsets: Pair<Float, Float>? = null,
     /** Animations (Fourier) : false pour les captures. */
     val animate: Boolean = true,
+    /** Motifs des applis calculés tout de suite (captures) plutôt qu'en arrière-plan. */
+    val syncGlyphs: Boolean = false,
 ) {
     fun app(slot: PaperSlot): AppEntry? = apps[slot]
 
@@ -274,11 +276,11 @@ class MathBuilder(val b: AnnotatedString.Builder) {
         b.withStyle(SpanStyle(fontSize = 0.69.em, baselineShift = SUB_SHIFT)) { MathBuilder(this).block() }
 
     private companion object {
-        // Comme Chrome (vertical-align super / sub) : la ligne de base monte de taille/3 + 1 et descend de
-        // taille/5 + 1 ; BaselineShift compte en ascendantes de l'indice (0,69 em × 0,842), soit pour un texte
-        // de 14,5 : 5,8 / 8,4 et 3,9 / 8,4.
-        val SUP_SHIFT = BaselineShift(0.69f)
-        val SUB_SHIFT = BaselineShift(-0.46f)
+        // Pour un Text ordinaire (repli) : décalage de Chrome, taille/3 + 1 vers le haut et taille/5 + 1 vers
+        // le bas, compté en ascendantes du texte autour (0,842 em). [PaperText] pose, lui, indices et
+        // exposants sans agrandir la ligne : à utiliser pour tout texte qui en contient.
+        val SUP_SHIFT = BaselineShift(0.48f)
+        val SUB_SHIFT = BaselineShift(-0.32f)
     }
 }
 
@@ -341,6 +343,11 @@ private fun rememberGlyph(app: AppEntry?, size: Float): Glyph? {
     val context = LocalContext.current
     val px = with(LocalDensity.current) { size.dp.roundToPx() }.coerceAtLeast(8)
     if (app == null) return null
+    if (LocalPaper.current.syncGlyphs) {
+        return remember(app.key, app.label, px) {
+            runCatching { GlyphFactory.get(context).glyph(app, px) }.getOrElse { Glyph.Letters(app.label.take(1)) }
+        }
+    }
     val state = produceState<Glyph?>(null, app.key, app.label, px) {
         value = withContext(Dispatchers.Default) {
             runCatching { GlyphFactory.get(context).glyph(app, px) }.getOrElse { Glyph.Letters(app.label.take(1)) }

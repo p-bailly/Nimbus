@@ -41,6 +41,7 @@ object PaperFixture {
             fixedTime = LocalDateTime.of(2026, 10, 20, 20, 35),
             fixedInsets = 30f to 24f,
             animate = false,
+            syncGlyphs = true,
         )
     }
 
