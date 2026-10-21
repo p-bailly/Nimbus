@@ -185,7 +185,9 @@ fun PaperHeader(runningHead: String, pageNumber: String) {
     val fixed = LocalPaper.current.fixedTime != null
     val is24h = remember(fixed) { fixed || DateFormat.is24HourFormat(context) }
     val time = now.format(DateTimeFormatter.ofPattern(if (is24h) "HH:mm" else "h:mm", locale))
-    val date = now.format(DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", locale))
+    // « 1er novembre », comme on l'écrit en français.
+    val day = if (now.dayOfMonth == 1) "d'er'" else "d"
+    val date = now.format(DateTimeFormatter.ofPattern("EEEE $day MMMM yyyy", locale))
 
     val head = Paper.text(12f, 14f).copy(fontFeatureSettings = "smcp", letterSpacing = 0.08.em)
     Box(Modifier.at(22, 36).width(368.dp)) {
