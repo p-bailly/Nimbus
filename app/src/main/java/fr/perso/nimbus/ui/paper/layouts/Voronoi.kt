@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -245,24 +246,24 @@ fun VoronoiPage() {
     PaperPage {
         Text(
             tex { bf("Définition."); +" Pour "; it("a"); +" ∈ "; it("A"); +" = {applis}, la cellule de "; it("a"); +" est" },
-            style = Paper.body,
+            style = Paper.text(15f, LINE),
             modifier = Modifier.at(22, 142).width(368.dp),
         )
         // (1) : centrée sur la largeur du texte moins la colonne du numéro, comme dans la maquette,
         // 6 sous la définition (une ligne de [LINE]).
-        Box(Modifier.at(22, 169).width(340.dp).height(20.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.at(22, 169).width(340.dp).height(LINE.dp), contentAlignment = Alignment.Center) {
             Text(
                 tex {
                     it("V"); +"("; it("a"); +") = { "; it("x"); +" ∈ Ω : ‖"; it("x"); +" − "; it("a"); +"‖ ≤ ‖"
                     it("x"); +" − "; it("b"); +"‖ pour tout "; it("b"); +" ∈ "; it("A"); +" }"
                 },
-                style = Paper.text(13.5f, 20f),
+                style = Paper.text(13.75f, LINE),
                 maxLines = 1,
                 softWrap = false,
             )
         }
-        Box(Modifier.at(22, 169).width(368.dp).height(20.dp), contentAlignment = Alignment.CenterEnd) {
-            Text("(1)", style = Paper.body)
+        Box(Modifier.at(22, 169).width(368.dp).height(LINE.dp), contentAlignment = Alignment.CenterEnd) {
+            Text("(1)", style = Paper.text(15f, LINE))
         }
 
         Figure(
@@ -284,19 +285,19 @@ fun VoronoiPage() {
                 b.withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure 1") }
                 +" – Un appui en "; it("x"); +" ∈ "; it("V"); +"("; it("a"); +") ouvre l'appli "; it("a"); +"."
             },
-            style = Paper.caption,
+            style = Paper.text(13.5f, 17f).copy(textAlign = TextAlign.Center),
             modifier = Modifier.at(22, 755).width(368.dp),
         )
         // Clé des familles.
         Row(
-            Modifier.at(22, 776).width(368.dp).height(16.dp),
+            Modifier.at(22, 778).width(368.dp).height(17.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PaperFamily.entries.forEach { family ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Box(Modifier.size(9.dp).background(family.color, CircleShape))
-                    Text(family.label, style = Paper.text(11f, 16f, family.color).copy(letterSpacing = 0.04.em))
+                    Text(family.label, style = Paper.text(12f, 17f, family.color).copy(letterSpacing = 0.04.em))
                 }
             }
         }
@@ -306,8 +307,8 @@ fun VoronoiPage() {
                 bf("Proposition."); +" "; italic { +"Pour a ≠ b," }; +" "
                 it("V"); +"("; it("a"); +") ∩ "; it("V"); +"("; it("b"); +") ⊂ "; it("médiatrice de"); +" ["; it("a"); +", "; it("b"); +"]."
             },
-            style = Paper.text(14.5f, LINE),
-            modifier = Modifier.at(22, 801).width(368.dp),
+            style = Paper.text(15.5f, LINE),
+            modifier = Modifier.at(22, 804).width(368.dp),
         )
     }
 }
