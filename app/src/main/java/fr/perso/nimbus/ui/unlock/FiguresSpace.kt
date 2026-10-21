@@ -322,21 +322,6 @@ private fun Pencil.trefoil(v: Int) {
     render(faces, SolidView(8f * (v % 3), 12f + 10f * (v % 2)), cull = false, hatchArea = 120f, lw = 0.5f, margin = 10f)
 }
 
-/** Ballon de football : icosaèdre tronqué, 12 pentagones foncés et 20 hexagones. */
-private fun Pencil.soccerBall(v: Int) {
-    // Sommets : permutations paires (circulaires) de (0, ±1, ±3φ), (±1, ±(2 + φ), ±2φ), (±φ, ±2, ±(2φ + 1)).
-    // Rayon ramené à 1,7 (celui des autres solides) : à rayon 5, l'œil serait presque dessus.
-    val raw = cyclic(0f, 1f, 3 * PHI) + cyclic(1f, 2 + PHI, 2 * PHI) + cyclic(PHI, 2f, 2 * PHI + 1)
-    val verts = raw.map { it * (1.7f / raw[0].norm()) }
-    val dark = Color(0xFF3B4150)
-    val pale = Color(0xFFE9E2D0)
-    val pal = Crayons.rainbow.rot(v % 8)
-    // Pentagones : vers les sommets de l'icosaèdre ; hexagones : vers le centre de ses faces.
-    val pentagons = regularFaces(verts, ICOSA_VERTS) { dark }
-    val hexagons = regularFaces(verts, ICOSA_NORMALS) { i -> if (v % 2 == 0) pale else pal[pairIndex(ICOSA_NORMALS, i) % 8] }
-    render(pentagons + hexagons, solidView(v, 22f, 18f), cull = true, hatchArea = 260f, lw = 1f, margin = 12f)
-}
-
 /** Sphère géodésique : chaque face de l'icosaèdre découpée en 16 triangles, ramenés sur la sphère. */
 private fun Pencil.geodesic(v: Int) {
     val f = 4
@@ -361,42 +346,6 @@ private fun Pencil.geodesic(v: Int) {
     render(faces, solidView(v, 14f, 20f), cull = true, hatchArea = 230f, lw = 0.75f, margin = 10f)
 }
 
-/** Double hélice : deux rubans qui s'enroulent autour d'un même axe, reliés par des barreaux. */
-private fun Pencil.doubleHelix(v: Int) {
-    val turns = 2.5f
-    val pitch = 0.36f
-    val r = 1f
-    val width = 0.13f
-    val tMax = 2 * PI.toFloat() * turns
-    // Axe horizontal (x) ; le second brin décalé d'un peu plus d'un demi-tour, comme le grand et le petit sillon de l'ADN.
-    val offset = PI.toFloat() * 0.8f
-    fun strand(t: Float, phase: Float) = vec3(t * pitch - tMax * pitch / 2, r * cos(t + phase), r * sin(t + phase))
-    val axis = vec3(1, 0, 0)
-    val strandColors = listOf(Crayons.marine to Crayons.rouge, Crayons.violet to Crayons.orange, Crayons.sapin to Crayons.rose)[v % 3]
-    val faces = mutableListOf<SolidFace>()
-    val n = 150
-    for ((phase, color) in listOf(0f to strandColors.first, offset to strandColors.second)) {
-        for (i in 0 until n) {
-            val t0 = tMax * i / n; val t1 = tMax * (i + 1) / n
-            val p0 = strand(t0, phase); val p1 = strand(t1, phase)
-            faces += SolidFace(listOf(p0 - axis * width, p1 - axis * width, p1 + axis * width, p0 + axis * width), color)
-        }
-    }
-    // Barreaux : dix par tour, chacun en deux moitiés de couleurs complémentaires (A–T, G–C).
-    val pairs = listOf(Crayons.jaune to Crayons.vert, Crayons.turquoise to Crayons.rose, Crayons.vert to Crayons.jaune, Crayons.rose to Crayons.turquoise)
-    val rungs = (turns * 10).toInt()
-    for (k in 0 until rungs) {
-        val t = tMax * (k + 0.5f) / rungs
-        val a = strand(t, 0f); val b = strand(t, offset)
-        val m = (a + b) * 0.5f
-        val (ca, cb) = pairs[(k * 7 + v) % pairs.size]
-        val w = width * 0.55f
-        faces += SolidFace(listOf(a - axis * w, m - axis * w, m + axis * w, a + axis * w), ca)
-        faces += SolidFace(listOf(m - axis * w, b - axis * w, b + axis * w, m + axis * w), cb)
-    }
-    render(faces, SolidView(-18f + 12f * (v % 3), 16f, -14f + 6f * (v % 2)), cull = false, hatchArea = 10_000f, lw = 0.6f, margin = 10f)
-}
-
 internal val spaceFigures: List<FigureSpec> = listOf(
     FigureSpec("tetrahedron", "Tétraèdre", "Espace", { _ -> "" }) { tetrahedron(it) },
     FigureSpec("cube", "Cube", "Espace", { _ -> "" }) { cube(it) },
@@ -409,7 +358,5 @@ internal val spaceFigures: List<FigureSpec> = listOf(
     FigureSpec("mobius", "Ruban de Möbius", "Espace", { _ -> "" }) { mobius(it) },
     FigureSpec("saddle", "Selle de cheval", "Espace", { _ -> "" }) { saddle(it) },
     FigureSpec("trefoil", "Nœud de trèfle", "Espace", { _ -> "" }) { trefoil(it) },
-    FigureSpec("soccer_ball", "Ballon de football", "Espace", { _ -> "" }) { soccerBall(it) },
     FigureSpec("geodesic", "Sphère géodésique", "Espace", { _ -> "" }) { geodesic(it) },
-    FigureSpec("double_helix", "Double hélice", "Espace", { _ -> "" }) { doubleHelix(it) },
 )
