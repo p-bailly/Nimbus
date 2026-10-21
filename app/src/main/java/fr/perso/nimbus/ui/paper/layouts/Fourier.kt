@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.AlignmentLine
 import androidx.compose.ui.layout.FirstBaseline
@@ -135,12 +136,14 @@ fun FourierPage() {
                 +" {0, …, 26} est en "
                 it("z")
                 +"("
+                // Espaces insécables et gluon après la barre : la ligne se coupe avant z(t + 2jπ/27),
+                // jamais dedans.
                 it("t")
-                +" + 2"
+                +"\u00A0+\u00A02"
                 it("jπ")
-                +"/27),\noù"
+                +"/\u206027), où"
             },
-            style = Paper.body,
+            style = Body,
             modifier = Modifier.at(22, 142).width(368.dp),
         )
         // Équation (1), centrée sur la largeur du texte moins la colonne de 28 du numéro ; la boîte de
@@ -167,8 +170,8 @@ fun FourierPage() {
         Epicycles(time)
         PaperSlot.entries.forEachIndexed { j, slot -> MovingApp(slot, j, time) }
 
-        // Légende sur deux lignes (coupées comme dans la maquette) ; la première, à indices, a une
-        // boîte de ligne plus haute.
+        // Légende sur deux lignes, coupée après |c_k| pour tenir en corps 13,5 ; la première, à
+        // indices, a une boîte de ligne plus haute.
         PaperText(
             tex {
                 b.withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure 1") }
@@ -178,26 +181,38 @@ fun FourierPage() {
                 +" ≠ 0 donne un cercle de rayon |"
                 it("c")
                 captionSub("k")
-                +"| qui fait "
-                it("k")
+                +"|"
             },
-            style = Paper.caption,
-            modifier = Modifier.baselineAt(22f, 806f).width(368.dp),
+            style = Caption,
+            modifier = Modifier.baselineAt(22f, 804f).width(368.dp),
         )
         Text(
-            "tours ; les 27 applis suivent la courbe.",
-            style = Paper.caption,
-            modifier = Modifier.baselineAt(22f, 827.4f).width(368.dp),
+            tex { +"qui fait "; it("k"); +" tours ; les 27 applis suivent la courbe." },
+            style = Caption,
+            modifier = Modifier.baselineAt(22f, 823f).width(368.dp),
         )
 
-        // Équation (2) : boîte de ligne de 36 (l'intégrale et ses bornes), ligne de base à 21,1.
-        Box(Modifier.at(22, 836).width(340.dp), contentAlignment = Alignment.TopCenter) { Coefficient() }
-        Text("(2)", style = Numbered, modifier = Modifier.baselineAt(22f, 859.3f).width(368.dp))
+        // Équation (2) : boîte de ligne de 36 (l'intégrale et ses bornes), ligne de base à 21,1,
+        // composée en 14,5 comme la maquette puis agrandie au corps du texte.
+        Box(
+            Modifier
+                .at(22, 832)
+                .width(340.dp)
+                .graphicsLayer(scaleX = ENLARGE, scaleY = ENLARGE, transformOrigin = TransformOrigin(0.5f, 0f)),
+            contentAlignment = Alignment.TopCenter,
+        ) { Coefficient() }
+        Text("(2)", style = Numbered, modifier = Modifier.baselineAt(22f, 832f + 21.1f * ENLARGE).width(368.dp))
     }
 }
 
-private val Centered = Paper.body.copy(textAlign = TextAlign.Center)
-private val Numbered = Paper.body.copy(textAlign = TextAlign.End)
+/** Texte de la page en 15,5 sur 21 (14,5 dans la maquette), légende en 13,5 sur 17. */
+private val Body = Paper.text(15.5f, 21f)
+private val Caption = Paper.text(13.5f, 17f).copy(textAlign = TextAlign.Center)
+private val Centered = Body.copy(textAlign = TextAlign.Center)
+private val Numbered = Body.copy(textAlign = TextAlign.End)
+
+/** Agrandissement de l'équation (2), composée en 14,5. */
+private const val ENLARGE = 15.5f / 14.5f
 
 /**
  * Texte posé par sa première ligne de base, à ([x], [y]) dans la page : celle de la maquette, où les

@@ -2,6 +2,7 @@ package fr.perso.nimbus.ui.paper.layouts
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -9,7 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -45,6 +46,7 @@ import kotlin.math.hypot
 // Page « Groupes » : les Échanges (ℤ/6ℤ) se projettent sur les Trajets (ℤ/3ℤ) par φ, en diagramme
 // sagittal ; puis l'Écran forme D₃, les Jeux ℤ/3ℤ et les Outils ℤ/3ℤ × ℤ/3ℤ. Les exercices qui
 // finissaient la page sont dans design/exercices-accueils.md : la place a servi à agrandir les logos.
+// Sans la définition de φ ni la ligne « D₃ = {…} » à part, la place gagnée sert à agrandir le texte.
 
 private val Blue = PaperFamily.ECHANGES.color
 private val Green = PaperFamily.TRAJETS.color
@@ -54,8 +56,8 @@ private val Violet = PaperFamily.OUTILS.color
 
 /** Abscisses des trois fibres de φ, ordonnées de ℤ/6ℤ (haut) et de ℤ/3ℤ (bas). */
 private val FibreX = floatArrayOf(86f, 206f, 326f)
-private const val TOP_Y = 270f
-private const val BOTTOM_Y = 392f
+private const val TOP_Y = 230f
+private const val BOTTOM_Y = 362f
 
 /** Pastilles de la section 1, et demi-écart des deux pastilles d'une fibre. */
 private const val MORPH_DISC = 48f
@@ -105,7 +107,6 @@ private fun Morphism() {
             modifier = Modifier.padding(start = 12.dp),
         )
     }
-    Definition()
 
     // Flèches de chaque classe vers son image, et le noyau {0, 3} entouré de pointillés.
     Canvas(Modifier.size(PAPER_WIDTH.dp, PAPER_HEIGHT.dp)) {
@@ -148,71 +149,32 @@ private fun Morphism() {
             style = Stroke(width = u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f * u, 3f * u))),
         )
     }
-    Text("φ", style = Paper.text(17f, 18f).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center), modifier = Modifier.at(370f, (TOP_Y + BOTTOM_Y) / 2f - 9f).width(20.dp))
+    Text("φ", style = Paper.text(21f, 22f).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center), modifier = Modifier.at(366f, (TOP_Y + BOTTOM_Y) / 2f - 11f).width(24.dp))
 
-    val number = Paper.text(13f, 16f).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center)
+    val number = Paper.text(15.5f, 18f).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center)
     for (i in FibreOrder.indices) {
         val k = FibreOrder[i]
         val x = topX(i)
-        Text("$k", style = number.copy(color = Blue), modifier = Modifier.at(x - 8f, TOP_Y - MORPH_DISC / 2f - 22f).width(16.dp))
+        Text("$k", style = number.copy(color = Blue), modifier = Modifier.at(x - 10f, TOP_Y - MORPH_DISC / 2f - 24f).width(20.dp))
         SlotDisc(Echanges[k], x, TOP_Y, MORPH_DISC, glyphScale = 17f / 36f)
     }
     listOf(PaperSlot.WAZE, PaperSlot.MAPS, PaperSlot.METEO).forEachIndexed { t, slot ->
-        Text("$t", style = number.copy(color = Green), modifier = Modifier.at(FibreX[t] + MORPH_DISC / 2f + 6f, BOTTOM_Y - 8f).width(16.dp))
+        Text("$t", style = number.copy(color = Green), modifier = Modifier.at(FibreX[t] + MORPH_DISC / 2f + 5f, BOTTOM_Y - 9f).width(20.dp))
         SlotDisc(slot, FibreX[t], BOTTOM_Y, MORPH_DISC, glyphScale = 17f / 36f)
-    }
-}
-
-/** φ : { ℤ/6ℤ ⟶ ℤ/3ℤ ; k + 6ℤ ⟼ k + 3ℤ }, l'accolade étirée sur les deux lignes. */
-@Composable
-private fun Definition() {
-    val line = Paper.text(14f, 18f)
-    Row(
-        Modifier.at(22, 166).height(36.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text("Définition.", style = line.copy(fontWeight = FontWeight.Bold), modifier = Modifier.padding(end = 10.dp))
-        Text(tex { it("φ"); +" :" }, style = line)
-        // Accolade de 38 sur une ligne de 36 : Compose ne resserre pas la ligne sous la taille, on la
-        // compose donc sur 38 et on la centre sur les 36 de la rangée, comme CSS.
-        Text(
-            "{",
-            style = Paper.text(38f, 38f),
-            modifier = Modifier
-                .height(36.dp)
-                .wrapContentHeight(unbounded = true)
-                .graphicsLayer(scaleX = 0.7f),
-        )
-        // Trois colonnes : départ calé à droite, flèche centrée, arrivée calée à gauche.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(horizontalAlignment = Alignment.End) {
-                Text("ℤ/6ℤ", style = line.copy(color = Blue))
-                Text(tex { it("k"); +" + 6ℤ" }, style = line)
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("⟶", style = line)
-                Text("⟼", style = line)
-            }
-            Column {
-                Text("ℤ/3ℤ", style = line.copy(color = Green))
-                Text(tex { it("k"); +" + 3ℤ" }, style = line)
-            }
-        }
     }
 }
 
 /** ker φ = {0, 3}, les deux logos du noyau, et le passage au quotient. */
 @Composable
 private fun Proposition() {
-    val line = Paper.text(14f, 20f)
+    val line = Paper.text(16.5f, 22f)
     Column(
-        Modifier.at(22, 440).width(368.dp),
+        Modifier.at(22, 408).width(368.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
-            Modifier.height(26.dp),
+            Modifier.height(32.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
@@ -220,9 +182,9 @@ private fun Proposition() {
             Text("ker", style = line)
             Text("φ", style = line.copy(fontStyle = FontStyle.Italic))
             Text("= {0, 3} = {", style = line)
-            SlotDisc(PaperSlot.WHATSAPP, 13f, 13f, 26f, glyphScale = 11f / 20f)
+            SlotDisc(PaperSlot.WHATSAPP, 16f, 16f, 32f, glyphScale = 11f / 20f)
             Text(",", style = line)
-            SlotDisc(PaperSlot.REDDIT, 13f, 13f, 26f, glyphScale = 11f / 20f)
+            SlotDisc(PaperSlot.REDDIT, 16f, 16f, 32f, glyphScale = 11f / 20f)
             Text("}", style = line)
         }
         Text(
@@ -233,22 +195,46 @@ private fun Proposition() {
                 +" ≅ "
                 color(Green) { +"ℤ/3ℤ" }
             },
-            style = Paper.text(17f, 22f),
+            style = Paper.text(20f, 26f),
         )
     }
 }
 
 // ---------------------------------------------------------------- 2 à 4. Les autres familles
 
-/** Titre de section : numéro et famille en gras, puis le groupe (et son indice), sur la même ligne de base. */
+/**
+ * Titre de section : numéro et famille en gras, puis le groupe (et son indice), sur la même ligne de
+ * base, suivi de [after] ; [stacked] : le groupe passe à la ligne, sous la famille.
+ */
 @Composable
-private fun Heading(title: String, group: String, color: Color, x: Float, y: Float, index: String? = null) {
-    Row(Modifier.at(x, y)) {
-        Text(title, style = heading(color), modifier = Modifier.padding(end = 8.dp).alignByBaseline())
-        Text(group, style = Paper.text(15f, 18f, color), modifier = Modifier.alignByBaseline())
-        if (index != null) Subscript(index, 10f, 15f, color)
+private fun Heading(
+    title: String,
+    group: String,
+    color: Color,
+    x: Float,
+    y: Float,
+    index: String? = null,
+    stacked: Boolean = false,
+    after: (@Composable RowScope.() -> Unit)? = null,
+) {
+    val groupStyle = Paper.text(GROUP_SIZE, 22f, color)
+    if (stacked) {
+        Column(Modifier.at(x, y)) {
+            Text(title, style = heading(color))
+            Text(group, style = groupStyle)
+        }
+    } else {
+        Row(Modifier.at(x, y)) {
+            Text(title, style = heading(color), modifier = Modifier.padding(end = 8.dp).alignByBaseline())
+            Text(group, style = groupStyle, modifier = Modifier.alignByBaseline())
+            if (index != null) Subscript(index, 12f, GROUP_SIZE, color)
+            after?.invoke(this)
+        }
     }
 }
+
+/** Corps du groupe dans les titres de section. */
+private const val GROUP_SIZE = 17.5f
 
 /**
  * Indice posé comme `<sub>` dans Chrome : corps [size], ligne de base abaissée de [parent] / 5 + 1.
@@ -265,8 +251,8 @@ private fun RowScope.Subscript(text: String, size: Float, parent: Float, color: 
     )
 }
 
-/** Titres de section : gras 15 sur 18. */
-private fun heading(color: Color): TextStyle = Paper.text(15f, 18f, color).copy(fontWeight = FontWeight.Bold)
+/** Titres de section : gras 18 sur 22. */
+private fun heading(color: Color): TextStyle = Paper.text(18f, 22f, color).copy(fontWeight = FontWeight.Bold)
 
 /** Pastille de 48 unités des sections 2 à 4 (cerclée : motif de la couleur sur fond blanc). */
 @Composable
@@ -281,19 +267,33 @@ private const val ELEMENT = 48f
 private fun Tag(value: Int, cx: Float, cy: Float, color: Color, width: Float = 40f) {
     Text(
         "$value",
-        style = Paper.text(11f, 13f, color).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center),
-        modifier = Modifier.at(cx - width / 2f, cy - 6.5f).width(width.dp),
+        style = Paper.text(14f, 16f, color).copy(fontStyle = FontStyle.Italic, textAlign = TextAlign.Center),
+        modifier = Modifier.at(cx - width / 2f, cy - 8f).width(width.dp),
     )
 }
+
+/** Accolade de [BRACE] unités, resserrée, centrée en ([cx], [cy]) (5 au-dessus du centre des pastilles, que son dessin déborde vers le bas). */
+@Composable
+private fun Brace(text: String, cx: Float, cy: Float, color: Color) {
+    // Compose ne resserre pas une ligne sous la taille de sa police : l'accolade est composée sur sa
+    // taille, débordant d'une boîte de 1 × 1 centrée sur ([cx], [cy]).
+    Box(Modifier.at(cx - 0.5f, cy - 0.5f).size(1.dp)) {
+        Text(
+            text,
+            style = Paper.text(BRACE, BRACE, color),
+            modifier = Modifier
+                .wrapContentSize(unbounded = true)
+                .graphicsLayer(scaleX = 0.62f),
+        )
+    }
+}
+
+private const val BRACE = 62f
 
 /** Écran ≅ D₃ = {e, r, r², s, sr, sr²} : rotations en pastilles pleines, symétries cerclées. */
 @Composable
 private fun Dihedral() {
-    Heading("2  Écran", "≅ D", Pink, 22f, 516f, index = "3")
-    val line = Paper.text(14.5f, 20f, Pink)
-    Row(Modifier.at(22, 542)) {
-        Text("D", style = line, modifier = Modifier.alignByBaseline())
-        Subscript("3", 9.5f, 14.5f, Pink)
+    Heading("2  Écran", "≅ D", Pink, 22f, 498f, index = "3") {
         Text(
             tex {
                 +" = {"
@@ -304,43 +304,41 @@ private fun Dihedral() {
                 it("sr"); +", "
                 it("sr"); +"²}"
             },
-            style = line,
+            style = Paper.text(GROUP_SIZE, 22f, Pink),
             modifier = Modifier.alignByBaseline(),
         )
     }
-    // Six pastilles de 48, espacées de 52 : la virgule tient dans l'écart, l'accolade avant la marge.
-    val cy = 600f
-    val sign = Paper.text(16f, 24f, Pink)
-    Text("= {", style = sign, modifier = Modifier.at(22f, cy - 12f))
+    // Six pastilles de 48, espacées de 52 : la virgule tient dans l'écart, les accolades dans la marge.
+    val cy = 572f
+    Text("=", style = Paper.text(20f, 24f, Pink), modifier = Modifier.at(22f, cy - 12f))
+    Brace("{", 49f, cy - 5f, Pink)
     val d3 = listOf(PaperSlot.YOUTUBE, PaperSlot.TWITCH, PaperSlot.STREMIO, PaperSlot.SPOTIFY, PaperSlot.CAMERA, PaperSlot.PHOTOS)
     d3.forEachIndexed { m, slot ->
-        Element(slot, 76f + 52f * m, cy, Pink, ring = m >= 3)
-        if (m < d3.lastIndex) Text(",", style = Paper.text(16f, 16f, Pink), modifier = Modifier.at(100f + 52f * m, cy + 8f))
+        Element(slot, 86f + 52f * m, cy, Pink, ring = m >= 3)
+        if (m < d3.lastIndex) Text(",", style = Paper.text(18f, 18f, Pink), modifier = Modifier.at(109f + 52f * m, cy + 8f))
     }
-    Text("}", style = sign, modifier = Modifier.at(364f, cy - 12f))
+    Brace("}", 376f, cy - 5f, Pink)
 }
 
-/** Titres des sections 3 et 4, et rangées des pastilles (les Jeux sur la première). */
-private const val SECTION_Y = 646f
-private val GridY = floatArrayOf(SECTION_Y + 66f, SECTION_Y + 122f, SECTION_Y + 178f)
+/** Titres des sections 3 et 4 (sur deux lignes), et rangées des pastilles (les Jeux sur la première). */
+private const val SECTION_Y = 628f
+private val GridY = floatArrayOf(SECTION_Y + 104f, SECTION_Y + 160f, SECTION_Y + 216f)
 
 /** Jeux & perso ≅ ℤ/3ℤ. */
 @Composable
 private fun Cyclic() {
-    Heading("3  Jeux & perso", "≅ ℤ/3ℤ", Amber, 22f, SECTION_Y)
+    Heading("3  Jeux & perso", "≅ ℤ/3ℤ", Amber, 22f, SECTION_Y, stacked = true)
     listOf(PaperSlot.LICHESS, PaperSlot.BASKET, PaperSlot.PIR).forEachIndexed { i, slot ->
         val cx = 46f + 56f * i
         Element(slot, cx, GridY[0], Amber)
-        Tag(i, cx, GridY[0] + ELEMENT / 2f + 10f, Amber)
+        Tag(i, cx, GridY[0] + ELEMENT / 2f + 12f, Amber)
     }
 }
 
 /** Outils ≅ ℤ/3ℤ × ℤ/3ℤ : (i, j) en colonne i, ligne j. */
 @Composable
 private fun Product() {
-    // 208 et non 204 comme la maquette : à 204, le « 4 » touche le « ℤ/3ℤ » du titre des Jeux ; 208
-    // laisse une espace et finit encore dans la marge (390).
-    Heading("4  Outils", "≅ ℤ/3ℤ × ℤ/3ℤ", Violet, 208f, SECTION_Y)
+    Heading("4  Outils", "≅ ℤ/3ℤ × ℤ/3ℤ", Violet, 208f, SECTION_Y, stacked = true)
     // Colonnes calées sur la marge de droite (366 + 24 = 390), espacées de 56.
     val gx = floatArrayOf(254f, 310f, 366f)
     val gy = GridY
@@ -351,7 +349,7 @@ private fun Product() {
     )
     tools.forEachIndexed { n, slot -> Element(slot, gx[n % 3], gy[n / 3], Violet) }
     for (v in 0..2) {
-        Tag(v, gx[v], SECTION_Y + 30f, Violet, 16f)
+        Tag(v, gx[v], SECTION_Y + 66f, Violet, 16f)
         Tag(v, 220f, gy[v], Violet, 16f)
     }
 }
