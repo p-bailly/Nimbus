@@ -753,7 +753,9 @@ private fun FigureSection(y0: Float, figure: DailyFigure, number: Int, infoShown
         withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure $number") }
         append(" – ${figure.title}")
     }
-    val toggle = { open = !open }
+    // Sans explication rédigée, pas de (i) : la légende n'est que le nom.
+    val hasInfo = figure.info.isNotEmpty()
+    val toggle = { open = hasInfo && !open }
     Box(Modifier.at(22, top + h + 10f).size(368.dp, CAPTION_H.dp), contentAlignment = Alignment.Center) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -762,11 +764,13 @@ private fun FigureSection(y0: Float, figure: DailyFigure, number: Int, infoShown
                 .clickable(remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClick = toggle),
         ) {
             Text(caption, style = style(CAPTION, 18f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 340.dp))
-            Spacer(Modifier.width(7.dp))
-            InfoMark(open)
+            if (hasInfo) {
+                Spacer(Modifier.width(7.dp))
+                InfoMark(open)
+            }
         }
     }
-    if (open) InfoCard(figure.info, top, h, toggle)
+    if (open && hasInfo) InfoCard(figure.info, top, h, toggle)
 }
 
 /** Le petit (i) : un cercle au crayon fin et un i italique ; plein d'encre quand l'explication est ouverte. */
