@@ -38,6 +38,7 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import fr.perso.nimbus.R
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.PaperSlot
 import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherViewModel
@@ -49,7 +50,7 @@ import kotlin.math.roundToInt
  * (la feuille complète : dock, glissé, nom, icône, catégorie, masquer…).
  */
 @Composable
-fun AppPopup(app: AppEntry, anchor: Rect, apps: AppsState, vm: LauncherViewModel) {
+fun AppPopup(app: AppEntry, anchor: Rect, apps: AppsState, vm: LauncherViewModel, paperSlot: PaperSlot? = null) {
     val shortcuts = rememberAppShortcuts(app)
     val density = LocalDensity.current
     val positionProvider = remember(anchor) {
@@ -106,7 +107,9 @@ fun AppPopup(app: AppEntry, anchor: Rect, apps: AppsState, vm: LauncherViewModel
                         .padding(horizontal = 6.dp),
                 ) {
                     PopupAction(R.drawable.ms_info, "Infos") { then { vm.appInfo(app) } }
-                    if (!isPrivate) {
+                    if (paperSlot != null) {
+                        PopupAction(R.drawable.ms_autorenew, "Changer") { then { vm.showPaperSlotPicker(paperSlot) } }
+                    } else if (!isPrivate) {
                         if (onHome) PopupAction(R.drawable.ms_close, "Retirer") { then { vm.removeFromHome(app) } }
                         else PopupAction(R.drawable.ms_add_to_home_screen, "Accueil") { then { vm.addToHome(app) } }
                     }

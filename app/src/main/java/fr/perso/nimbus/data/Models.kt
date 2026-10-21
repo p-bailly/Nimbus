@@ -64,6 +64,23 @@ enum class ThemeMode(val label: String) {
     MATERIAL_YOU("Material You (Android 12+)"),
     DARK("Sombre"),
     LIGHT("Clair"),
+    /** Papier et encre, police Computer Modern : toute l'interface façon article LaTeX. */
+    PAPER("Papier (LaTeX)"),
+}
+
+/**
+ * Présentation de l'accueil : grille d'icônes, ou une page « papier » où les 27 applis des
+ * [PaperSlot] sont placées sur une figure mathématique (ou un texte, pour les remerciements).
+ */
+enum class HomeStyle(val label: String, val paper: Boolean = true) {
+    GRID("Grille d'icônes", paper = false),
+    GROUPES("1 · Groupes"),
+    VORONOI("2 · Voronoï"),
+    ENSEMBLES("3 · Ensembles"),
+    SIERPINSKI("4 · Sierpiński"),
+    FOURIER("5 · Fourier"),
+    LAPIN("6 · Lapin de Douady"),
+    REMERCIEMENTS("7 · Remerciements"),
 }
 
 /** Couleurs du tiroir d'apps : celles du lanceur, ou sombres quel que soit le thème. */
@@ -139,6 +156,7 @@ enum class SearchEngine(val label: String, val urlTemplate: String?) {
 
 data class LauncherSettings(
     val themeMode: ThemeMode = ThemeMode.AMBIENT,
+    val homeStyle: HomeStyle = HomeStyle.GRID,
     val iconShape: IconShape = IconShape.SQUIRCLE,
     val iconPack: String? = null,
     val wrapLegacyIcons: Boolean = true,

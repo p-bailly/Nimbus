@@ -15,6 +15,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import fr.perso.nimbus.data.AppCategory
 import fr.perso.nimbus.data.AppEntry
+import fr.perso.nimbus.data.PaperSlot
+import fr.perso.nimbus.data.HomeStyle
+import fr.perso.nimbus.data.ThemeMode
 import fr.perso.nimbus.data.AppRepository
 import fr.perso.nimbus.data.BackupManager
 import fr.perso.nimbus.data.ContactResult
@@ -80,7 +83,8 @@ data class HomeMenu(val position: Offset, val page: Int)
 data class PageRequest(val page: Int, val id: Long)
 
 /** Pop-up d'appui long sur une app, ancré sur son icône (coordonnées de la fenêtre). */
-data class AppPopupRequest(val app: AppEntry, val anchor: Rect)
+/** [paperSlot] : appui long sur une place d'un accueil « papier » (le pop-up propose d'en changer l'app). */
+data class AppPopupRequest(val app: AppEntry, val anchor: Rect, val paperSlot: PaperSlot? = null)
 
 data class UiState(
     val drawerOpen: Boolean = false,
@@ -100,6 +104,8 @@ data class UiState(
     /** Widget de l'accueil en cours de redimensionnement, null sinon. */
     val resizingWidget: Int? = null,
     val pageRequest: PageRequest = PageRequest(0, 0),
+    /** Place d'un accueil « papier » dont on choisit l'app. */
+    val paperSlotPicker: PaperSlot? = null,
 )
 
 /** État des autorisations et services système, relu à chaque retour au premier plan. */
@@ -267,6 +273,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     val apps: StateFlow<AppsState> = combine(categorized, userLists, appsConfig, repository.profiles) { all, lists, config, profiles ->
         buildAppsState(all, lists, config, profiles)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppsState())
+
+    /** App de chaque place des accueils « papier » (choix de l'utilisateur, sinon automatique). */
+    val paperApps: StateFlow<Map<PaperSlot, AppEntry?>> = combine(apps, prefs.paperSlots) { state, chosen ->
+        PaperSlot.resolve(state.visible, chosen, state.byKey)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     private val searchIndex = combine(apps, repository.apps, prefs.customLabels) { state, raw, labels ->
         // Une app renommée se trouve aussi par son nom d'origine.
@@ -511,7 +522,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun showAppSheet(app: AppEntry) = _ui.update { it.copy(sheetApp = app, appPopup = null) }
 
-    fun showAppPopup(app: AppEntry, anchor: Rect) = _ui.update { it.copy(appPopup = AppPopupRequest(app, anchor)) }
+    fun showAppPopup(app: AppEntry, anchor: Rect, paperSlot: PaperSlot? = null) =
+        _ui.update { it.copy(appPopup = AppPopupRequest(app, anchor, paperSlot)) }
+
+    fun showPaperSlotPicker(slot: PaperSlot?) = _ui.update { it.copy(paperSlotPicker = slot, appPopup = null) }
+
+    /** [app] null : la place revient au choix automatique. */
+    fun assignPaperSlot(slot: PaperSlot, app: AppEntry?) = prefs.setPaperSlot(slot, app?.key)
+
+    /** Un accueil « papier » passe aussi l'interface au thème papier (on peut en changer ensuite). */
+    fun setHomeStyle(style: HomeStyle) = updateSettings {
+        it.copy(homeStyle = style, themeMode = if (style.paper) ThemeMode.PAPER else it.themeMode)
+    }
 
     fun dismissAppPopup() = _ui.update { it.copy(appPopup = null) }
 

@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.perso.nimbus.data.DrawerTheme
 import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.ui.components.AppActionSheet
+import fr.perso.nimbus.ui.components.AppPickerDialog
 import fr.perso.nimbus.ui.components.AppPopup
 import fr.perso.nimbus.ui.components.WidgetPicker
 import fr.perso.nimbus.ui.drawer.AppDrawer
@@ -53,8 +54,12 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
     val drawerOnTop = ui.drawerOpen && ui.screen == Screen.HOME
     val dark = (drawerNight && drawerOnTop) || isDarkTheme(settings.themeMode, isSystemInDarkTheme())
     val onWallpaper = !ui.drawerOpen && ui.screen == Screen.HOME
-    // Sur le fond d'écran les icônes système restent claires ; ailleurs elles suivent le thème.
-    LaunchedEffect(dark, onWallpaper) { host.setLightSystemBars(!onWallpaper && !dark) }
+    val paperHome = settings.homeStyle.paper
+    // Sur le fond d'écran les icônes système restent claires (foncées sur un accueil « papier ») ;
+    // ailleurs elles suivent le thème.
+    LaunchedEffect(dark, onWallpaper, paperHome) {
+        host.setLightSystemBars(if (onWallpaper) paperHome else !dark)
+    }
 
     // Un launcher ne se ferme pas avec Retour : ce gestionnaire, déclaré en premier,
     // n'est utilisé que si aucun écran au-dessus n'intercepte le geste.
@@ -108,7 +113,7 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                     apps.byKey[request.app.key]?.let { app ->
                         // Ouvert depuis le tiroir : mêmes couleurs que lui.
                         if (ui.drawerOpen) DrawerColors(settings, wallpaperColor) { AppPopup(app, request.anchor, apps, vm) }
-                        else AppPopup(app, request.anchor, apps, vm)
+                        else AppPopup(app, request.anchor, apps, vm, request.paperSlot)
                     }
                 }
 
@@ -142,6 +147,19 @@ fun NimbusApp(vm: LauncherViewModel, host: LauncherHost) {
                         } else {
                             null
                         },
+                    )
+                }
+
+                ui.paperSlotPicker?.let { slot ->
+                    AppPickerDialog(
+                        title = "Place « ${slot.title} »",
+                        apps = apps.visible,
+                        noneLabel = "Choix automatique",
+                        onPick = { app ->
+                            vm.assignPaperSlot(slot, app)
+                            vm.showPaperSlotPicker(null)
+                        },
+                        onDismiss = { vm.showPaperSlotPicker(null) },
                     )
                 }
 

@@ -56,7 +56,9 @@ import fr.perso.nimbus.data.IconPack
 import fr.perso.nimbus.data.IconPackInfo
 import fr.perso.nimbus.data.IconShape
 import fr.perso.nimbus.data.IconSize
+import fr.perso.nimbus.data.HomeStyle
 import fr.perso.nimbus.data.LauncherSettings
+import fr.perso.nimbus.data.PaperSlot
 import fr.perso.nimbus.data.SearchEngine
 import fr.perso.nimbus.data.SortMode
 import fr.perso.nimbus.data.ThemeMode
@@ -89,6 +91,7 @@ private sealed interface SettingsDialog {
     data object DrawerColumns : SettingsDialog
     data object Sort : SettingsDialog
     data object HomeColumns : SettingsDialog
+    data object HomeStyleChoice : SettingsDialog
     data object HomeRows : SettingsDialog
     data object DockColumns : SettingsDialog
     data object Badge : SettingsDialog
@@ -124,6 +127,7 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
     val settings by vm.settings.collectAsStateWithLifecycle()
     val status by vm.status.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
+    val paperApps by vm.paperApps.collectAsStateWithLifecycle()
     val gestureApps by vm.gestureApps.collectAsStateWithLifecycle()
     val backupFolder by vm.autoBackupFolder.collectAsStateWithLifecycle()
     val wallpaperColor by vm.wallpaperColor.collectAsStateWithLifecycle()
@@ -255,6 +259,25 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                 }
             }
             SettingsSection.HOME -> SettingsPage("Page d'accueil", onBack = back) {
+                item {
+                    SettingsEntry(R.drawable.ms_style, SettingsColors.Blue, "Style de l'accueil", settings.homeStyle.label, chevron = true) {
+                        dialog = SettingsDialog.HomeStyleChoice
+                    }
+                }
+                if (settings.homeStyle.paper) {
+                    settingsSection("Applis de la page")
+                    items(PaperSlot.entries, key = { "slot:${it.name}" }) { slot ->
+                        val app = paperApps[slot]
+                        SettingsEntry(
+                            R.drawable.ms_apps,
+                            Color(slot.family.argb),
+                            slot.title,
+                            app?.label ?: "Aucune appli : toucher pour choisir",
+                            chevron = true,
+                        ) { vm.showPaperSlotPicker(slot) }
+                    }
+                    settingsSection("Grille d'icônes")
+                }
                 item {
                     SettingsEntry(R.drawable.ms_view_column, SettingsColors.Blue, "Colonnes de la grille", "${settings.homeColumns}", chevron = true) {
                         dialog = SettingsDialog.HomeColumns
@@ -763,6 +786,15 @@ private fun SettingsDialogs(
             label = { it.label },
             onSelect = { mode -> update { it.copy(sortMode = mode) }; close() },
             onDismiss = close,
+        )
+        SettingsDialog.HomeStyleChoice -> ChoiceDialog(
+            title = "Style de l'accueil",
+            options = HomeStyle.entries,
+            selected = settings.homeStyle,
+            label = { it.label },
+            onSelect = { style -> vm.setHomeStyle(style); close() },
+            onDismiss = close,
+            footer = "Les styles « papier » placent 27 applis sur une page d'article ; appui long sur une appli pour en changer.",
         )
         SettingsDialog.HomeColumns -> ChoiceDialog(
             title = "Colonnes de la grille d'accueil",

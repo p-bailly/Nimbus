@@ -394,7 +394,7 @@ private class Landing(val page: Int, val before: AppsState)
  * Gestes du fond (zones vides) : tap, double tap, appui long. Sans action de double tap, le
  * double tap n'est pas déclaré : il retarderait l'appui long.
  */
-private fun Modifier.homeBackground(
+internal fun Modifier.homeBackground(
     doubleTapEnabled: Boolean,
     onTap: () -> Unit,
     onDoubleTap: () -> Unit,
@@ -478,7 +478,7 @@ private fun Dock(
  * Observés dès la passe Initial ; dès que deux doigts sont posés, les événements sont
  * consommés pour que le glissé à un doigt ne réagisse pas.
  */
-private fun Modifier.multiTouchGestures(onGesture: (Gesture) -> Unit): Modifier = composed {
+internal fun Modifier.multiTouchGestures(onGesture: (Gesture) -> Unit): Modifier = composed {
     val callback by rememberUpdatedState(onGesture)
     pointerInput(Unit) {
         val distance = 64.dp.toPx()

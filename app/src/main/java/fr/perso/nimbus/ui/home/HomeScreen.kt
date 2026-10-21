@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.perso.nimbus.R
+import fr.perso.nimbus.data.HomeStyle
 import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.AppsState
@@ -47,6 +48,8 @@ import fr.perso.nimbus.ui.LauncherViewModel
 import fr.perso.nimbus.ui.SettingsSection
 import fr.perso.nimbus.ui.UiState
 import fr.perso.nimbus.ui.components.AppPickerDialog
+import fr.perso.nimbus.ui.components.ChoiceDialog
+import fr.perso.nimbus.ui.paper.PaperHome
 import fr.perso.nimbus.ui.settings.SettingsColors
 import fr.perso.nimbus.ui.settings.SettingsEntry
 
@@ -65,15 +68,19 @@ fun HomeScreen(
     BackHandler(enabled = active && ui.resizingWidget != null) { vm.setResizingWidget(null) }
 
     Box(Modifier.fillMaxSize()) {
-        HomePage(
-            vm = vm,
-            settings = settings,
-            apps = apps,
-            resizingWidgetId = ui.resizingWidget,
-            pageRequest = ui.pageRequest,
-            onLongPress = vm::openHomeMenu,
-        )
-        ui.homeMenu?.let { HomeMenuSheet(menu = it, vm = vm, apps = apps) }
+        if (settings.homeStyle.paper) {
+            PaperHome(vm = vm, settings = settings, onLongPress = vm::openHomeMenu)
+        } else {
+            HomePage(
+                vm = vm,
+                settings = settings,
+                apps = apps,
+                resizingWidgetId = ui.resizingWidget,
+                pageRequest = ui.pageRequest,
+                onLongPress = vm::openHomeMenu,
+            )
+        }
+        ui.homeMenu?.let { HomeMenuSheet(menu = it, vm = vm, apps = apps, settings = settings) }
     }
 }
 
@@ -83,9 +90,11 @@ fun HomeScreen(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState) {
+private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState, settings: LauncherSettings) {
     val context = LocalContext.current
     var pickingIcon by remember { mutableStateOf(false) }
+    var pickingStyle by remember { mutableStateOf(false) }
+    val paper = settings.homeStyle.paper
 
     ModalBottomSheet(
         onDismissRequest = vm::closeHomeMenu,
@@ -106,14 +115,17 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
                     .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 12.dp),
             ) {
-                MenuTile(R.drawable.ms_add_box, "Ajouter une icône") { pickingIcon = true }
-                MenuTile(R.drawable.ms_dashboard_customize, "Ajouter un widget") { vm.openWidgetPicker() }
+                MenuTile(R.drawable.ms_style, "Style de l'accueil") { pickingStyle = true }
+                if (!paper) {
+                    MenuTile(R.drawable.ms_add_box, "Ajouter une icône") { pickingIcon = true }
+                    MenuTile(R.drawable.ms_dashboard_customize, "Ajouter un widget") { vm.openWidgetPicker() }
+                }
                 MenuTile(R.drawable.ms_wallpaper, "Fond d'écran") {
                     vm.closeHomeMenu()
                     SystemActions.openWallpaperPicker(context)
                 }
                 MenuTile(R.drawable.ms_apps, "Toutes les apps") { vm.openDrawer() }
-                if (menu.page != apps.homePage && menu.page < apps.pageCount) {
+                if (!paper && menu.page != apps.homePage && menu.page < apps.pageCount) {
                     MenuTile(R.drawable.ms_home, "Page principale") {
                         vm.closeHomeMenu()
                         vm.setMainHomePage(menu.page)
@@ -148,6 +160,22 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
                 }
             }
         }
+    }
+
+    if (pickingStyle) {
+        ChoiceDialog(
+            title = "Style de l'accueil",
+            options = HomeStyle.entries,
+            selected = settings.homeStyle,
+            label = { it.label },
+            onSelect = { style ->
+                pickingStyle = false
+                vm.closeHomeMenu()
+                vm.setHomeStyle(style)
+            },
+            onDismiss = { pickingStyle = false },
+            footer = "Les styles « papier » placent 27 applis sur une page d'article ; appui long sur une appli pour en changer.",
+        )
     }
 
     if (pickingIcon) {

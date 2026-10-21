@@ -22,7 +22,7 @@ private const val DEFAULT_SEED = 0xFF5B7FD6.toInt()
 fun isDarkTheme(mode: ThemeMode, systemDark: Boolean): Boolean = when (mode) {
     ThemeMode.AMBIENT, ThemeMode.MATERIAL_YOU -> systemDark
     ThemeMode.DARK -> true
-    ThemeMode.LIGHT -> false
+    ThemeMode.LIGHT, ThemeMode.PAPER -> false
 }
 
 /**
@@ -37,6 +37,10 @@ fun NimbusTheme(
     pureBlack: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    if (mode == ThemeMode.PAPER && !forceDark) {
+        MaterialTheme(colorScheme = paperColorScheme(), typography = PaperTypography, shapes = PaperShapes, content = content)
+        return
+    }
     val context = LocalContext.current
     val dark = forceDark || isDarkTheme(mode, isSystemInDarkTheme())
     val seed = wallpaperColor ?: DEFAULT_SEED
@@ -49,7 +53,12 @@ fun NimbusTheme(
             remember(seed, dark) { seededColorScheme(seed, dark) }
         else -> remember(dark) { seededColorScheme(DEFAULT_SEED, dark) }
     }.let { if (pureBlack && dark) remember(it) { it.blackened() } else it }
-    MaterialTheme(colorScheme = scheme, content = content)
+    if (mode == ThemeMode.PAPER) {
+        // Tiroir en mode nuit avec le thème papier : encre claire sur fond sombre, même police.
+        MaterialTheme(colorScheme = scheme, typography = PaperTypography, shapes = PaperShapes, content = content)
+    } else {
+        MaterialTheme(colorScheme = scheme, content = content)
+    }
 }
 
 /** Fonds noirs, conteneurs gris très sombres : les couleurs d'accent restent celles du thème. */

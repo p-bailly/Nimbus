@@ -62,6 +62,10 @@ class Prefs private constructor(context: Context) {
     /** Dossier (URI d'arborescence SAF) des sauvegardes automatiques, null si désactivées. */
     val autoBackupFolder: StateFlow<String?> = _autoBackupFolder.asStateFlow()
 
+    private val _paperSlots = MutableStateFlow(readPaperSlots())
+    /** Accueils « papier » : app choisie pour chaque place (sinon, choix automatique). */
+    val paperSlots: StateFlow<Map<PaperSlot, String>> = _paperSlots.asStateFlow()
+
     private val _gestureApps = MutableStateFlow(readGestureApps())
     /** App ouverte par un geste réglé sur « Ouvrir une app ». */
     val gestureApps: StateFlow<Map<Gesture, String>> = _gestureApps.asStateFlow()
@@ -73,6 +77,7 @@ class Prefs private constructor(context: Context) {
         _settings.value = s
         val e = sp.edit()
         e.putString("themeMode", s.themeMode.name)
+        e.putString("homeStyle", s.homeStyle.name)
         e.putString("iconShape", s.iconShape.name)
         e.putString("iconPack", s.iconPack)
         e.putBoolean("wrapLegacyIcons", s.wrapLegacyIcons)
@@ -121,6 +126,7 @@ class Prefs private constructor(context: Context) {
         val d = LauncherSettings()
         return LauncherSettings(
             themeMode = enumPref("themeMode", d.themeMode),
+            homeStyle = enumPref("homeStyle", d.homeStyle),
             iconShape = enumPref("iconShape", d.iconShape),
             iconPack = sp.getString("iconPack", d.iconPack),
             wrapLegacyIcons = sp.getBoolean("wrapLegacyIcons", d.wrapLegacyIcons),
@@ -401,6 +407,19 @@ class Prefs private constructor(context: Context) {
         writeMap(KEY_GESTURE_APPS, map.mapKeys { it.key.name })
     }
 
+    /** [appKey] null : la place revient au choix automatique. */
+    fun setPaperSlot(slot: PaperSlot, appKey: String?) {
+        val map = _paperSlots.value.toMutableMap()
+        if (appKey == null) map.remove(slot) else map[slot] = appKey
+        _paperSlots.value = map
+        writeMap(KEY_PAPER_SLOTS, map.mapKeys { it.key.name })
+    }
+
+    private fun readPaperSlots(): Map<PaperSlot, String> =
+        readMap(KEY_PAPER_SLOTS).mapNotNull { (name, app) ->
+            PaperSlot.entries.firstOrNull { it.name == name }?.let { it to app }
+        }.toMap()
+
     private fun readGestureApps(): Map<Gesture, String> =
         readMap(KEY_GESTURE_APPS).mapNotNull { (name, app) ->
             Gesture.entries.firstOrNull { it.name == name }?.let { it to app }
@@ -475,6 +494,7 @@ class Prefs private constructor(context: Context) {
         _customLabels.value = readMap(KEY_LABELS)
         _iconSwipeActions.value = readMap(KEY_ICON_SWIPES)
         _gestureApps.value = readGestureApps()
+        _paperSlots.value = readPaperSlots()
         _homeIcons.value = readHomeIcons()
         _homePage.value = sp.getInt(KEY_HOME_PAGE, 0)
         return true
@@ -523,6 +543,7 @@ class Prefs private constructor(context: Context) {
         private const val KEY_LABELS = "customLabels"
         private const val KEY_ICON_SWIPES = "iconSwipeActions"
         private const val KEY_GESTURE_APPS = "gestureApps"
+        private const val KEY_PAPER_SLOTS = "paperSlots"
         private const val KEY_HOME_ICONS = "homeIcons"
         private const val KEY_HOME_WIDGETS = "homeWidgets"
 
