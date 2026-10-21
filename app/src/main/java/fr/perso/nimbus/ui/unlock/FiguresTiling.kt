@@ -24,6 +24,7 @@ internal val tilingFigures: List<FigureSpec> = listOf(
     FigureSpec("octagons", "Octogones et carrés", "Pavages", { _ -> "" }) { octagons(it) },
     FigureSpec("pythagorean_tiling", "Pavage pythagoricien", "Pavages", { _ -> "" }) { pythagoreanTiling(it) },
     FigureSpec("voronoi", "Vitrail de Voronoï", "Pavages", { _ -> "" }) { voronoi(it) },
+    FigureSpec("hyperbolic", "Pavage hyperbolique", "Pavages", { _ -> "" }) { hyperbolic(it) },
 )
 
 /** Le cadre rectangulaire des pavages. */
@@ -368,4 +369,125 @@ private fun Pencil.pythagoreanTiling(v: Int) {
             stroke(s2 - w * 8f, s2 + w * 8f, Crayons.rouge, 1.5f, 0.85f)
         }
     }
+}
+
+// ------------------------------------------------------------ Pavage hyperbolique
+
+/** Un point du disque de Poincaré (disque unité), en double précision. */
+private class HypPoint(val x: Double, val y: Double) {
+    operator fun plus(o: HypPoint) = HypPoint(x + o.x, y + o.y)
+    operator fun minus(o: HypPoint) = HypPoint(x - o.x, y - o.y)
+    operator fun times(k: Double) = HypPoint(x * k, y * k)
+    val norm2: Double get() = x * x + y * y
+}
+
+/** Géodésique entre deux points : un cercle orthogonal au bord (centre, rayon), ou un diamètre (null). */
+private class HypGeodesic(val cx: Double, val cy: Double, val r: Double)
+
+private fun hypGeodesic(a: HypPoint, b: HypPoint): HypGeodesic? {
+    // Le cercle passe par a, b et par l'inverse de a (ou de b) par rapport au cercle unité.
+    val far = if (a.norm2 > b.norm2) a else b
+    if (far.norm2 < 1e-12) return null
+    val c = far * (1.0 / far.norm2)
+    val d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y))
+    if (kotlin.math.abs(d) < 1e-9) return null
+    val ux = (a.norm2 * (b.y - c.y) + b.norm2 * (c.y - a.y) + c.norm2 * (a.y - b.y)) / d
+    val uy = (a.norm2 * (c.x - b.x) + b.norm2 * (a.x - c.x) + c.norm2 * (b.x - a.x)) / d
+    val r = kotlin.math.sqrt((a.x - ux) * (a.x - ux) + (a.y - uy) * (a.y - uy))
+    if (r > 1e4) return null
+    return HypGeodesic(ux, uy, r)
+}
+
+/** Réflexion hyperbolique de [z] par la géodésique de [a] à [b] : inversion dans son cercle, ou symétrie par le diamètre. */
+private fun hypReflect(z: HypPoint, a: HypPoint, b: HypPoint): HypPoint {
+    val g = hypGeodesic(a, b)
+    if (g == null) {
+        val d = b - a
+        val len = kotlin.math.sqrt(d.norm2)
+        val ux = d.x / len; val uy = d.y / len
+        val k = (z.x - a.x) * ux + (z.y - a.y) * uy
+        val px = a.x + ux * k; val py = a.y + uy * k
+        return HypPoint(2 * px - z.x, 2 * py - z.y)
+    }
+    val dx = z.x - g.cx; val dy = z.y - g.cy
+    val q = g.r * g.r / (dx * dx + dy * dy)
+    return HypPoint(g.cx + dx * q, g.cy + dy * q)
+}
+
+/** L'arc de géodésique de [a] à [b], en [n] pas (le petit arc : c'est lui qui est dans le disque). */
+private fun hypArc(a: HypPoint, b: HypPoint, n: Int): List<HypPoint> {
+    val g = hypGeodesic(a, b) ?: return listOf(a, b)
+    val t0 = kotlin.math.atan2(a.y - g.cy, a.x - g.cx)
+    var dt = kotlin.math.atan2(b.y - g.cy, b.x - g.cx) - t0
+    while (dt > PI) dt -= 2 * PI
+    while (dt < -PI) dt += 2 * PI
+    return (0..n).map { HypPoint(g.cx + g.r * kotlin.math.cos(t0 + dt * it / n), g.cy + g.r * kotlin.math.sin(t0 + dt * it / n)) }
+}
+
+/**
+ * Pavage hyperbolique {p, q} dans le disque de Poincaré : des polygones réguliers à p côtés, q autour de
+ * chaque sommet ({7, 3} ou {5, 4} selon la variante). Le polygone central a pour rayon hyperbolique R,
+ * cosh R = cot(π/p) cot(π/q), soit tanh(R/2) dans le disque ; les autres s'en déduisent par réflexions
+ * dans les côtés (inversions dans des cercles orthogonaux au bord). Les tuiles rapetissent vers le bord ;
+ * on s'arrête quand elles deviennent minuscules.
+ */
+private fun Pencil.hyperbolic(v: Int) {
+    val (p, q) = if (v % 2 == 0) 7 to 3 else 5 to 4
+    val coshR = 1.0 / (kotlin.math.tan(PI / p) * kotlin.math.tan(PI / q))
+    val bigR = kotlin.math.ln(coshR + kotlin.math.sqrt(coshR * coshR - 1))
+    val r0 = kotlin.math.tanh(bigR / 2)
+    val turn = PI / 2 + (v / 2 % 2) * PI / p
+    val first = List(p) { HypPoint(r0 * kotlin.math.cos(turn + 2 * PI * it / p), r0 * kotlin.math.sin(turn + 2 * PI * it / p)) }
+
+    class Tile(val corners: List<HypPoint>, val depth: Int) {
+        val size: Double = corners.indices.maxOf { i -> kotlin.math.sqrt((corners[i] - corners[(i + 1) % p]).norm2) }
+        val key: Pair<Long, Long> = corners.fold(HypPoint(0.0, 0.0)) { s, c -> s + c }.let {
+            Math.round(it.x / p * 20000) to Math.round(it.y / p * 20000)
+        }
+    }
+    val tiles = mutableListOf(Tile(first, 0))
+    val seen = hashSetOf(tiles[0].key)
+    var head = 0
+    while (head < tiles.size && tiles.size < 2500) {
+        val t = tiles[head++]
+        for (i in 0 until p) {
+            val a = t.corners[i]; val b = t.corners[(i + 1) % p]
+            val next = Tile(t.corners.map { hypReflect(it, a, b) }, t.depth + 1)
+            if (next.size < 0.012 || next.key in seen) continue
+            seen += next.key
+            tiles += next
+        }
+    }
+
+    // Couleurs : chaque tuile prend une couleur différente de ses voisines déjà coloriées (côté commun).
+    val pal = listOf(Crayons.rouge, Crayons.jaune, Crayons.bleu, Crayons.vert, Crayons.violet, Crayons.orange, Crayons.turquoise, Crayons.rose)
+        .rot((v * 3) % 8).take(5)
+    fun edgeKey(a: HypPoint, b: HypPoint): Pair<Long, Long> {
+        val m = (a + b) * 0.5
+        return Math.round(m.x * 20000) to Math.round(m.y * 20000)
+    }
+    val edgeColors = HashMap<Pair<Long, Long>, MutableList<Int>>()
+    val random = Random(7 + v)
+    val radius = 118f
+    for (t in tiles) {
+        val keys = (0 until p).map { edgeKey(t.corners[it], t.corners[(it + 1) % p]) }
+        val used = keys.flatMap { edgeColors[it].orEmpty() }.toSet()
+        val free = pal.indices.filter { it !in used }
+        val color = if (free.isEmpty()) random.nextInt(pal.size) else free[(t.depth + random.nextInt(free.size)) % free.size]
+        keys.forEach { edgeColors.getOrPut(it) { mutableListOf() } += color }
+        val steps = (t.size * 60).toInt().coerceIn(2, 10)
+        val outline = (0 until p).flatMap { hypArc(t.corners[it], t.corners[(it + 1) % p], steps).dropLast(1) }
+            .map { center + Offset(it.x.toFloat(), it.y.toFloat()) * radius }
+        val px = (t.size * radius).toFloat()
+        fill(
+            outline,
+            pal[color],
+            hatch = px > 13f,
+            gap = (px / 6f).coerceIn(2.6f, 4.2f),
+            angle = -58f + 23f * color,
+            wash = if (px > 13f) 0.38f else 0.6f,
+            lw = (px / 30f).coerceIn(0.35f, 1.2f),
+        )
+    }
+    outline(circle(center.x, center.y, radius, 160), lw = 1.6f)
 }

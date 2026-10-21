@@ -23,6 +23,7 @@ internal val geometryFigures: List<FigureSpec> = listOf(
     FigureSpec("morley", "Triangle de Morley", "Géométrie", { _ -> "" }) { morley(it) },
     FigureSpec("napoleon", "Théorème de Napoléon", "Géométrie", { _ -> "" }) { napoleon(it) },
     FigureSpec("lunes", "Lunules d’Hippocrate", "Géométrie", { _ -> "" }) { lunes(it) },
+    FigureSpec("gothic_rose", "Rosace gothique", "Géométrie", { _ -> "" }) { gothicRose(it) },
 )
 
 private fun Offset.unit() = this / getDistance()
@@ -348,4 +349,70 @@ private fun Pencil.lunes(v: Int) {
     fill(fit(listOf(a, b, p)), pal[5], gap = 3.4f, wash = 0.4f, angle = 30f)
     fill(fit(l1), pal[0], gap = 3f, wash = 0.45f)
     fill(fit(l2), pal[0], gap = 3f, wash = 0.45f, angle = -30f)
+}
+
+/**
+ * Rosace gothique tracée au compas : une couronne de pierre perlée, le verre bleu du fond, des lancettes
+ * rayonnantes (un coin, puis un arc brisé équilatéral : deux arcs de rayon égal à la largeur, centrés
+ * sur les naissances opposées), un trilobe en haut de chacune, des oculi entre leurs pointes, et au
+ * centre une rosace à six pétales. 12 lancettes, ou 8 selon la variante.
+ */
+private fun Pencil.gothicRose(v: Int) {
+    val n = if (v % 2 == 0) 12 else 8
+    val bigR = 118f
+    val inner = bigR * 0.9f
+    val pal = listOf(Crayons.rouge, Crayons.bleu, Crayons.vert, Crayons.violet, Crayons.orange, Crayons.turquoise).rot(v % 6)
+    val glass = pal[1]
+    val lancetA = pal[0]
+    val lancetB = pal[2]
+
+    // Couronne de pierre, perlée de petits cercles.
+    fill(circle(center.x, center.y, bigR, 150), Crayons.jaune, wash = 0.22f, gap = 5f, strokeAlpha = 0.4f, lw = 1.6f)
+    val pearls = 2 * n
+    for (i in 0 until pearls) {
+        val c = center + dir(rad(-90f + 360f * (i + 0.5f) / pearls)) * ((bigR + inner) / 2)
+        fill(circle(c.x, c.y, (bigR - inner) * 0.33f, 16), if (i % 2 == 0) pal[0] else pal[3], hatch = false, wash = 0.6f, lw = 0.8f)
+    }
+    // Le verre du fond.
+    fill(circle(center.x, center.y, inner, 140), Crayons.bleu, wash = 0.26f, gap = 4f, strokeAlpha = 0.5f, lw = 1.5f)
+
+    // Les lancettes, dans le repère (s le long du rayon, y en travers).
+    val rIn = bigR * 0.34f
+    val tip = bigR * 0.84f
+    val taper = kotlin.math.tan(PI.toFloat() / n) * 0.72f
+    val spring = tip / (1 + sqrt(3f) * taper)
+    val h = spring * taper
+    for (k in 0 until n) {
+        val phi = rad(-90f + 360f * k / n)
+        val u = dir(phi)
+        val w = Offset(-u.y, u.x)
+        fun at(sv: Float, y: Float) = center + u * sv + w * y
+        val shape = buildList {
+            add(at(rIn, -rIn * taper))
+            add(at(spring, -h))
+            for (j in 1..12) { val a = rad(-90f + 60f * j / 12); add(at(spring + 2 * h * cos(a), h + 2 * h * sin(a))) }
+            for (j in 1..12) { val a = rad(30f + 60f * j / 12); add(at(spring + 2 * h * cos(a), -h + 2 * h * sin(a))) }
+            add(at(rIn, rIn * taper))
+        }
+        fill(shape, if (k % 2 == 0) lancetA else lancetB, wash = 0.45f, gap = 3.2f, angle = -58f + 360f * k / n, lw = 1.5f)
+        // Remplage : la même lancette, plus petite, au trait.
+        val inset = shape.map { center + (it - center - u * (spring * 0.5f)) * 0.78f + u * (spring * 0.5f) + u * (h * 0.12f) }
+        outline(inset, lw = 0.8f)
+        // Trilobe : trois cercles qui se touchent, sous la pointe.
+        val lobe = 0.3f * h
+        val top = at(spring + 0.62f * h, 0f)
+        fill(circle(top.x, top.y, lobe, 18), Crayons.jaune, wash = 0.55f, hatch = lobe > 5f, gap = 2.4f, lw = 0.9f)
+        for (side in listOf(-1f, 1f)) {
+            val c = at(spring + 0.62f * h - lobe * sqrt(3f), side * lobe)
+            fill(circle(c.x, c.y, lobe, 18), Crayons.jaune, wash = 0.55f, hatch = lobe > 5f, gap = 2.4f, lw = 0.9f)
+        }
+        // Oculus entre deux pointes.
+        val o = center + dir(phi + PI.toFloat() / n) * (bigR * 0.8f)
+        fill(circle(o.x, o.y, bigR * (if (n == 12) 0.065f else 0.085f), 20), pal[3], wash = 0.45f, gap = 2.8f, lw = 1.1f)
+    }
+
+    // Rosace centrale à six pétales, tracée au compas.
+    fill(circle(center.x, center.y, rIn, 60), Crayons.jaune, wash = 0.3f, gap = 3.6f, lw = 1.5f)
+    for (i in 0 until 6) fill(lens(center, rIn * 0.96f, rad(-90f + 60f * i)), if (i % 2 == 0) Crayons.rose else pal[3], gap = 2.8f, angle = -58f + 60f * i, lw = 1.1f)
+    fill(circle(center.x, center.y, rIn * 0.18f, 18), Crayons.rouge, gap = 2.4f, lw = 1f)
 }
