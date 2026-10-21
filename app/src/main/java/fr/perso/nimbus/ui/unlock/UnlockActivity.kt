@@ -100,6 +100,7 @@ class UnlockActivity : ComponentActivity() {
                         onBasket = { openApp(BasketShare.PACKAGE) },
                         onUnlock = { unlock() },
                         onNote = { openNote(it) },
+                        onSketchText = feed::sketchText,
                     )
                 }
             }

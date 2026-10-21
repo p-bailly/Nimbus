@@ -88,8 +88,10 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Au réveil, par-dessus l'écran verrouillé : une page d'article sans en-tête (l'heure en grand, la
   date), puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
   ressenti, ciel, maximum en orange et minimum en bleu, en gras, et son coloriage en figure, agrandi,
-  ravivé, qui monte et se colore en 1,6 s à chaque réveil), les messages reçus (WhatsApp, Discord,
-  Messages, Claude, Signal, Telegram, Gmail…) dans des bandeaux coloriés au crayon à la couleur de
+  ravivé, qui monte et se colore en 1,6 s à chaque réveil ; il ne touche jamais le texte : la page
+  mesure ses écritures et Météo dessine autour, le ciel colorié jusqu'aux bords, le soleil, la lune
+  et les nuages poussés à côté, et une gomme adoucie efface encore ici ce qui s'en approcherait), les
+  messages reçus (WhatsApp, Discord, Messages, Claude, Signal, Telegram, Gmail…) dans des bandeaux coloriés au crayon à la couleur de
   leur appli, avec son logo (trois au plus, les plus récents ; il faut l'accès aux notifications ;
   toucher un bandeau déverrouille et ouvre le message), puis, dans un bandeau colorié orange avec le
   logo de Basket Live, les matchs en direct des équipes favorites (trois au plus, mi-temps et fin de
@@ -119,7 +121,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   arrière-plan » (refusées par défaut : l'écran verrouillé du système reste seul) ; les réglages de
   Nimbus le signalent et y mènent.
 - Données : Météo et Basket Live (applis personnelles) les partagent avec Nimbus seul, en lecture
-  (`content://io.github.pbailly.meteo.nimbus` : `now` et le coloriage `sketch` ;
+  (`content://io.github.pbailly.meteo.nimbus` : `now` et le coloriage `sketch`, avec la place du
+  texte qui sera posé dessus ;
   `content://com.pbailly.superfanbasket.nimbus/favorites`), et préviennent à chaque changement. Les
   scores viennent de l'API publique d'ESPN (`site.api.espn.com`, comme Basket Live) : relus à
   chaque affichage, puis toutes les 15 s tant qu'un match de favori est en cours et la page visible,
@@ -303,7 +306,7 @@ app/src/main/java/fr/perso/nimbus/
 │                            icônes (IconFactory, CustomIcons, IconPack), catégories,
 │                            contacts, sauvegardes (BackupManager, SmartLauncherImport),
 │                            places des accueils papier (PaperSlots), silhouettes (GlyphFactory),
-│                            page de déverrouillage (MeteoShare, BasketShare, DailyExercise)
+│                            page de déverrouillage (MeteoShare, BasketShare, MessageApps)
 ├── service/                 Pastilles (NotificationListener), gestes (accessibilité),
 │                            actions système
 ├── widgets/                 Hôte des widgets (AppWidgetHost)
