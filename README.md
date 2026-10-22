@@ -100,7 +100,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   12 h après la fin du match), puis la figure du jour, dessinée au crayon (contour au crayon de
   papier, coloriage aux crayons de couleur), avec sa légende « Figure 2 – Nom » : 92 figures par
   thème (classiques, fractales, cercles, courbes, pavages, géométrie, espace, nombres et hasard),
-  une par jour dans un ordre mélangé ; ses couleurs ou ses paramètres changent d'un tour à l'autre.
+  une nouvelle à chaque affichage de la page, dans un ordre mélangé ; ses couleurs ou ses paramètres
+  changent d'un tour à l'autre.
   Un petit (i) après le nom, quand l'explication est rédigée, la montre sur une fiche posée sur la
   figure. La figure prend la place qui reste, et disparaît si la page est trop pleine. Une section
   sans données (appli absente, rien en direct) disparaît.
