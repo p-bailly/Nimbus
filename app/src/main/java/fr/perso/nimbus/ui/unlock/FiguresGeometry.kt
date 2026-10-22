@@ -12,17 +12,68 @@ import kotlin.math.tan
 // Figures du thème « Géométrie » : théorèmes du triangle, polygones, découpages.
 
 internal val geometryFigures: List<FigureSpec> = listOf(
-    FigureSpec("euclid", "Moulin d’Euclide", "Géométrie", { _ -> "" }) { euclid(it) },
-    FigureSpec("nested_polygons", "Polygones emboîtés", "Géométrie", { _ -> "" }) { nestedPolygons(it) },
-    FigureSpec("star_polygons", "Polygones étoilés", "Géométrie", { _ -> "" }) { starPolygons(it) },
-    FigureSpec("nine_point", "Cercle d’Euler", "Géométrie", { _ -> "" }) { ninePoint(it) },
-    FigureSpec("reuleaux", "Triangle de Reuleaux", "Géométrie", { _ -> "" }) { reuleaux(it) },
-    FigureSpec("tangram", "Tangram", "Géométrie", { _ -> "" }) { tangram(it) },
-    FigureSpec("tetrominoes", "Tétrominos", "Géométrie", { _ -> "" }) { tetrominoes(it) },
-    FigureSpec("pentagram", "Pentagramme d’or", "Géométrie", { _ -> "" }) { pentagram(it) },
-    FigureSpec("morley", "Triangle de Morley", "Géométrie", { _ -> "" }) { morley(it) },
-    FigureSpec("napoleon", "Théorème de Napoléon", "Géométrie", { _ -> "" }) { napoleon(it) },
-    FigureSpec("lunes", "Lunules d’Hippocrate", "Géométrie", { _ -> "" }) { lunes(it) },
+    FigureSpec("euclid", "Moulin d’Euclide", "Géométrie", { _ ->
+        "Un triangle rectangle et un carré sur chacun de ses côtés. La hauteur partage le grand carré en deux rectangles, chacun de " +
+            "même aire que le petit carré de sa couleur : Euclide le montre avec les paires de triangles égaux tracées en rouge et " +
+            "en bleu. D’où le théorème de Pythagore, a² + b² = c²."
+    }) { euclid(it) },
+    FigureSpec("nested_polygons", "Polygones emboîtés", "Géométrie", { v ->
+        val last = when (intArrayOf(10, 8, 12, 9)[v % 4]) {
+            8 -> "l’octogone"
+            9 -> "l’ennéagone"
+            10 -> "le décagone"
+            else -> "le dodécagone"
+        }
+        "Les polygones réguliers du triangle jusqu’à $last, tous posés sur le même côté. Un polygone à n côtés a des angles de " +
+            "(n − 2) × 180° / n : 60° pour le triangle, 90° pour le carré, 108° pour le pentagone… Plus n grandit, plus les angles " +
+            "approchent 180° et plus le polygone ressemble à un cercle."
+    }) { nestedPolygons(it) },
+    FigureSpec("star_polygons", "Polygones étoilés", "Géométrie", { _ ->
+        "Le polygone étoilé {n/k} relie n points régulièrement répartis sur un cercle, en sautant de k en k. Si n et k n’ont pas de " +
+            "diviseur commun, l’étoile se trace d’un seul trait, comme le pentagramme {5/2}. Sinon elle se sépare en plusieurs " +
+            "polygones : {6/2} donne deux triangles, l’étoile de David."
+    }) { starPolygons(it) },
+    FigureSpec("nine_point", "Cercle d’Euler", "Géométrie", { _ ->
+        "Dans tout triangle, neuf points sont sur un même cercle : les milieux des côtés (en bleu), les pieds des hauteurs (en rouge) " +
+            "et les milieux des segments qui joignent les sommets à l’orthocentre H (en vert). Son centre est au milieu de O, centre " +
+            "du cercle circonscrit, et de H, sur la droite d’Euler ; son rayon vaut la moitié de celui du cercle circonscrit."
+    }) { ninePoint(it) },
+    FigureSpec("reuleaux", "Triangle de Reuleaux", "Géométrie", { _ ->
+        "Chaque côté d’un polygone régulier à 3, 5 ou 7 sommets est remplacé par un arc centré sur le sommet opposé. Ces formes ont la " +
+            "même largeur dans toutes les directions : elles roulent entre deux droites parallèles comme une roue. Leur périmètre " +
+            "vaut π fois cette largeur, comme celui d’un cercle (théorème de Barbier)."
+    }) { reuleaux(it) },
+    FigureSpec("tangram", "Tangram", "Géométrie", { _ ->
+        "Un carré découpé en sept pièces : deux grands triangles, un moyen, deux petits, un carré et un parallélogramme. Le petit " +
+            "triangle vaut 1/16 du grand carré ; le carré, le parallélogramme et le triangle moyen en valent chacun 1/8 ; les grands " +
+            "triangles 1/4. Tous les angles valent 45°, 90° ou 135°."
+    }) { tangram(it) },
+    FigureSpec("tetrominoes", "Tétrominos", "Géométrie", { _ ->
+        "Il y a cinq tétrominos, des formes de quatre carrés collés par un côté : I, O, T, S et L. Un exemplaire de chacun ne pave " +
+            "aucun rectangle : sur un damier, le T couvre trois cases d’une couleur et une de l’autre, les autres deux et deux. " +
+            "Avec deux T, les écarts se compensent : deux exemplaires de chacun remplissent ce rectangle 5 × 8."
+    }) { tetrominoes(it) },
+    FigureSpec("pentagram", "Pentagramme d’or", "Géométrie", { _ ->
+        "Les diagonales d’un pentagone régulier dessinent une étoile, qui enferme un pentagone plus petit, et ainsi de suite. Le rapport " +
+            "d’une diagonale au côté est le nombre d’or φ = (1 + √5) / 2 ≈ 1,618, et chaque pentagone est φ² ≈ 2,618 fois plus petit " +
+            "que le précédent. Les pointes de l’étoile sont des triangles d’or, d’angles 36°, 72° et 72°."
+    }) { pentagram(it) },
+    FigureSpec("morley", "Triangle de Morley", "Géométrie", { _ ->
+        "On partage chaque angle d’un triangle en trois angles égaux. Les deux trisectrices voisines de chaque côté se coupent en un " +
+            "point, et ces trois points forment toujours un triangle équilatéral, quel que soit le triangle de départ. Frank Morley " +
+            "l’a découvert en 1899, plus de deux mille ans après Euclide."
+    }) { morley(it) },
+    FigureSpec("napoleon", "Théorème de Napoléon", "Géométrie", { _ ->
+        "Sur chaque côté d’un triangle quelconque, on construit un triangle équilatéral vers l’extérieur. Leurs trois centres forment " +
+            "toujours un triangle équilatéral (en rouge). Les droites qui joignent chaque sommet au sommet du triangle équilatéral " +
+            "opposé se coupent en un même point, le point de Fermat."
+    }) { napoleon(it) },
+    FigureSpec("lunes", "Lunules d’Hippocrate", "Géométrie", { v ->
+        val shape = if (v % 2 == 0) "isocèle" else "de côtés 3, 4 et 5"
+        "Un triangle rectangle $shape, inscrit dans un demi-cercle. Sur chacun de ses petits côtés, un demi-cercle déborde du grand " +
+            "et forme une lunule. Par Pythagore, les deux petits demi-cercles ont ensemble l’aire du grand ; en retirant les parties " +
+            "communes, les deux lunules ont ensemble exactement l’aire du triangle."
+    }) { lunes(it) },
 )
 
 private fun Offset.unit() = this / getDistance()
