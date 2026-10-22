@@ -289,7 +289,7 @@ internal fun UnlockPage(
         if (!wallpaper) PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE, smallCaps = false)
         var y = FIRST
         state.meteo?.let { meteo ->
-            val end = MeteoSection(meteo, state.sketch, now.hour, onMeteo, onSketchText, wallpaper)
+            val end = MeteoSection(meteo, state.sketch, onMeteo, onSketchText, wallpaper)
             HRule(22, end + RULE_GAP, 368, 0.6f)
             y = end + RULE_GAP + AFTER_RULE
         }
@@ -345,7 +345,6 @@ private fun WallpaperWeather(meteo: MeteoNow) {
 private fun MeteoSection(
     meteo: MeteoNow,
     sketch: ImageBitmap?,
-    hour: Int,
     onOpen: () -> Unit,
     onSketchText: (List<Rect>) -> Unit,
     /** En fond d'écran : le ciel, la température et le ressenti sont sur une ligne au-dessus ; le lieu n'est pas écrit. */
@@ -382,7 +381,7 @@ private fun MeteoSection(
             seed = 37,
             Modifier.at(22, top(extremes + 32, 26f, 30f, Face.BOLD)).width(368.dp).wrapContentWidth(Alignment.End).then(text.of("min")),
         )
-        return sketchEnd(meteo, sketch, hour, onOpen, t, extremes + 32 + 6)
+        return sketchEnd(meteo, sketch, onOpen, t, extremes + 32 + 6)
     }
 
     // À gauche : le lieu, la température (« °C » plus petit, en haut), le ressenti.
@@ -429,16 +428,16 @@ private fun MeteoSection(
     val extremes = t + 55 + 26f * (skyLines - 1)
     RightText("max ${degrees(meteo.todayMax)}\u00A0°C", style(21f, 26f, Face.BOLD, Maxi), top(extremes, 21f, 26f, Face.BOLD), over = text, key = "max")
     RightText("min ${degrees(meteo.todayMin)}\u00A0°C", style(21f, 26f, Face.BOLD, Mini), top(extremes + 26, 21f, 26f, Face.BOLD), over = text, key = "min")
-    return sketchEnd(meteo, sketch, hour, onOpen, t, maxOf(t + 119, extremes + 26 + 6))
+    return sketchEnd(meteo, sketch, onOpen, t, maxOf(t + 119, extremes + 26 + 6))
 }
 
 /** Sous le bloc météo qui commence en [t] : la légende du coloriage, la zone d'appui ; rend le bas du bloc. */
 @Composable
-private fun sketchEnd(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpen: () -> Unit, t: Float, textEnd: Float): Float {
+private fun sketchEnd(meteo: MeteoNow, sketch: ImageBitmap?, onOpen: () -> Unit, t: Float, textEnd: Float): Float {
     val end: Float
     if (sketch != null) {
-        // Légende de la figure, comme celle de la figure du jour.
-        val caption = AnnotatedString("Figure 1 – ${meteo.place}${moment(hour)?.let { " $it" }.orEmpty()}")
+        // Légende de la figure, courte comme celle de la figure du jour.
+        val caption = AnnotatedString("Figure 1 – Météo à ${meteo.place}")
         val captionStyle = style(CAPTION, CAPTION_LINE).copy(textAlign = TextAlign.Center, lineBreak = LineBreak.Heading)
         val below = t + SKETCH_TOP + SKETCH_H
         Text(caption, style = captionStyle, modifier = Modifier.at(22, top(below + 17, CAPTION, CAPTION_LINE)).width(368.dp))
@@ -553,14 +552,6 @@ private fun vivid(p: Float): ColorFilter {
     val m = ColorMatrix().apply { setToSaturation(SATURATION * p) }
     m *= ColorMatrix().apply { setToScale(0.92f, 0.92f, 0.92f, 1.2f) }
     return ColorFilter.colorMatrix(m)
-}
-
-/** Moment de la journée de la légende ; rien la nuit. */
-private fun moment(hour: Int): String? = when (hour) {
-    in 5..11 -> "ce matin"
-    in 12..17 -> "cet après-midi"
-    in 18..22 -> "ce soir"
-    else -> null
 }
 
 /** Température arrondie ; au-dessous de zéro, un tiret demi-cadratin, comme le veut la typographie française. */
