@@ -91,18 +91,26 @@ class UnlockActivity : ComponentActivity() {
         setContent {
             val state by feed.state.collectAsStateWithLifecycle()
             val notes = rememberMessageNotes()
+            val playing = rememberNowPlaying()
             // Ce que la page lance (horloge, agenda du haut de la page) attend le déverrouillage.
             val context = remember { LockedContext(this) }
             CompositionLocalProvider(LocalContext provides context) {
                 MaterialTheme(colorScheme = paperColorScheme(), typography = PaperTypography, shapes = PaperShapes) {
                     UnlockPage(
-                        state.copy(notes = notes),
+                        state.copy(notes = notes, music = playing.music),
                         onMeteo = { openApp(MeteoShare.PACKAGE) },
                         onBasket = { openApp(BasketShare.PACKAGE) },
                         onUnlock = { unlock() },
                         onNote = { openNote(it) },
                         onSketchText = feed::sketchText,
                         figure = figure,
+                        onMusic = { action ->
+                            if (action == MusicAction.OPEN) {
+                                openMusic(playing)
+                            } else {
+                                playing.controller?.perform(action, playing.music?.playing == true)
+                            }
+                        },
                     )
                 }
             }
@@ -195,6 +203,16 @@ class UnlockActivity : ComponentActivity() {
             }
         }
         if (item != null && item.autoCancel && item.clearable) BadgeService.dismiss(item.key)
+    }
+
+    /** Le bandeau Musique : déverrouiller, puis ouvrir le lecteur (son écran de lecture s'il en donne un). */
+    private fun openMusic(playing: NowPlaying) = unlock {
+        val session = playing.controller?.sessionActivity
+        if (session == null || !QuickToggles.send(this, session)) {
+            playing.music?.packageName?.let { packageManager.getLaunchIntentForPackage(it) }?.let {
+                runCatching { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
+        }
     }
 
     private fun unlocked() {

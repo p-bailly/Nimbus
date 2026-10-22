@@ -66,6 +66,9 @@ internal object FigureDeck {
     private fun last(context: Context): Long =
         prefs(context).getLong(KEY, DailyFigures.dayIndex(LocalDate.now()) - 1)
 
+    /** La dernière figure montrée (le fond d'écran, sous la page qui s'efface). */
+    fun current(context: Context): DailyFigure = DailyFigures.at(last(context))
+
     /** La prochaine figure, sans la compter comme vue (page posée écran éteint). */
     fun upcoming(context: Context): DailyFigure = DailyFigures.at(last(context) + 1)
 

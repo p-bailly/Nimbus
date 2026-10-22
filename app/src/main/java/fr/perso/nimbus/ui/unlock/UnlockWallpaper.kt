@@ -52,6 +52,10 @@ import kotlinx.coroutines.launch
  * La page est composée dans une [Presentation] posée sur un écran virtuel privé dont la surface est celle
  * du fond d'écran. À chaque réveil (le fond redevient visible), une nouvelle figure, et le coloriage de
  * Météo monte et se colore de nouveau ; les données ne sont suivies que pendant qu'il est visible.
+ *
+ * Avec la page posée par-dessus ([UnlockActivity]), le fond n'apparaît qu'au moment de l'empreinte ou du
+ * visage, sous l'écran du système : il reprend alors la figure que la page montrait, sans rejouer le
+ * coloriage, pour que rien ne saute.
  */
 class UnlockWallpaper : WallpaperService() {
 
@@ -105,9 +109,14 @@ class UnlockWallpaper : WallpaperService() {
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)
             if (visible) {
-                // Une nouvelle figure à chaque réveil (pas dans l'aperçu du choix du fond d'écran).
-                if (!isPreview) figure = FigureDeck.advance(context)
-                wake++
+                if (UnlockActivity.shown) {
+                    // La page s'efface pour le déverrouillage : la même figure, sans animation.
+                    figure = FigureDeck.current(context)
+                } else {
+                    // Une nouvelle figure à chaque réveil (pas dans l'aperçu du choix du fond d'écran).
+                    if (!isPreview) figure = FigureDeck.advance(context)
+                    wake++
+                }
                 owner.resume()
             } else {
                 owner.pause()
@@ -153,11 +162,12 @@ class UnlockWallpaper : WallpaperService() {
             setContent {
                 val state by feed.state.collectAsStateWithLifecycle()
                 val notes = rememberMessageNotes()
+                val playing = rememberNowPlaying()
                 MaterialTheme(colorScheme = paperColorScheme(), typography = PaperTypography, shapes = PaperShapes) {
                     CompositionLocalProvider(LocalPaper provides env) {
                         key(wake) {
                             UnlockPage(
-                                state.copy(notes = notes),
+                                state.copy(notes = notes, music = playing.music),
                                 onMeteo = {},
                                 onBasket = {},
                                 onUnlock = {},
@@ -218,10 +228,7 @@ class UnlockWallpaper : WallpaperService() {
 
         fun component(context: Context) = ComponentName(context, UnlockWallpaper::class.java)
 
-        /**
-         * Le fond de l'écran verrouillé est cette page (choisi pour l'écran verrouillé seul, ou pour les deux
-         * écrans) : la page n'a plus à passer devant.
-         */
+        /** Le fond de l'écran verrouillé est cette page (choisi pour l'écran verrouillé seul, ou pour les deux écrans). */
         fun onLockScreen(context: Context): Boolean = try {
             val manager = WallpaperManager.getInstance(context)
             // Sans fond propre à l'écran verrouillé (identifiant < 0), il reprend celui de l'accueil.

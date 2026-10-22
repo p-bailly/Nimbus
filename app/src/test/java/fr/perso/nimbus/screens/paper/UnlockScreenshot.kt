@@ -13,6 +13,7 @@ import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.PaperEnv
 import fr.perso.nimbus.ui.unlock.ALL_FIGURES
 import fr.perso.nimbus.ui.unlock.DailyFigure
+import fr.perso.nimbus.ui.unlock.Music
 import fr.perso.nimbus.ui.unlock.UnlockPage
 import fr.perso.nimbus.ui.unlock.UnlockState
 import org.junit.Test
@@ -125,19 +126,39 @@ class UnlockScreenshot {
     }
 
     /**
-     * En fond de l'écran verrouillé : sans heure, date ni lieu (l'heure et la date sont celles du Pixel, en haut
-     * à gauche), la météo à droite en Google Sans, le maximum et le minimum coloriés sur le dessin.
+     * En fond de l'écran verrouillé : sans heure, date ni lieu (l'heure et la date sont celles du Pixel, en haut),
+     * la météo dessous sur une ligne en Google Sans, le maximum et le minimum coloriés sur le dessin.
      */
     @Test
     fun wallpaper() = shoot("h8_fond_ecran", UnlockState(meteo, sketch, listOf(spurs)), wallpaper = true)
 
-    /** En fond d'écran, ciel et ressenti longs : le ciel laisse la gauche à la date du système. */
+    /** En fond d'écran, ciel et ressenti longs : le ciel s'arrête à la marge. */
     @Test
     fun wallpaperLongSky() = shoot(
         "h8_fond_ecran_libelles_longs",
         UnlockState(meteo.copy(sky = "Fortes averses de neige", temperature = -3.4, feelsLike = -8.2), sketch, emptyList()),
         LocalDateTime.of(2026, 9, 30, 7, 5),
         wallpaper = true,
+    )
+
+    /** La musique en cours (Spotify, sans pochette : le logo au crayon), avec ses boutons, au-dessus du match. */
+    @Test
+    fun music() = shoot("h8_musique", UnlockState(meteo, sketch, listOf(spurs), music = spotify))
+
+    /** En fond d'écran, la musique sans boutons (il ne reçoit pas les appuis) : « en pause ». */
+    @Test
+    fun wallpaperMusic() = shoot(
+        "h8_fond_ecran_musique",
+        UnlockState(meteo, sketch, listOf(spurs), music = spotify.copy(playing = false)),
+        wallpaper = true,
+    )
+
+    private val spotify = Music(
+        packageName = "com.spotify.music",
+        app = "Spotify",
+        title = "Les Champs-Élysées (version longue, remasterisée en 2021)",
+        artist = "Joe Dassin",
+        playing = true,
     )
 
     /** Aucun match en direct : la section « Basket » disparaît, la figure remonte et grandit. */
