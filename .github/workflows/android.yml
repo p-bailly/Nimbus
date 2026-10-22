@@ -15,8 +15,9 @@ on:
 permissions:
   contents: write
 
+# Une file par branche : un push sur une autre branche n'annule pas la publication en cours.
 concurrency:
-  group: android-apk
+  group: android-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
