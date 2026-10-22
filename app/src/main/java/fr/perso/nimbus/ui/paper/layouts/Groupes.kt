@@ -91,7 +91,7 @@ private fun topX(i: Int): Float = FibreX[FibreOrder[i] % 3] + if (i % 2 == 1) PA
 @Composable
 private fun Morphism() {
     Row(Modifier.at(22, 142)) {
-        Text("1", style = heading(Paper.Ink))
+        Text("1.", style = heading(Paper.Ink))
         Text(
             // Premier théorème d'isomorphisme : φ est surjective de noyau {0, 3}, donc ℤ/6ℤ / ker φ ≅ ℤ/3ℤ.
             tex {
@@ -293,7 +293,7 @@ private const val BRACE = 62f
 /** Écran ≅ D₃ = {e, r, r², s, sr, sr²} : rotations en pastilles pleines, symétries cerclées. */
 @Composable
 private fun Dihedral() {
-    Heading("2  Écran", "≅ D", Pink, 22f, 498f, index = "3") {
+    Heading("2.  Écran", "≅ D", Pink, 22f, 498f, index = "3") {
         Text(
             tex {
                 +" = {"
@@ -327,7 +327,7 @@ private val GridY = floatArrayOf(SECTION_Y + 104f, SECTION_Y + 160f, SECTION_Y +
 /** Jeux & perso ≅ ℤ/3ℤ. */
 @Composable
 private fun Cyclic() {
-    Heading("3  Jeux & perso", "≅ ℤ/3ℤ", Amber, 22f, SECTION_Y, stacked = true)
+    Heading("3.  Jeux & perso", "≅ ℤ/3ℤ", Amber, 22f, SECTION_Y, stacked = true)
     listOf(PaperSlot.LICHESS, PaperSlot.BASKET, PaperSlot.PIR).forEachIndexed { i, slot ->
         val cx = 46f + 56f * i
         Element(slot, cx, GridY[0], Amber)
@@ -338,7 +338,7 @@ private fun Cyclic() {
 /** Outils ≅ ℤ/3ℤ × ℤ/3ℤ : (i, j) en colonne i, ligne j. */
 @Composable
 private fun Product() {
-    Heading("4  Outils", "≅ ℤ/3ℤ × ℤ/3ℤ", Violet, 208f, SECTION_Y, stacked = true)
+    Heading("4.  Outils", "≅ ℤ/3ℤ × ℤ/3ℤ", Violet, 208f, SECTION_Y, stacked = true)
     // Colonnes calées sur la marge de droite (366 + 24 = 390), espacées de 56.
     val gx = floatArrayOf(254f, 310f, 366f)
     val gy = GridY
