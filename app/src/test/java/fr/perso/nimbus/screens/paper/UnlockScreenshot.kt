@@ -71,6 +71,7 @@ class UnlockScreenshot {
         time: LocalDateTime = LocalDateTime.of(2026, 10, 20, 20, 35),
         infoShown: Boolean = false,
         figure: DailyFigure? = null,
+        wallpaper: Boolean = false,
     ) {
         val base = PaperFixture.env()
         val env = PaperEnv(
@@ -82,7 +83,7 @@ class UnlockScreenshot {
         )
         captureRoboImage("build/outputs/roborazzi/paper/$name.png") {
             CompositionLocalProvider(LocalPaper provides env) {
-                UnlockPage(state, onMeteo = {}, onBasket = {}, onUnlock = {}, infoShown = infoShown, figure = figure)
+                UnlockPage(state, onMeteo = {}, onBasket = {}, onUnlock = {}, infoShown = infoShown, figure = figure, wallpaper = wallpaper)
             }
         }
     }
@@ -122,6 +123,22 @@ class UnlockScreenshot {
         )
         shoot("h8_messages", UnlockState(meteo, sketch, listOf(spurs), notes = notes))
     }
+
+    /**
+     * En fond de l'écran verrouillé : sans heure ni lieu (l'heure est celle du Pixel, en haut à gauche), la
+     * date dessous, la météo à droite en Google Sans, le maximum et le minimum coloriés sur le dessin.
+     */
+    @Test
+    fun wallpaper() = shoot("h8_fond_ecran", UnlockState(meteo, sketch, listOf(spurs)), wallpaper = true)
+
+    /** En fond d'écran, ciel et ressenti longs : le ciel s'arrête avant la date. */
+    @Test
+    fun wallpaperLongSky() = shoot(
+        "h8_fond_ecran_libelles_longs",
+        UnlockState(meteo.copy(sky = "Fortes averses de neige", temperature = -3.4, feelsLike = -8.2), sketch, emptyList()),
+        LocalDateTime.of(2026, 9, 30, 7, 5),
+        wallpaper = true,
+    )
 
     /** Aucun match en direct : la section « Basket » disparaît, la figure remonte et grandit. */
     @Test

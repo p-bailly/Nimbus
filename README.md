@@ -130,6 +130,25 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   toutes les 5 min sinon. Rien n'est lu écran éteint, sauf une fois à l'extinction pour être à jour
   au réveil.
 
+**Écran verrouillé Nimbus (fond d'écran animé)**
+- La même page, mais en fond de l'écran verrouillé du système : rien ne passe devant, l'empreinte et
+  le visage déverrouillent directement. L'heure est celle du téléphone (sur le Pixel, horloge
+  « Petite », en haut à gauche) ; la page ne dessine ni heure ni lieu.
+- Sous l'heure, la date ; à droite, la température en gros sur la ligne de l'heure, le ciel (il s'arrête
+  avant la date) et le ressenti, en Google Sans Flex, la police de l'horloge du Pixel. Sur le coloriage
+  de Météo ne restent que le maximum et le minimum, coloriés au crayon (lavis, hachures dans les lettres,
+  contour repassé), sans blanc autour : Météo dessine dessous. Puis les messages, les matchs et la
+  figure, comme sur la page.
+- Une nouvelle figure et le coloriage qui monte à chaque réveil ; données suivies tant que le fond est
+  visible, relues à l'extinction. Le fond dit au système qu'il est clair : l'heure et la barre d'état
+  s'écrivent en foncé.
+- Rien n'y est touchable (un fond d'écran ne reçoit pas les appuis sur l'écran verrouillé) : on glisse
+  vers le haut ou on pose le doigt pour déverrouiller.
+- Activer : Paramètres › Sécurité et confidentialité › « Écran verrouillé Nimbus », puis « Écran de
+  verrouillage » dans l'aperçu du système ; sur le Pixel, choisir l'horloge « Petite » et couper le
+  « Coup d'œil » (sa date et sa météo). Tant que ce fond est sur l'écran verrouillé, la page ne passe
+  plus devant (le service « Gestes Nimbus » n'est plus nécessaire pour elle).
+
 **Gestes (à la Nova)**
 - Double tap, glisser vers le haut / le bas, glisser à deux doigts vers le haut /
   le bas, pincer, écarter.
@@ -286,6 +305,8 @@ Puis, dans Nimbus (appui long sur l'accueil › Paramètres Nimbus) :
 Les pages « papier » utilisent CMU Serif (Computer Modern Unicode, licence SIL OFL 1.1), complétée
 des symboles mathématiques de Latin Modern Math (licence GUST) : fichiers `app/src/main/res/font/papier_*.ttf`,
 renommés « Nimbus Papier » comme le demandent les licences. Licences et script de fusion : `design/polices/`.
+L'écran verrouillé en fond d'écran écrit à côté de l'heure du système en Google Sans Flex (licence SIL OFL 1.1,
+sans nom réservé), réduite au latin : `app/src/main/res/font/google_sans_flex.ttf`, script `design/polices/google_sans.py`.
 
 ## Captures d'écran (JVM)
 
@@ -322,7 +343,8 @@ app/src/main/java/fr/perso/nimbus/
     ├── paper/               Accueils « papier » : repère, en-tête, pastilles, cinq pages (layouts/)
     ├── drawer/              Tiroir, recherche sans accents, défilement A–Z, sommaire (DrawerToc)
     ├── unlock/              Page de déverrouillage : activité par-dessus l'écran verrouillé,
-    │                        page, données (UnlockFeed), lancement à l'extinction (UnlockLauncher)
+    │                        page, données (UnlockFeed), lancement à l'extinction (UnlockLauncher),
+    │                        fond d'écran animé de l'écran verrouillé (UnlockWallpaper)
     ├── components/          Icône d'app, feuille d'actions, dialogues (choix, PIN,
     │                        texte, choix d'app), sélecteur de widgets
     └── settings/            Paramètres et écran des apps masquées

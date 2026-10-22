@@ -54,6 +54,7 @@ import fr.perso.nimbus.service.DictationService
 import fr.perso.nimbus.service.GestureService
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.drawer.SearchMatcher
+import fr.perso.nimbus.ui.unlock.UnlockWallpaper
 import fr.perso.nimbus.widgets.WidgetHostManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -134,6 +135,8 @@ data class SystemStatus(
     val hasPin: Boolean = false,
     /** Xiaomi : la page de déverrouillage a le droit de passer devant l'écran verrouillé (toujours vrai ailleurs). */
     val lockScreenAllowed: Boolean = true,
+    /** Le fond de l'écran verrouillé est la page de déverrouillage (fond d'écran animé de Nimbus). */
+    val unlockWallpaper: Boolean = false,
 )
 
 /** Icône de la grille d'accueil, à sa case d'affichage. */
@@ -1202,6 +1205,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             dictationService = DictationService.isEnabled,
             hasPin = prefs.hasPin(),
             lockScreenAllowed = SystemActions.xiaomiLockScreenAllowed(context),
+            unlockWallpaper = UnlockWallpaper.onLockScreen(context),
         )
     }
 

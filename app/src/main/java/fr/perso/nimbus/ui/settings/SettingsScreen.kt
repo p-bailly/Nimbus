@@ -699,7 +699,17 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                         }
                     }
                 }
-                if (settings.unlockPage && !status.gestureService) {
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_wallpaper, SettingsColors.Teal, "Écran verrouillé Nimbus",
+                        "La même page en fond de l'écran verrouillé, sous l'heure du téléphone : l'empreinte et le " +
+                            "visage déverrouillent directement, sans page à faire glisser" +
+                            if (status.unlockWallpaper) " (en place : la page ne passe plus devant)." else
+                                ". Choisir « Écran de verrouillage », puis l'horloge « Petite » du Pixel.",
+                        checked = status.unlockWallpaper,
+                    ) { SystemActions.openUnlockWallpaper(context) }
+                }
+                if (settings.unlockPage && !status.gestureService && !status.unlockWallpaper) {
                     item {
                         SettingsBanner(R.drawable.ms_accessibility_new, "Activer le service « Gestes Nimbus »") {
                             SystemActions.openAccessibilitySettings(context)
@@ -844,7 +854,8 @@ private fun LazyListScope.mainBanners(
             }
         }
     }
-    val needsService = settings.unlockPage || Gesture.entries.any { settings.actionFor(it) in SERVICE_ACTIONS }
+    val overlay = settings.unlockPage && !status.unlockWallpaper
+    val needsService = overlay || Gesture.entries.any { settings.actionFor(it) in SERVICE_ACTIONS }
     if (needsService && !status.gestureService) {
         val n = ++mark
         item {
@@ -853,7 +864,7 @@ private fun LazyListScope.mainBanners(
             }
         }
     }
-    if (settings.unlockPage && !status.lockScreenAllowed) {
+    if (overlay && !status.lockScreenAllowed) {
         val n = ++mark
         item {
             SettingsBanner(R.drawable.ms_lock, "Laisser la page de déverrouillage passer devant l'écran verrouillé (Xiaomi)", mark = n, rule = n == 1) {

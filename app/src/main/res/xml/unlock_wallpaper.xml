@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Écran verrouillé Nimbus : la page de déverrouillage en fond d'écran, sous l'heure du système -->
+<wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/unlock_wallpaper_description"
+    android:thumbnail="@mipmap/ic_launcher" />

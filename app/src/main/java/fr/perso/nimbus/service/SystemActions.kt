@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.ActivityOptions
 import android.app.AppOpsManager
 import android.app.StatusBarManager
+import android.app.WallpaperManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
@@ -28,6 +29,7 @@ import fr.perso.nimbus.R
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.ProfileType
 import fr.perso.nimbus.data.SearchEngine
+import fr.perso.nimbus.ui.unlock.UnlockWallpaper
 
 /** Actions système utilisées par le launcher. */
 object SystemActions {
@@ -299,6 +301,17 @@ object SystemActions {
         } catch (e: Exception) {
             true
         }
+    }
+
+    /**
+     * Aperçu de l'écran verrouillé Nimbus (fond d'écran animé), où le système propose de le poser sur
+     * l'écran de verrouillage ; à défaut, la liste des fonds d'écran animés.
+     */
+    fun openUnlockWallpaper(context: Context) {
+        val preview = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+            .putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, UnlockWallpaper.component(context))
+        if (start(context, preview)) return
+        start(context, Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER))
     }
 
     /** « Autres autorisations » de Nimbus dans la Sécurité de Xiaomi ; à défaut, la fiche de l'appli. */
