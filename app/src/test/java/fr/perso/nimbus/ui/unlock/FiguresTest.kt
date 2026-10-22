@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
-/** Figures du jour : chacune revient à tour de rôle, avec un nom, et une explication pour chaque variante si elle est rédigée. */
+/** Figures du jour : chacune revient à tour de rôle, avec un nom et une explication pour chaque variante. */
 class FiguresTest {
 
     @Test
@@ -25,8 +25,6 @@ class FiguresTest {
             assertTrue(spec.key, spec.key.matches(Regex("[a-z0-9_]+")))
             for (v in 0..5) {
                 val info = spec.info(v)
-                // Explication pas encore rédigée : la légende n'a pas de (i).
-                if (info.isEmpty()) continue
                 assertTrue("${spec.key} : $info", info.first().isUpperCase() && info.endsWith("."))
                 assertTrue("${spec.key} : ${info.length} caractères", info.length in 80..480)
             }

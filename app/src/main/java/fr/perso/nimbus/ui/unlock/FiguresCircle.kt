@@ -13,13 +13,45 @@ import kotlin.math.sqrt
 // empilement de disques, arbelos, spirale de Doyle.
 
 internal val circleFigures: List<FigureSpec> = listOf(
-    FigureSpec("pappus", "Chaîne de Pappus", "Cercles", { _ -> "" }) { pappus(it) },
-    FigureSpec("steiner", "Chaîne de Steiner", "Cercles", { _ -> "" }) { steiner(it) },
-    FigureSpec("ford", "Cercles de Ford", "Cercles", { _ -> "" }) { ford(it) },
-    FigureSpec("flower_of_life", "Fleur de vie", "Cercles", { _ -> "" }) { flowerOfLife(it) },
-    FigureSpec("circle_packing", "Empilement de disques", "Cercles", { _ -> "" }) { circlePacking(it) },
-    FigureSpec("arbelos", "Arbelos", "Cercles", { _ -> "" }) { arbelos(it) },
-    FigureSpec("doyle", "Spirale de Doyle", "Cercles", { _ -> "" }) { doyle(it) },
+    FigureSpec("pappus", "Chaîne de Pappus", "Cercles", { v ->
+        val pct = (ratio(v) * 100).toInt()
+        "Dans le grand cercle de diamètre AB, un cercle de diamètre AC le touche en A (AC vaut $pct % de AB). Entre les deux, on empile des cercles, " +
+            "chacun tangent aux deux et à ses voisins. Pappus d’Alexandrie a montré que le centre du n-ième cercle est à n fois son diamètre de la droite AB ; " +
+            "avec AB = 1 et AC = r, son rayon vaut r(1 − r) / (2(n²(1 − r)² + r))."
+    }) { pappus(it) },
+    FigureSpec("steiner", "Chaîne de Steiner", "Cercles", { v ->
+        val n = intArrayOf(7, 9, 6, 8)[v % 4]
+        "Entre deux cercles, $n cercles forment un collier : chacun touche les deux bords et ses deux voisins. Pour des cercles concentriques, le rayon intérieur " +
+            "doit valoir (1 − sin(π/$n)) / (1 + sin(π/$n)) fois l’extérieur ; une transformation de Möbius décentre ensuite le petit cercle sans défaire les contacts. " +
+            "Porisme de Steiner : si le collier se referme une fois, il se referme d’où qu’on parte."
+    }) { steiner(it) },
+    FigureSpec("ford", "Cercles de Ford", "Cercles", { v ->
+        val maxQ = if (v % 2 == 0) 11 else 14
+        "Sur chaque fraction irréductible p/q entre 0 et 1, on pose un cercle de rayon 1/(2q²) tangent à la droite. Deux cercles de Ford ne se chevauchent jamais : " +
+            "ceux de p/q et r/s se touchent quand |ps − qr| = 1, comme 1/2 et 2/3, et le plus grand cercle entre eux est celui de (p + r)/(q + s). " +
+            "Ici q va jusqu’à $maxQ, en miroir de part et d’autre de l’axe."
+    }) { ford(it) },
+    FigureSpec("flower_of_life", "Fleur de vie", "Cercles", { _ ->
+        "Dix-neuf cercles de même rayon r, centrés sur un réseau de triangles équilatéraux de côté r : un au centre, six autour, puis douze, dans un grand cercle de rayon 3r. " +
+            "Chaque cercle passe par les centres de ses six voisins ; deux voisins dessinent un pétale, et les couleurs des pétales suivent les trois directions du réseau, " +
+            "à 60° les unes des autres."
+    }) { flowerOfLife(it) },
+    FigureSpec("circle_packing", "Empilement de disques", "Cercles", { v ->
+        val colors = if (v % 2 == 0) "par anneau" else "en trois couleurs, deux disques voisins n’ayant jamais la même"
+        "Des disques identiques en nid d’abeilles : chacun en touche six. C’est l’empilement le plus serré du plan (Thue, 1910) : les disques couvrent π/(2√3) ≈ 90,7 % " +
+            "de la surface. Ici 91 disques, en 5 anneaux autour du disque central (le k-ième en compte 6k), coloriés $colors."
+    }) { circlePacking(it) },
+    FigureSpec("arbelos", "Arbelos", "Cercles", { _ ->
+        "L’arbelos, le « tranchet du cordonnier », est la région entre le demi-cercle de diamètre AB et ceux de diamètres AC et CB. Archimède a montré que son aire égale " +
+            "celle du disque de diamètre CD, où D est le point du grand arc à la verticale de C, et que les deux cercles jumeaux, de part et d’autre de CD, ont le même rayon " +
+            "r₁r₂ / (r₁ + r₂)."
+    }) { arbelos(it) },
+    FigureSpec("doyle", "Spirale de Doyle", "Cercles", { v ->
+        val (p, q) = doyleParams(v)
+        "Chaque cercle en touche six autres, et les rayons grandissent en progression géométrique le long de spirales logarithmiques. Dans le plan complexe, " +
+            "les centres sont les points aᵐbⁿ, chaque rayon proportionnel à la distance au centre, avec a^$p = b^$q : on compte $q bras. " +
+            "La similitude z ↦ az fait glisser tout l’empilement sur lui-même."
+    }) { doyle(it) },
 )
 
 private val TAU = 2 * PI.toFloat()

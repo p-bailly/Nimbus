@@ -48,26 +48,130 @@ private object Curves {
 }
 
 internal val curveFigures: List<FigureSpec> = listOf(
-    FigureSpec("maurer", "Rose de Maurer", "Courbes", { _ -> "" }) { maurer(it) },
-    FigureSpec("butterfly", "Courbe du papillon", "Courbes", { _ -> "" }) { butterfly(it) },
-    FigureSpec("archimedes", "Spirale d’Archimède", "Courbes", { _ -> "" }) { archimedes(it) },
-    FigureSpec("nautilus", "Nautile", "Courbes", { _ -> "" }) { nautilus(it) },
-    FigureSpec("fermat", "Spirale de Fermat", "Courbes", { _ -> "" }) { fermat(it) },
-    FigureSpec("cornu", "Clothoïde", "Courbes", { _ -> "" }) { cornu(it) },
-    FigureSpec("astroid", "Astroïde", "Courbes", { _ -> "" }) { astroid(it) },
-    FigureSpec("cup_caustic", "Caustique de la tasse", "Courbes", { _ -> "" }) { cupCaustic(it) },
-    FigureSpec("lemniscate", "Lemniscate de Bernoulli", "Courbes", { _ -> "" }) { lemniscate(it) },
-    FigureSpec("cassini", "Ovales de Cassini", "Courbes", { _ -> "" }) { cassini(it) },
-    FigureSpec("limacon", "Limaçons de Pascal", "Courbes", { _ -> "" }) { limacon(it) },
-    FigureSpec("cycloid", "Cycloïde", "Courbes", { _ -> "" }) { cycloid(it) },
-    FigureSpec("hypocycloid", "Hypocycloïdes", "Courbes", { _ -> "" }) { hypocycloid(it) },
-    FigureSpec("superellipse", "Courbes de Lamé", "Courbes", { _ -> "" }) { superellipse(it) },
-    FigureSpec("fourier_square", "Série de Fourier", "Courbes", { _ -> "" }) { fourier(it) },
-    FigureSpec("string_art", "Fils tendus", "Courbes", { _ -> "" }) { stringArt(it) },
-    FigureSpec("heart", "Courbe du cœur", "Courbes", { _ -> "" }) { heart(it) },
-    FigureSpec("baravelle", "Spirale de Baravelle", "Courbes", { _ -> "" }) { baravelle(it) },
-    FigureSpec("triskele", "Triskèle", "Courbes", { _ -> "" }) { triskele(it) },
-    FigureSpec("epicycloid", "Épicycloïdes", "Courbes", { _ -> "" }) { epicycloid(it) },
+    FigureSpec("maurer", "Rose de Maurer", "Courbes", { v ->
+        val (n, d) = Curves.maurer(v)
+        val petals = if (n % 2 == 1) n else 2 * n
+        "Sur la rose r = sin(nθ), ici avec n = $n, donc $petals pétales, on place 361 points aux angles 0°, $d°, ${2 * d}°… " +
+            "en avançant de $d° à chaque fois, et on les relie dans l’ordre. Les angles se comptent modulo 360° : " +
+            "la toile de segments obtenue, la rose de Maurer, change complètement d’aspect avec le pas choisi."
+    }) { maurer(it) },
+    FigureSpec("butterfly", "Courbe du papillon", "Courbes", { _ ->
+        "Trouvée par Temple Fay en 1989, elle a pour équation polaire r = e^(sin θ) − 2 cos 4θ + sin⁵((2θ − π)/24). " +
+            "Le dernier terme varie très lentement : la courbe ne se referme qu’après 12 tours (θ de 0 à 24π), " +
+            "et chaque tour dessine des ailes un peu différentes. Le premier tour est colorié."
+    }) { butterfly(it) },
+    FigureSpec("archimedes", "Spirale d’Archimède", "Courbes", { v ->
+        val arms = if (Curves.arms(v) == 1) "Ici un seul bras." else "Ici deux bras, décalés d’un demi-tour."
+        "La spirale d’Archimède a pour équation polaire r = aθ : le rayon grandit proportionnellement à l’angle. " +
+            "Deux spires voisines sont donc toujours séparées de la même distance, 2πa, comme le sillon d’un disque " +
+            "ou un tuyau enroulé. $arms"
+    }) { archimedes(it) },
+    FigureSpec("nautilus", "Nautile", "Courbes", { _ ->
+        "La coquille suit une spirale logarithmique r = e^(bθ) : à chaque tour, le rayon est multiplié par le même nombre, ici 3. " +
+            "La courbe coupe tous ses rayons sous le même angle, si bien que chaque loge est une copie agrandie de la précédente : " +
+            "le nautile grandit sans changer de forme. Ici, 14 loges par tour."
+    }) { nautilus(it) },
+    FigureSpec("fermat", "Spirale de Fermat", "Courbes", { v ->
+        val turns = if (v % 2 == 0) 4 else 6
+        "La spirale de Fermat a pour équation r² = a²θ : le rayon grandit comme la racine carrée de l’angle. " +
+            "Ses deux branches, r = a√θ et r = −a√θ, s’enroulent l’une dans l’autre ($turns tours ici), et les bandes " +
+            "entre deux tours ont toutes la même aire. Les graines d’un tournesol se placent sur cette spirale."
+    }) { fermat(it) },
+    FigureSpec("cornu", "Clothoïde", "Courbes", { _ ->
+        "La clothoïde est la courbe dont la courbure grandit proportionnellement à la longueur parcourue : " +
+            "x = ∫ cos(πs²/2) ds, y = ∫ sin(πs²/2) ds (intégrales de Fresnel). Droite au centre, elle s’enroule " +
+            "de plus en plus serré vers les points (½, ½) et (−½, −½). On la trace dans les virages des routes " +
+            "et des voies ferrées pour tourner le volant progressivement."
+    }) { cornu(it) },
+    FigureSpec("astroid", "Astroïde", "Courbes", { _ ->
+        "Une échelle de longueur L glisse, le pied sur le sol, le haut contre le mur. Toutes ses positions " +
+            "enveloppent l’astroïde, x^(2/3) + y^(2/3) = L^(2/3), ou x = L cos³t, y = L sin³t. C’est aussi " +
+            "l’hypocycloïde à quatre pointes, tracée par un cercle de rayon L/4 qui roule dans un cercle de rayon L."
+    }) { astroid(it) },
+    FigureSpec("cup_caustic", "Caustique de la tasse", "Courbes", { _ ->
+        "Des rayons de lumière parallèles se réfléchissent sur le bord circulaire d’une tasse, avec un angle de " +
+            "réflexion égal à l’angle d’incidence. Les rayons réfléchis se concentrent sur une courbe brillante, " +
+            "leur enveloppe : la caustique, un arc de néphroïde, dont la pointe est à mi-chemin entre le centre " +
+            "et le bord. On la voit au fond d’un bol de lait au soleil."
+    }) { cupCaustic(it) },
+    FigureSpec("lemniscate", "Lemniscate de Bernoulli", "Courbes", { _ ->
+        "La lemniscate est l’ensemble des points M tels que MF × MF′ = c², où les foyers F et F′ (les deux points) " +
+            "sont à distance 2c. En polaire, r² = 2c² cos 2θ. Elle passe par le milieu des foyers, où ses deux " +
+            "boucles se croisent à angle droit ; son nom vient du latin lemniscus, ruban. Ici, quatre lemniscates emboîtées."
+    }) { lemniscate(it) },
+    FigureSpec("cassini", "Ovales de Cassini", "Courbes", { _ ->
+        "Un ovale de Cassini est l’ensemble des points M tels que MF × MF′ = b² : le produit des distances aux deux foyers " +
+            "(les points), distants de 2c, est constant. Si b > c, c’est une seule courbe fermée ; si b = c, une " +
+            "lemniscate en forme de 8 ; si b < c, deux ovales séparés autour des foyers. Cassini y voyait l’orbite des planètes."
+    }) { cassini(it) },
+    FigureSpec("limacon", "Limaçons de Pascal", "Courbes", { _ ->
+        "Le limaçon de Pascal (Étienne, le père de Blaise) a pour équation polaire r = b + a cos θ. Selon le rapport b/a, " +
+            "il est convexe (b ≥ 2a), creusé d’une fossette (a < b < 2a), devient une cardioïde (b = a), puis forme " +
+            "une boucle intérieure (b < a). Les six courbes emboîtées montrent ces étapes autour du même point (le pôle)."
+    }) { limacon(it) },
+    FigureSpec("cycloid", "Cycloïde", "Courbes", { v ->
+        val kind = if (v % 2 == 1) {
+            "Ici le point est hors de la roue, à 1,5 fois le rayon : la courbe fait des boucles (cycloïde allongée)."
+        } else {
+            "Une arche mesure 8r de long, et l’aire sous l’arche vaut 3πr², trois fois celle de la roue."
+        }
+        "La cycloïde est la courbe tracée par un point d’une roue qui roule sans glisser : x = r(t − sin t), " +
+            "y = r(1 − cos t). Retournée, c’est la pente la plus rapide pour une bille qui descend d’un point à un " +
+            "autre (la brachistochrone). $kind"
+    }) { cycloid(it) },
+    FigureSpec("hypocycloid", "Hypocycloïdes", "Courbes", { _ ->
+        "Un petit cercle de rayon r roule à l’intérieur d’un grand cercle de rayon R ; un point de son bord trace une " +
+            "hypocycloïde : x = (R − r) cos t + r cos((R − r)t/r), y = (R − r) sin t − r sin((R − r)t/r). Si R = kr, " +
+            "elle a k pointes : ici de 3 (la deltoïde) à 8, en passant par 4 (l’astroïde)."
+    }) { hypocycloid(it) },
+    FigureSpec("superellipse", "Courbes de Lamé", "Courbes", { v ->
+        val base = if (v % 2 == 1) "un cercle" else "une ellipse"
+        "Les courbes de Lamé ont pour équation |x/a|ⁿ + |y/b|ⁿ = 1. Pour n = 2, c’est $base ; pour n = 1, un losange ; " +
+            "pour n < 1, une étoile aux côtés creusés ; quand n grandit, la courbe se rapproche du rectangle. " +
+            "Ici, n = 8 ; 3 ; 2 ; 1,5 ; 1 et 0,5. Piet Hein a rendu célèbre la « superellipse » n = 2,5."
+    }) { superellipse(it) },
+    FigureSpec("fourier_square", "Série de Fourier", "Courbes", { v ->
+        if (v % 2 == 1) {
+            "Le signal en dents de scie s’écrit comme une somme de sinus : (2/π)(sin x − sin 2x/2 + sin 3x/3 − …). " +
+                "Les courbes montrent les sommes de 1, 2, 3, 5 et 25 termes : plus il y en a, plus on s’approche des " +
+                "dents. Près des sauts, une bosse d’environ 9 % subsiste toujours : c’est le phénomène de Gibbs."
+        } else {
+            "Le signal en créneaux s’écrit comme une somme de sinus : (4/π)(sin x + sin 3x/3 + sin 5x/5 + …). " +
+                "Les courbes montrent les sommes de 1, 2, 3, 5 et 25 termes : plus il y en a, plus on s’approche des " +
+                "créneaux. Près des sauts, une bosse d’environ 9 % subsiste toujours : c’est le phénomène de Gibbs."
+        }
+    }) { fourier(it) },
+    FigureSpec("string_art", "Fils tendus", "Courbes", { v ->
+        val shape = when (Curves.corners(v)) {
+            3 -> "un triangle"
+            4 -> "un carré"
+            else -> "un hexagone"
+        }
+        "Dans chaque coin de $shape, des fils relient le point situé à la fraction t d’un côté au point situé à la même " +
+            "fraction t du côté suivant, pour t = 0, 1/18, 2/18… 1. Ces segments droits enveloppent un arc de parabole : " +
+            "la courbe de Bézier dont le coin est le point de contrôle."
+    }) { stringArt(it) },
+    FigureSpec("heart", "Courbe du cœur", "Courbes", { _ ->
+        "Ce cœur est une courbe paramétrée : x = 16 sin³t, y = 13 cos t − 5 cos 2t − 2 cos 3t − cos 4t, pour t de 0 à 2π. " +
+            "Les termes en cos 2t, cos 3t et cos 4t creusent le haut et pointent le bas. Les cinq cœurs emboîtés sont des " +
+            "copies réduites de la même courbe, aux rapports 1 ; 0,8 ; 0,6 ; 0,4 et 0,2."
+    }) { heart(it) },
+    FigureSpec("baravelle", "Spirale de Baravelle", "Courbes", { _ ->
+        "En reliant les milieux des côtés d’un carré, on obtient un carré d’aire moitié, tourné de 45°, et quatre " +
+            "triangles de coin, chacun 1/8 du carré. On recommence dans le nouveau carré : chaque couleur passe au coin " +
+            "voisin à chaque étape et dessine un bras de spirale, d’aire 1/8 + 1/16 + 1/32 + … = 1/4 du grand carré."
+    }) { baravelle(it) },
+    FigureSpec("triskele", "Triskèle", "Courbes", { _ ->
+        "Trois bras identiques, chacun une spirale d’Archimède (son rayon diminue régulièrement avec l’angle) de 1,75 tour, " +
+            "déduits l’un de l’autre par des rotations de 120° autour du centre. La figure a une symétrie de rotation " +
+            "d’ordre 3, mais aucun axe de symétrie : dans un miroir, elle tourne dans l’autre sens."
+    }) { triskele(it) },
+    FigureSpec("epicycloid", "Épicycloïdes", "Courbes", { v ->
+        val k = intArrayOf(5, 6, 4, 7)[v % 4]
+        "Un cercle de rayon r roule à l’extérieur d’un cercle fixe de rayon R ; un point de son bord trace une épicycloïde : " +
+            "x = (R + r) cos t − r cos((R + r)t/r), y = (R + r) sin t − r sin((R + r)t/r). Si R = kr, elle a k arches : " +
+            "ici k = $k. Pour k = 1, c’est la cardioïde ; pour k = 2, la néphroïde. Trois épicycloïdes sont emboîtées."
+    }) { epicycloid(it) },
 )
 
 // ------------------------------------------------------------ Les dessins
