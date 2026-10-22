@@ -125,13 +125,13 @@ class UnlockScreenshot {
     }
 
     /**
-     * En fond de l'écran verrouillé : sans heure ni lieu (l'heure est celle du Pixel, en haut à gauche), la
-     * date dessous, la météo à droite en Google Sans, le maximum et le minimum coloriés sur le dessin.
+     * En fond de l'écran verrouillé : sans heure, date ni lieu (l'heure et la date sont celles du Pixel, en haut
+     * à gauche), la météo à droite en Google Sans, le maximum et le minimum coloriés sur le dessin.
      */
     @Test
     fun wallpaper() = shoot("h8_fond_ecran", UnlockState(meteo, sketch, listOf(spurs)), wallpaper = true)
 
-    /** En fond d'écran, ciel et ressenti longs : le ciel s'arrête avant la date. */
+    /** En fond d'écran, ciel et ressenti longs : le ciel laisse la gauche à la date du système. */
     @Test
     fun wallpaperLongSky() = shoot(
         "h8_fond_ecran_libelles_longs",

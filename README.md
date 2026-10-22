@@ -133,9 +133,9 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 **Écran verrouillé Nimbus (fond d'écran animé)**
 - La même page, mais en fond de l'écran verrouillé du système : rien ne passe devant, l'empreinte et
   le visage déverrouillent directement. L'heure est celle du téléphone (sur le Pixel, horloge
-  « Petite », en haut à gauche) ; la page ne dessine ni heure ni lieu.
-- Sous l'heure, la date ; à droite, la température en gros sur la ligne de l'heure, le ciel (il s'arrête
-  avant la date) et le ressenti, en Google Sans Flex, la police de l'horloge du Pixel. Sur le coloriage
+  « Petite », en haut à gauche) ; la page ne dessine ni heure, ni date, ni lieu.
+- La date est celle du système (le Pixel l'écrit toujours, même sans « Coup d'œil ») ; à droite de
+  l'heure, la température en gros sur sa ligne, le ciel (il laisse la gauche à la date) et le ressenti, en Google Sans Flex, la police de l'horloge du Pixel. Sur le coloriage
   de Météo ne restent que le maximum et le minimum, coloriés au crayon (lavis, hachures dans les lettres,
   contour repassé), sans blanc autour : Météo dessine dessous. Puis les messages, les matchs et la
   figure, comme sur la page.
