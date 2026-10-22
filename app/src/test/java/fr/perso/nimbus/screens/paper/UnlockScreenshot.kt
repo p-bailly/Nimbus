@@ -11,6 +11,8 @@ import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoNow
 import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.PaperEnv
+import fr.perso.nimbus.ui.unlock.ALL_FIGURES
+import fr.perso.nimbus.ui.unlock.DailyFigure
 import fr.perso.nimbus.ui.unlock.UnlockPage
 import fr.perso.nimbus.ui.unlock.UnlockState
 import org.junit.Test
@@ -68,6 +70,7 @@ class UnlockScreenshot {
         state: UnlockState,
         time: LocalDateTime = LocalDateTime.of(2026, 10, 20, 20, 35),
         infoShown: Boolean = false,
+        figure: DailyFigure? = null,
     ) {
         val base = PaperFixture.env()
         val env = PaperEnv(
@@ -79,7 +82,7 @@ class UnlockScreenshot {
         )
         captureRoboImage("build/outputs/roborazzi/paper/$name.png") {
             CompositionLocalProvider(LocalPaper provides env) {
-                UnlockPage(state, onMeteo = {}, onBasket = {}, onUnlock = {}, infoShown = infoShown)
+                UnlockPage(state, onMeteo = {}, onBasket = {}, onUnlock = {}, infoShown = infoShown, figure = figure)
             }
         }
     }
@@ -131,6 +134,18 @@ class UnlockScreenshot {
     /** L'explication de la figure, ouverte par le (i). */
     @Test
     fun figureInfo() = shoot("h8_figure_info", UnlockState(meteo, sketch, emptyList()), infoShown = true)
+
+    /** L'explication la plus longue (chaîne de Steiner), sur la figure réduite par les résultats de la nuit. */
+    @Test
+    fun longestInfo() {
+        fun final(id: String, period: Int, home: GameTeam, away: GameTeam) = Game(id, "post", "STATUS_FINAL", period, "0.0", home, away)
+        val results = listOf(
+            LiveLine(final("5", 4, GameTeam("6", "DAL", "Mavericks", 104), GameTeam("24", "SA", "Spurs", 112)), awayFavorite = true, homeFavorite = false),
+            LiveLine(final("6", 5, GameTeam("2", "BOS", "Celtics", 118), GameTeam("18", "NY", "Knicks", 121)), awayFavorite = false, homeFavorite = true),
+        )
+        val steiner = DailyFigure(ALL_FIGURES.single { it.key == "steiner" }, 0)
+        shoot("h8_explication_longue", UnlockState(meteo, sketch, results = results), infoShown = true, figure = steiner)
+    }
 
     /** Un autre jour, une autre figure : samedi 24 octobre. */
     @Test
