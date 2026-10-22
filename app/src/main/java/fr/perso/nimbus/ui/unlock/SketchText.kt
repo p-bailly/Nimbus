@@ -5,12 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextLayoutResult
@@ -18,13 +14,12 @@ import androidx.compose.ui.unit.toSize
 import kotlin.math.round
 
 // Le texte de la météo posé sur le coloriage : mesuré une fois placé, pour que Météo dessine autour de lui
-// (le soleil et les nuages à côté, la couleur du ciel qui s'arrête avant les lettres), et gommé ici aussi,
-// au cas où le dessin viendrait d'une version de Météo qui ne le sait pas.
+// (le soleil, la lune et les nuages à côté ; le ciel passe sous les lettres, sans papier blanc autour).
 
 /**
  * Le texte posé sur le coloriage : chaque écriture le dit ([of], et [layout] pour garder ses lettres
- * plutôt que toute sa boîte), le dessin aussi ([frame]). [zones] dit, en pixels du dessin, ce qui doit
- * rester blanc ; elle ne change pas quand la page bouge tout entière.
+ * plutôt que toute sa boîte), le dessin aussi ([frame]). [zones] dit, en pixels du dessin, ce que le
+ * soleil et les nuages ne doivent pas toucher ; elle ne change pas quand la page bouge tout entière.
  */
 @Stable
 class SketchText {
@@ -83,27 +78,5 @@ internal fun letters(layout: TextLayoutResult): List<Rect> {
     }
 }
 
-/** Papier laissé blanc autour du texte, en unités de la page. */
+/** Marge que Météo laisse entre le texte et ce qu'il écarte (soleil, nuages), en unités de la page. */
 internal const val TEXT_MARGIN = 5f
-
-/**
- * La gomme autour de [zones] (en pixels de ce dessin) : rien du coloriage ne touche le texte, et le
- * bord de la gomme est adouci.
- */
-internal fun DrawScope.clearText(zones: List<Rect>) {
-    fun around(margin: Float, amount: Float) {
-        val m = margin * density
-        zones.forEach {
-            drawRoundRect(
-                Color.Black.copy(alpha = amount),
-                topLeft = Offset(it.left - m, it.top - m),
-                size = it.inflate(m).size,
-                cornerRadius = CornerRadius(m),
-                blendMode = BlendMode.DstOut,
-            )
-        }
-    }
-    around(TEXT_MARGIN + 6f, 0.3f)
-    around(TEXT_MARGIN + 3f, 0.5f)
-    around(TEXT_MARGIN, 1f)
-}

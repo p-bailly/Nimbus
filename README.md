@@ -85,12 +85,13 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Réglable : Paramètres › Notifications › « Bandeau papier » (accès aux notifications requis).
 
 **Page de déverrouillage (papier)**
-- Au réveil, par-dessus l'écran verrouillé : une page d'article sans en-tête (l'heure en grand, la
-  date), puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
+- Au réveil, par-dessus l'écran verrouillé : une page d'article sans en-tête ni barre d'état (un glissé
+  depuis le haut la montre un instant), en Computer Modern droit seul, romain ou gras (ni italique, ni
+  petites capitales) : l'heure en grand, la date, puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
   ressenti, ciel, maximum en orange et minimum en bleu, en gras, et son coloriage en figure, agrandi,
-  ravivé, qui monte et se colore en 1,6 s à chaque réveil ; il ne touche jamais le texte : la page
-  mesure ses écritures et Météo dessine autour, le ciel colorié jusqu'aux bords, le soleil, la lune
-  et les nuages poussés à côté, et une gomme adoucie efface encore ici ce qui s'en approcherait), les
+  ravivé, qui monte et se colore en 1,6 s à chaque réveil ; la page mesure ses écritures et Météo
+  dessine autour : le ciel colorié jusqu'aux bords passe sous les lettres, sans blanc autour, le
+  soleil, la lune et les nuages sont poussés à côté, rayons compris), les
   messages reçus (WhatsApp, Discord, Messages, Claude, Signal, Telegram, Gmail…) dans des bandeaux coloriés au crayon à la couleur de
   leur appli, avec son logo (trois au plus, les plus récents ; il faut l'accès aux notifications ;
   toucher un bandeau déverrouille et ouvre le message ; au-dessus d'eux, la musique en cours, dans un
@@ -143,8 +144,10 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   date, ni lieu. Dessous, la météo sur une ligne : la température en gros, le ciel et le ressenti, en
   Google Sans Flex, la police de l'horloge du Pixel (repères relevés sur un Pixel 11 Pro). Sur le
   coloriage de Météo ne restent que le maximum et le minimum, coloriés au crayon (lavis, hachures dans
-  les lettres, contour repassé), sans blanc autour : Météo dessine dessous. Puis la musique (sans
-  boutons : « en lecture » ou « en pause »), les messages, les matchs et la figure, comme sur la page.
+  les lettres, contour repassé), sans blanc autour : le ciel passe dessous, le soleil, la lune et les
+  nuages s'en écartent. Puis la musique (sans boutons : « en lecture » ou « en pause »), les messages et
+  les matchs, comme sur la page, et la figure sous le rond de l'empreinte du Pixel (relevé sur un Pixel
+  11 Pro), qui ne la cache plus.
 - Une nouvelle figure et le coloriage qui monte à chaque réveil ; données suivies tant que le fond est
   visible, relues à l'extinction. Le fond dit au système qu'il est clair.
 - Rien n'y est touchable (un fond d'écran ne reçoit pas les appuis sur l'écran verrouillé) : on glisse
