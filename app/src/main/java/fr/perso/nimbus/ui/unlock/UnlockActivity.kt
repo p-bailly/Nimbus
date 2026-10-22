@@ -18,7 +18,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -52,6 +54,9 @@ class UnlockActivity : ComponentActivity() {
     private var pending: (() -> Unit)? = null
     private var dismissing = false
 
+    /** La figure de la page, changée à chaque affichage. */
+    private var figure by mutableStateOf<DailyFigure?>(null)
+
     private val events = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
@@ -80,6 +85,7 @@ class UnlockActivity : ComponentActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
 
+        figure = FigureDeck.upcoming(this)
         val feed = UnlockFeed.get(this)
         setContent {
             val state by feed.state.collectAsStateWithLifecycle()
@@ -101,6 +107,7 @@ class UnlockActivity : ComponentActivity() {
                         onUnlock = { unlock() },
                         onNote = { openNote(it) },
                         onSketchText = feed::sketchText,
+                        figure = figure,
                     )
                 }
             }
@@ -112,6 +119,15 @@ class UnlockActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         pending = null
+    }
+
+    /**
+     * À chaque affichage (réveil de l'écran), une nouvelle figure. Une page posée écran éteint montre
+     * déjà la prochaine, sans la compter : le réveil la confirme au lieu d'en sauter une.
+     */
+    override fun onStart() {
+        super.onStart()
+        if (power.isInteractive) figure = FigureDeck.advance(this)
     }
 
     override fun onResume() {

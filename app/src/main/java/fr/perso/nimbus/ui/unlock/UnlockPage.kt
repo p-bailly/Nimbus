@@ -107,8 +107,8 @@ import kotlin.math.roundToInt
 // Page de déverrouillage (maquette H8a, sans en-tête et en plus gros) : sous l'heure, la météo comme l'écran Aujourd'hui de l'appli
 // Météo (et son coloriage, agrandi et ravivé), les messages reçus (WhatsApp, Discord, Messages, Claude…) dans
 // des bandeaux coloriés à la couleur de leur appli, les matchs en direct et les résultats de la nuit des
-// équipes favorites de Basket Live dans un bandeau colorié orange, puis la figure du jour, dessinée au
-// crayon. Une section sans données disparaît, la suite remonte.
+// équipes favorites de Basket Live dans un bandeau colorié orange, puis une figure, dessinée au crayon,
+// différente à chaque affichage. Une section sans données disparaît, la suite remonte.
 //
 // Chaque texte est posé par sa ligne de base, relevée dans la maquette (Chrome arrondit ascendante et
 // descendante au pixel, et pose la ligne de base en conséquence) : haut = base − interligne / 2 − k × taille,
@@ -195,13 +195,15 @@ private const val AFTER_BANNER = 16f
 private const val ROW_PITCH = 27f
 
 @Composable
-fun UnlockPage(
+internal fun UnlockPage(
     state: UnlockState,
     onMeteo: () -> Unit,
     onBasket: () -> Unit,
     onUnlock: () -> Unit,
     /** Ouvrir une notification (après le déverrouillage). */
     onNote: (UnlockNote) -> Unit = {},
+    /** La figure à montrer (une nouvelle à chaque affichage) ; sans elle, celle du jour. */
+    figure: DailyFigure? = null,
     /** Explication de la figure montrée d'emblée (captures). */
     infoShown: Boolean = false,
     /**
@@ -212,7 +214,7 @@ fun UnlockPage(
 ) {
     val now by rememberPaperTime()
     val today = now.toLocalDate()
-    val figure = remember(today) { DailyFigures.of(today) }
+    val dayFigure = remember(today) { DailyFigures.of(today) }
     val unlock by rememberUpdatedState(onUnlock)
 
     PaperCanvas(
@@ -252,7 +254,7 @@ fun UnlockPage(
         }
         // La figure du jour, numérotée après le coloriage de Météo s'il est là ; sous elle, un appui déverrouille.
         TapZone("Déverrouiller", Modifier.at(0, y).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - y).coerceAtLeast(0f).dp), onUnlock)
-        FigureSection(y, figure, if (state.meteo != null && state.sketch != null) 2 else 1, infoShown)
+        FigureSection(y, figure ?: dayFigure, if (state.meteo != null && state.sketch != null) 2 else 1, infoShown)
     }
 }
 
