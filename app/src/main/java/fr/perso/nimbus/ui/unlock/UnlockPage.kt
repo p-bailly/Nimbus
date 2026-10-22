@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -31,6 +32,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -45,9 +47,11 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -115,9 +119,8 @@ import kotlin.math.roundToInt
 // équipes favorites de Basket Live dans un bandeau colorié orange, puis une figure, dessinée au crayon,
 // différente à chaque affichage. Une section sans données disparaît, la suite remonte.
 //
-// En fond de l'écran verrouillé ([UnlockWallpaper]), l'heure est celle du Pixel, petite, en haut à gauche :
-// la page ne pose à sa droite que la météo, dans la police de l'horloge (Google Sans) — la date est celle
-// du système, qu'il écrit toujours à côté de l'heure ;
+// En fond de l'écran verrouillé ([UnlockWallpaper]), le haut de l'écran est au Pixel : son heure à gauche,
+// sa date à droite. La page pose la météo dessous, sur une ligne, dans la police de l'horloge (Google Sans) ;
 // sur le coloriage ne restent que le maximum et le minimum, coloriés au crayon, sans blanc autour.
 //
 // Chaque texte est posé par sa ligne de base, relevée dans la maquette (Chrome arrondit ascendante et
@@ -135,6 +138,8 @@ data class UnlockState(
     val results: List<LiveLine> = emptyList(),
     /** Notifications des applis de messages, les plus récentes d'abord. */
     val notes: List<UnlockNote> = emptyList(),
+    /** La musique en cours (ou en pause depuis peu). */
+    val music: Music? = null,
 )
 
 /** Couleurs de Météo (extrêmes du jour) et de Basket Live (direct, victoire, défaite). */
@@ -179,14 +184,12 @@ private const val DATE_TOP = 112f
 private const val DATE = 15f
 
 /**
- * En fond d'écran : ligne de base de la petite horloge du Pixel (la température s'y aligne) et de la ligne
- * de la date du système, dessous.
+ * En fond d'écran : la bande de l'heure du Pixel (heure et date) finit vers y = 134 (relevé sur un Pixel 11
+ * Pro, horloge « petite ») ; la ligne de la météo a sa ligne de base en [WEATHER_BASE], le bloc météo
+ * (coloriage) commence en [METEO_WALLPAPER].
  */
-private const val SYSTEM_CLOCK_BASE = 98f
-private const val SYSTEM_DATE_BASE = 126f
-
-/** Largeur au plus du ciel en fond d'écran : la date du système (« Mer. 30 sept. ») tient à sa gauche. */
-private const val SKY_BESIDE_DATE = 200f
+private const val WEATHER_BASE = 178f
+private const val METEO_WALLPAPER = 192f
 
 /** k de Google Sans Flex : (ascendante − descendante) / 2, en em (voir [Face]). */
 private const val SANS_K = 0.34f
@@ -247,10 +250,12 @@ internal fun UnlockPage(
      */
     onSketchText: (List<Rect>) -> Unit = {},
     /**
-     * Fond de l'écran verrouillé : l'heure et la date sont celles du système (petite horloge, en haut à
-     * gauche), la page pose la météo à leur droite.
+     * Fond de l'écran verrouillé : l'heure et la date sont celles du système, en haut ; la page pose la
+     * météo dessous.
      */
     wallpaper: Boolean = false,
+    /** Les boutons du bandeau Musique, et l'appui sur le bandeau. */
+    onMusic: (MusicAction) -> Unit = {},
 ) {
     val now by rememberPaperTime()
     val today = now.toLocalDate()
@@ -279,12 +284,16 @@ internal fun UnlockPage(
             )
         },
     ) {
-        if (wallpaper) SystemClockHeader(state.meteo) else PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE)
+        if (!wallpaper) PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE)
         var y = FIRST
         state.meteo?.let { meteo ->
             val end = MeteoSection(meteo, state.sketch, now.hour, onMeteo, onSketchText, wallpaper)
             HRule(22, end + RULE_GAP, 368, 0.6f)
             y = end + RULE_GAP + AFTER_RULE
+        }
+        state.music?.let { music ->
+            // Sur le fond d'écran, qui ne reçoit pas les appuis, pas de boutons.
+            y = MusicSection(y, music, controls = !wallpaper, onMusic) + AFTER_BANNER
         }
         if (state.notes.isNotEmpty()) {
             y = NotesSection(y, state.notes, today, onNote) + AFTER_BANNER
@@ -301,22 +310,28 @@ internal fun UnlockPage(
 // ---------------------------------------------------------------- Fond d'écran
 
 /**
- * À droite de la petite horloge du Pixel, en Google Sans comme elle : la température en gros sur la ligne de
- * l'heure, le ciel, le ressenti. La date du système, sous l'heure, reste à gauche.
+ * Sous la bande de l'heure du Pixel, la météo sur une ligne, en Google Sans comme l'heure : la température
+ * en gros, puis le ciel et, dessous, le ressenti.
  */
 @Composable
-private fun SystemClockHeader(meteo: MeteoNow?) {
-    meteo ?: return
-    RightText("${degrees(meteo.temperature)}°C", sans(46f, display = true), sansTop(SYSTEM_CLOCK_BASE, 46f))
-    // Le ciel, sur la ligne de la date du système (un peu plus haut) : il lui laisse la gauche.
-    RightText(
+private fun WallpaperWeather(meteo: MeteoNow) {
+    val temperature = "${degrees(meteo.temperature)}°C"
+    val temperatureStyle = sans(40f, display = true)
+    Text(temperature, style = temperatureStyle, softWrap = false, modifier = Modifier.at(24, sansTop(WEATHER_BASE, 40f)))
+    val x = 24 + textWidth(AnnotatedString(temperature), temperatureStyle) + 12
+    Text(
         meteo.sky,
-        sans(16f, FontWeight.Medium),
-        sansTop(SYSTEM_DATE_BASE - 4, 16f),
-        Modifier.widthIn(max = SKY_BESIDE_DATE.dp),
+        style = sans(17f, FontWeight.Medium),
         maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.at(x, sansTop(WEATHER_BASE - 19, 17f)).width((390 - x).dp),
     )
-    RightText("ressenti ${degrees(meteo.feelsLike)}°C", sans(15f, color = PaperColors.Soft), sansTop(SYSTEM_DATE_BASE + 16, 15f))
+    Text(
+        "ressenti ${degrees(meteo.feelsLike)}°C",
+        style = sans(15f, color = PaperColors.Soft),
+        softWrap = false,
+        modifier = Modifier.at(x, sansTop(WEATHER_BASE, 15f)),
+    )
 }
 
 // ---------------------------------------------------------------- Météo
@@ -329,10 +344,10 @@ private fun MeteoSection(
     hour: Int,
     onOpen: () -> Unit,
     onSketchText: (List<Rect>) -> Unit,
-    /** En fond d'écran : le ciel, la température et le ressenti sont en haut, à côté de l'heure ; le lieu n'est pas écrit. */
+    /** En fond d'écran : le ciel, la température et le ressenti sont sur une ligne au-dessus ; le lieu n'est pas écrit. */
     wallpaper: Boolean = false,
 ): Float {
-    val t = METEO
+    val t = if (wallpaper) METEO_WALLPAPER else METEO
 
     // Le texte posé sur le coloriage, mesuré là où sera le dessin (même avant qu'il n'arrive) : Météo
     // dessine autour, et on gomme ici ce qui le toucherait encore.
@@ -345,6 +360,7 @@ private fun MeteoSection(
     if (sketch != null) Sketch(sketch, zones, frame)
 
     if (wallpaper) {
+        WallpaperWeather(meteo)
         // Sur le dessin, le maximum et le minimum coloriés au crayon : Météo dessine dessous, rien n'est gommé.
         val extremes = t + 50
         CrayonText(
@@ -857,6 +873,151 @@ private fun noteTime(ms: Long, today: LocalDate): String {
         today -> at.format(DateTimeFormatter.ofPattern("HH:mm", Locale.FRANCE))
         today.minusDays(1) -> "hier"
         else -> at.format(DateTimeFormatter.ofPattern("d MMM", Locale.FRANCE))
+    }
+}
+
+// ---------------------------------------------------------------- Musique
+
+/** Bandeau de la musique : [MUSIC_H] de haut, la pochette de [MUSIC_ART] de côté. */
+private const val MUSIC_H = 62f
+private const val MUSIC_ART = 46f
+
+/** Les trois boutons (précédent, lecture ou pause, suivant), de [MUSIC_BUTTON] de côté chacun. */
+private const val MUSIC_BUTTON = 34f
+
+/**
+ * La musique en cours, dans un bandeau colorié à la couleur du lecteur : la pochette (sinon le logo au crayon
+ * du lecteur, ou une note), le titre en gras, l'artiste et le lecteur en petites capitales ; à droite,
+ * précédent, lecture ou pause, suivant — ou, sur le fond d'écran qui ne reçoit pas les appuis ([controls]
+ * faux), « en lecture » ou « en pause ». Appui sur le reste du bandeau : déverrouiller et ouvrir le lecteur.
+ * Rend le bas du bandeau.
+ */
+@Composable
+private fun MusicSection(y: Float, music: Music, controls: Boolean, onAction: (MusicAction) -> Unit): Float {
+    val color = Color(musicColor(music.packageName))
+    val ink = inkOf(color)
+    Box(
+        Modifier
+            .at(BANNER_X, y)
+            .size(BANNER_W.dp, MUSIC_H.dp)
+            .crayonBanner(color, seed = music.title.hashCode())
+            .semantics {
+                contentDescription = "Ouvrir ${music.app} : ${music.title}, ${music.artist}"
+                role = Role.Button
+            }
+            .clickable(remember { MutableInteractionSource() }, indication = null) { onAction(MusicAction.OPEN) },
+    )
+
+    // La pochette, sinon le logo du lecteur (ou une note) dans une pastille blanche cerclée de sa couleur.
+    val artTop = y + (MUSIC_H - MUSIC_ART) / 2
+    val art = music.art
+    if (art != null) {
+        val shape = RoundedCornerShape(6.dp)
+        Image(
+            art,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.at(20, artTop).size(MUSIC_ART.dp).clip(shape).border(1.dp, ink.copy(alpha = 0.5f), shape),
+        )
+    } else {
+        Box(
+            Modifier
+                .at(20 + (MUSIC_ART - NOTE_DISC) / 2, y + (MUSIC_H - NOTE_DISC) / 2)
+                .size(NOTE_DISC.dp)
+                .background(PaperColors.Paper, CircleShape)
+                .drawBehind {
+                    drawCircle(color.copy(alpha = 0.8f), radius = size.minDimension / 2 - 0.8.dp.toPx(), style = Stroke(1.6.dp.toPx()))
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            val logo = CrayonLogos.ofPackage(music.packageName)
+            Image(
+                painterResource(logo ?: R.drawable.ms_music_note),
+                contentDescription = null,
+                colorFilter = if (logo == null) ColorFilter.tint(ink) else null,
+                modifier = Modifier.size((NOTE_DISC * if (logo != null) 0.78f else 0.6f).dp),
+            )
+        }
+    }
+
+    val left = 20 + MUSIC_ART + 10
+    val first = y + 26
+    val second = y + 47
+    val right = if (controls) {
+        MusicButtons(y + (MUSIC_H - MUSIC_BUTTON) / 2, music.playing, ink, onAction)
+        390 - 3 * MUSIC_BUTTON - 6
+    } else {
+        val label = if (music.playing) "en lecture" else "en pause"
+        val labelStyle = style(LABEL, color = ink).smallCaps(0.06f)
+        RightText(label, labelStyle, top(first, LABEL))
+        390 - textWidth(AnnotatedString(label), labelStyle) - 8
+    }
+    Text(
+        music.title,
+        style = style(16.5f, face = Face.BOLD),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.at(left, top(first, 16.5f, face = Face.BOLD)).width((right - left).coerceAtLeast(40f).dp),
+    )
+    val by = buildAnnotatedString {
+        if (music.artist.isNotEmpty()) append("${music.artist} · ")
+        withStyle(SpanStyle(color = ink, fontFeatureSettings = "smcp", letterSpacing = 0.06.em)) { append(music.app.lowercase(Locale.FRENCH)) }
+    }
+    Text(
+        by,
+        style = style(15f, color = PaperColors.Soft),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.at(left, top(second, 15f)).width(((if (controls) right else 390f) - left).dp),
+    )
+    return y + MUSIC_H
+}
+
+/** Précédent, lecture ou pause, suivant : dessinés à l'encre du bandeau, collés à la marge de droite. */
+@Composable
+private fun MusicButtons(top: Float, playing: Boolean, ink: Color, onAction: (MusicAction) -> Unit) {
+    val buttons = listOf(
+        MusicAction.PREVIOUS to "Morceau précédent",
+        MusicAction.TOGGLE to if (playing) "Pause" else "Lecture",
+        MusicAction.NEXT to "Morceau suivant",
+    )
+    buttons.forEachIndexed { i, (action, label) ->
+        Canvas(
+            Modifier
+                .at(390 - MUSIC_BUTTON * (3 - i), top)
+                .size(MUSIC_BUTTON.dp)
+                .semantics {
+                    contentDescription = label
+                    role = Role.Button
+                }
+                .clickable(remember { MutableInteractionSource() }, indication = null) { onAction(action) },
+        ) {
+            val u = size.minDimension / MUSIC_BUTTON
+            val c = center
+            fun triangle(tipX: Float, baseX: Float, half: Float) = Path().apply {
+                moveTo(baseX, c.y - half)
+                lineTo(tipX, c.y)
+                lineTo(baseX, c.y + half)
+                close()
+            }
+            val color = ink.copy(alpha = 0.9f)
+            when (action) {
+                MusicAction.PREVIOUS -> {
+                    drawRect(color, Offset(c.x - 7 * u, c.y - 6 * u), Size(2.2f * u, 12 * u))
+                    drawPath(triangle(c.x - 4.5f * u, c.x + 6 * u, 6 * u), color)
+                }
+                MusicAction.NEXT -> {
+                    drawPath(triangle(c.x + 4.5f * u, c.x - 6 * u, 6 * u), color)
+                    drawRect(color, Offset(c.x + 4.8f * u, c.y - 6 * u), Size(2.2f * u, 12 * u))
+                }
+                else -> if (playing) {
+                    drawRect(color, Offset(c.x - 5.5f * u, c.y - 7.5f * u), Size(4 * u, 15 * u))
+                    drawRect(color, Offset(c.x + 1.5f * u, c.y - 7.5f * u), Size(4 * u, 15 * u))
+                } else {
+                    drawPath(triangle(c.x + 7.5f * u, c.x - 5.5f * u, 8 * u), color)
+                }
+            }
+        }
     }
 }
 

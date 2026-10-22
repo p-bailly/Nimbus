@@ -18,8 +18,8 @@ import fr.perso.nimbus.data.Prefs
  * s'il est bien verrouillé, et si rien ne doit rester devant : appel, sonnerie ou alarme. Si l'écran se
  * rallume avant (verrouillage un peu en retard), la page est posée au réveil, par-dessus l'écran verrouillé ;
  * de même à chaque réveil où le téléphone est verrouillé sans page (elle a été fermée par le système, ou
- * n'a pas pu être posée), pour que l'écran verrouillé du système ne se montre pas. Rien n'est posé quand
- * la page est déjà le fond de l'écran verrouillé ([UnlockWallpaper]).
+ * n'a pas pu être posée), pour que l'écran verrouillé du système ne se montre pas. Avec l'écran verrouillé
+ * Nimbus en fond ([UnlockWallpaper]), la page passe devant lui de même : il n'apparaît qu'au déverrouillage.
  */
 object UnlockLauncher {
     private val handler = Handler(Looper.getMainLooper())
@@ -53,7 +53,7 @@ object UnlockLauncher {
         cancel()
         if (!Prefs.get(context).settings.value.unlockPage) return
         val keyguard = context.getSystemService(KeyguardManager::class.java) ?: return
-        if (!keyguard.isDeviceSecure || UnlockWallpaper.onLockScreen(context)) return
+        if (!keyguard.isDeviceSecure) return
         UnlockFeed.get(context).prefetch()
         waiting = true
         offAt = SystemClock.elapsedRealtime()
@@ -70,8 +70,7 @@ object UnlockLauncher {
         cancel()
         // Pas de page alors que le téléphone est verrouillé : posée au réveil (sauf appareil photo).
         val missing = !camera && !UnlockActivity.shown && Prefs.get(context).settings.value.unlockPage &&
-            context.getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true &&
-            !UnlockWallpaper.onLockScreen(context)
+            context.getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true
         if (late || missing) attempt(context, 0, LATE_TRIES, interactive = true)
     }
 

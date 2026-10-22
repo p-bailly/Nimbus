@@ -93,7 +93,10 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   et les nuages poussés à côté, et une gomme adoucie efface encore ici ce qui s'en approcherait), les
   messages reçus (WhatsApp, Discord, Messages, Claude, Signal, Telegram, Gmail…) dans des bandeaux coloriés au crayon à la couleur de
   leur appli, avec son logo (trois au plus, les plus récents ; il faut l'accès aux notifications ;
-  toucher un bandeau déverrouille et ouvre le message), puis, dans un bandeau colorié orange avec le
+  toucher un bandeau déverrouille et ouvre le message ; au-dessus d'eux, la musique en cours, dans un
+  bandeau à la couleur du lecteur : pochette, titre, artiste, et les boutons précédent, lecture ou
+  pause, suivant, qui marchent sans déverrouiller ; le reste du bandeau déverrouille et ouvre le
+  lecteur ; une lecture en pause depuis plus de 30 min disparaît), puis, dans un bandeau colorié orange avec le
   logo de Basket Live, les matchs en direct des équipes favorites (trois au plus, mi-temps et fin de
   période comprises) et leurs résultats de la nuit (gagnante en gras, perdante en gris, « victoire »
   ou « défaite » de la favorite surlignée au crayon ; quatre lignes en tout ; un résultat disparaît
@@ -131,23 +134,25 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   au réveil.
 
 **Écran verrouillé Nimbus (fond d'écran animé)**
-- La même page, mais en fond de l'écran verrouillé du système : rien ne passe devant, l'empreinte et
-  le visage déverrouillent directement. L'heure est celle du téléphone (sur le Pixel, horloge
-  « Petite », en haut à gauche) ; la page ne dessine ni heure, ni date, ni lieu.
-- La date est celle du système (le Pixel l'écrit toujours, même sans « Coup d'œil ») ; à droite de
-  l'heure, la température en gros sur sa ligne, le ciel (il laisse la gauche à la date) et le ressenti, en Google Sans Flex, la police de l'horloge du Pixel. Sur le coloriage
-  de Météo ne restent que le maximum et le minimum, coloriés au crayon (lavis, hachures dans les lettres,
-  contour repassé), sans blanc autour : Météo dessine dessous. Puis les messages, les matchs et la
-  figure, comme sur la page.
+- La même page, mais en fond de l'écran verrouillé du système. Seule, rien ne passe devant : l'empreinte
+  et le visage déverrouillent directement. Avec la page de déverrouillage, c'est elle qu'on voit au réveil
+  (papier clair, tout est touchable) ; ce fond n'apparaît que sous l'écran du système, au moment de
+  l'empreinte ou du visage, avec la figure que la page montrait, sans rejouer le coloriage.
+- Le haut de l'écran est au téléphone : sur le Pixel, son heure (la plus petite proposée, sur une
+  ligne) et sa date, qu'il écrit toujours, même sans « Coup d'œil ». La page ne dessine ni heure, ni
+  date, ni lieu. Dessous, la météo sur une ligne : la température en gros, le ciel et le ressenti, en
+  Google Sans Flex, la police de l'horloge du Pixel (repères relevés sur un Pixel 11 Pro). Sur le
+  coloriage de Météo ne restent que le maximum et le minimum, coloriés au crayon (lavis, hachures dans
+  les lettres, contour repassé), sans blanc autour : Météo dessine dessous. Puis la musique (sans
+  boutons : « en lecture » ou « en pause »), les messages, les matchs et la figure, comme sur la page.
 - Une nouvelle figure et le coloriage qui monte à chaque réveil ; données suivies tant que le fond est
-  visible, relues à l'extinction. Le fond dit au système qu'il est clair : l'heure et la barre d'état
-  s'écrivent en foncé.
+  visible, relues à l'extinction. Le fond dit au système qu'il est clair.
 - Rien n'y est touchable (un fond d'écran ne reçoit pas les appuis sur l'écran verrouillé) : on glisse
-  vers le haut ou on pose le doigt pour déverrouiller.
+  vers le haut ou on pose le doigt pour déverrouiller. Le Pixel pose sur ce fond un voile sombre
+  d'environ 20 % (le papier y paraît gris), et son icône d'empreinte : aucun réglage ne les enlève.
 - Activer : Paramètres › Sécurité et confidentialité › « Écran verrouillé Nimbus », puis « Écran de
-  verrouillage » dans l'aperçu du système ; sur le Pixel, choisir l'horloge « Petite » et couper le
-  « Coup d'œil » (sa date et sa météo). Tant que ce fond est sur l'écran verrouillé, la page ne passe
-  plus devant (le service « Gestes Nimbus » n'est plus nécessaire pour elle).
+  verrouillage » dans l'aperçu du système ; sur le Pixel, couper la grande horloge (Horloge › Taille ›
+  « Grande ») et le « Coup d'œil » (sa météo).
 
 **Gestes (à la Nova)**
 - Double tap, glisser vers le haut / le bas, glisser à deux doigts vers le haut /
