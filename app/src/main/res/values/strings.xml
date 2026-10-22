@@ -7,4 +7,6 @@
     <string name="dictation_service_label">Dictée Claude Nimbus</string>
     <string name="dictation_service_desc">Affiche la bulle micro par-dessus les applis et écrit votre dictée dans l\'appli Claude, puis appuie sur Envoyer. Nimbus ne lit le contenu de l\'écran que dans l\'appli Claude, pendant un envoi ; ailleurs il note seulement quelle appli est ouverte, pour y revenir ensuite. Il peut aussi faire une capture d\'écran quand vous touchez l\'appareil photo de la pastille : elle est enregistrée dans Images › Nimbus et copiée. Rien n\'est envoyé ailleurs.</string>
     <string name="dictation_tile_label">Dictée Claude</string>
+    <string name="unlock_wallpaper_label">Écran verrouillé Nimbus</string>
+    <string name="unlock_wallpaper_description">La page de déverrouillage de Nimbus sous l\'heure du téléphone : la date et la météo à côté de l\'heure, le coloriage de Météo, les messages, les matchs et la figure du jour. À choisir pour l\'écran de verrouillage.</string>
 </resources>

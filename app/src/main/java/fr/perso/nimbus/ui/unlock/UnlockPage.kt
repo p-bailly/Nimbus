@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -71,6 +72,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
@@ -94,7 +96,10 @@ import fr.perso.nimbus.ui.paper.PaperClock
 import fr.perso.nimbus.ui.paper.PaperText
 import fr.perso.nimbus.ui.paper.at
 import fr.perso.nimbus.ui.paper.rememberPaperTime
+import fr.perso.nimbus.ui.theme.GoogleSans
+import fr.perso.nimbus.ui.theme.GoogleSansDisplay
 import fr.perso.nimbus.ui.theme.PaperColors
+import fr.perso.nimbus.ui.theme.PaperTextBase
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -109,6 +114,10 @@ import kotlin.math.roundToInt
 // des bandeaux coloriés à la couleur de leur appli, les matchs en direct et les résultats de la nuit des
 // équipes favorites de Basket Live dans un bandeau colorié orange, puis une figure, dessinée au crayon,
 // différente à chaque affichage. Une section sans données disparaît, la suite remonte.
+//
+// En fond de l'écran verrouillé ([UnlockWallpaper]), l'heure est celle du Pixel, petite, en haut à gauche :
+// la page ne pose que la date dessous et, à droite, la météo, dans la police de l'horloge (Google Sans) ;
+// sur le coloriage ne restent que le maximum et le minimum, coloriés au crayon, sans blanc autour.
 //
 // Chaque texte est posé par sa ligne de base, relevée dans la maquette (Chrome arrondit ascendante et
 // descendante au pixel, et pose la ligne de base en conséquence) : haut = base − interligne / 2 − k × taille,
@@ -168,6 +177,28 @@ private const val TIME = 80f
 private const val DATE_TOP = 112f
 private const val DATE = 15f
 
+/**
+ * En fond d'écran : ligne de base de la petite horloge du Pixel (la température s'y aligne) et de la date
+ * posée dessous.
+ */
+private const val SYSTEM_CLOCK_BASE = 98f
+private const val SYSTEM_DATE_BASE = 126f
+
+/** k de Google Sans Flex : (ascendante − descendante) / 2, en em (voir [Face]). */
+private const val SANS_K = 0.34f
+
+/** Haut d'un texte en Google Sans de [size] (interligne [size]) dont la ligne de base tombe en [baseline]. */
+private fun sansTop(baseline: Float, size: Float): Float = baseline - size / 2f - SANS_K * size
+
+private fun sans(size: Float, weight: FontWeight = FontWeight.Normal, color: Color = PaperColors.Ink, display: Boolean = false): TextStyle =
+    PaperTextBase.copy(
+        fontFamily = if (display) GoogleSansDisplay else GoogleSans,
+        fontSize = size.sp,
+        lineHeight = size.sp,
+        fontWeight = weight,
+        color = color,
+    )
+
 /** Haut de la première section quand la météo manque. */
 private const val FIRST = 154f
 
@@ -211,6 +242,11 @@ internal fun UnlockPage(
      * bas) : à lui demander de dessiner autour.
      */
     onSketchText: (List<Rect>) -> Unit = {},
+    /**
+     * Fond de l'écran verrouillé : l'heure est celle du système (petite, en haut à gauche), la page pose la
+     * date et la météo autour d'elle.
+     */
+    wallpaper: Boolean = false,
 ) {
     val now by rememberPaperTime()
     val today = now.toLocalDate()
@@ -239,10 +275,10 @@ internal fun UnlockPage(
             )
         },
     ) {
-        PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE)
+        if (wallpaper) SystemClockHeader(now, state.meteo) else PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE)
         var y = FIRST
         state.meteo?.let { meteo ->
-            val end = MeteoSection(meteo, state.sketch, now.hour, onMeteo, onSketchText)
+            val end = MeteoSection(meteo, state.sketch, now.hour, onMeteo, onSketchText, wallpaper)
             HRule(22, end + RULE_GAP, 368, 0.6f)
             y = end + RULE_GAP + AFTER_RULE
         }
@@ -258,11 +294,44 @@ internal fun UnlockPage(
     }
 }
 
+// ---------------------------------------------------------------- Fond d'écran
+
+/**
+ * À côté de la petite horloge du Pixel : la date dessous, alignée sur elle à gauche, et à droite la météo
+ * (la température en gros sur la ligne de l'heure, le ciel, le ressenti), en Google Sans comme l'heure.
+ */
+@Composable
+private fun SystemClockHeader(now: LocalDateTime, meteo: MeteoNow?) {
+    val date = now.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE)).replaceFirstChar { it.uppercase() }
+    val dateStyle = sans(17f, FontWeight.Medium)
+    Text(date, style = dateStyle, softWrap = false, modifier = Modifier.at(24, sansTop(SYSTEM_DATE_BASE, 17f)))
+    meteo ?: return
+    RightText("${degrees(meteo.temperature)}°C", sans(46f, display = true), sansTop(SYSTEM_CLOCK_BASE, 46f))
+    // Le ciel, sur la ligne de la date (un peu plus haut) : il s'arrête 18 unités avant elle.
+    val skyWidth = 390 - (24 + textWidth(AnnotatedString(date), dateStyle) + 18)
+    RightText(
+        meteo.sky,
+        sans(16f, FontWeight.Medium),
+        sansTop(SYSTEM_DATE_BASE - 4, 16f),
+        Modifier.widthIn(max = skyWidth.coerceAtLeast(60f).dp),
+        maxLines = 1,
+    )
+    RightText("ressenti ${degrees(meteo.feelsLike)}°C", sans(15f, color = PaperColors.Soft), sansTop(SYSTEM_DATE_BASE + 16, 15f))
+}
+
 // ---------------------------------------------------------------- Météo
 
 /** Le bloc météo ; rend le bas de son contenu. */
 @Composable
-private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpen: () -> Unit, onSketchText: (List<Rect>) -> Unit): Float {
+private fun MeteoSection(
+    meteo: MeteoNow,
+    sketch: ImageBitmap?,
+    hour: Int,
+    onOpen: () -> Unit,
+    onSketchText: (List<Rect>) -> Unit,
+    /** En fond d'écran : le ciel, la température et le ressenti sont en haut, à côté de l'heure ; le lieu n'est pas écrit. */
+    wallpaper: Boolean = false,
+): Float {
     val t = METEO
 
     // Le texte posé sur le coloriage, mesuré là où sera le dessin (même avant qu'il n'arrive) : Météo
@@ -274,6 +343,26 @@ private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpe
     val zones = text.zones
     LaunchedEffect(zones, density) { onSketchText(with(density) { imageZones(zones) }) }
     if (sketch != null) Sketch(sketch, zones, frame)
+
+    if (wallpaper) {
+        // Sur le dessin, le maximum et le minimum coloriés au crayon : Météo dessine dessous, rien n'est gommé.
+        val extremes = t + 50
+        CrayonText(
+            "max ${degrees(meteo.todayMax)}\u00A0°C",
+            style(26f, 30f, Face.BOLD),
+            Maxi,
+            seed = 31,
+            Modifier.at(22, top(extremes, 26f, 30f, Face.BOLD)).width(368.dp).wrapContentWidth(Alignment.End),
+        )
+        CrayonText(
+            "min ${degrees(meteo.todayMin)}\u00A0°C",
+            style(26f, 30f, Face.BOLD),
+            Mini,
+            seed = 37,
+            Modifier.at(22, top(extremes + 32, 26f, 30f, Face.BOLD)).width(368.dp).wrapContentWidth(Alignment.End),
+        )
+        return sketchEnd(meteo, sketch, hour, onOpen, t, extremes + 32 + 6)
+    }
 
     // À gauche : le lieu en petites capitales, la température (« °C » plus petit, en haut), le ressenti.
     val placeStyle = style(17f, 20f, color = PaperColors.Soft).smallCaps(0.06f)
@@ -319,7 +408,12 @@ private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpe
     val extremes = t + 55 + 26f * (skyLines - 1)
     RightText("max ${degrees(meteo.todayMax)}\u00A0°C", style(21f, 26f, Face.BOLD, Maxi), top(extremes, 21f, 26f, Face.BOLD), over = text, key = "max")
     RightText("min ${degrees(meteo.todayMin)}\u00A0°C", style(21f, 26f, Face.BOLD, Mini), top(extremes + 26, 21f, 26f, Face.BOLD), over = text, key = "min")
+    return sketchEnd(meteo, sketch, hour, onOpen, t, maxOf(t + 119, extremes + 26 + 6))
+}
 
+/** Sous le bloc météo qui commence en [t] : la légende du coloriage, la zone d'appui ; rend le bas du bloc. */
+@Composable
+private fun sketchEnd(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpen: () -> Unit, t: Float, textEnd: Float): Float {
     val end: Float
     if (sketch != null) {
         // Légende de la figure, comme sur les autres pages.
@@ -332,7 +426,7 @@ private fun MeteoSection(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpe
         Text(caption, style = captionStyle, modifier = Modifier.at(22, top(below + 16, 12.5f, 16f)).width(368.dp))
         end = below + 4 + 16f * lineCount(caption, captionStyle, 368f)
     } else {
-        end = maxOf(t + 119, extremes + 26 + 6)
+        end = textEnd
     }
 
     TapZone(
@@ -906,11 +1000,21 @@ private const val WJ = '\u2060'
 
 /** Texte calé à droite sur la marge (x = 390), son haut en [top]. */
 @Composable
-private fun RightText(text: String, style: TextStyle, top: Float, modifier: Modifier = Modifier, over: SketchText? = null, key: String = "") {
+private fun RightText(
+    text: String,
+    style: TextStyle,
+    top: Float,
+    modifier: Modifier = Modifier,
+    over: SketchText? = null,
+    key: String = "",
+    maxLines: Int = Int.MAX_VALUE,
+) {
     Box(Modifier.at(22, top).width(368.dp)) {
         Text(
             text,
             style = style,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
             onTextLayout = over?.layout(key) ?: {},
             modifier = modifier.align(Alignment.TopEnd).then(over?.of(key) ?: Modifier),
         )

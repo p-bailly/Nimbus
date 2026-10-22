@@ -16,6 +16,7 @@ import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -89,13 +90,7 @@ class UnlockActivity : ComponentActivity() {
         val feed = UnlockFeed.get(this)
         setContent {
             val state by feed.state.collectAsStateWithLifecycle()
-            // Messages reçus (WhatsApp, Discord, Messages, Claude…), si Nimbus a accès aux notifications.
-            val notifications by BadgeStore.notifications.collectAsStateWithLifecycle()
-            val notes = remember(notifications) {
-                MessageApps.notes(
-                    notifications.map { MessageApps.Candidate(it.key, it.packageName, it.title, it.text, it.time, it.clearable) },
-                )
-            }
+            val notes = rememberMessageNotes()
             // Ce que la page lance (horloge, agenda du haut de la page) attend le déverrouillage.
             val context = remember { LockedContext(this) }
             CompositionLocalProvider(LocalContext provides context) {
@@ -232,5 +227,16 @@ class UnlockActivity : ComponentActivity() {
         override fun startActivity(intent: Intent, options: Bundle?) {
             activity.startAfterUnlock(Intent(intent))
         }
+    }
+}
+
+/** Messages reçus (WhatsApp, Discord, Messages, Claude…), si Nimbus a accès aux notifications. */
+@Composable
+internal fun rememberMessageNotes(): List<UnlockNote> {
+    val notifications by BadgeStore.notifications.collectAsStateWithLifecycle()
+    return remember(notifications) {
+        MessageApps.notes(
+            notifications.map { MessageApps.Candidate(it.key, it.packageName, it.title, it.text, it.time, it.clearable) },
+        )
     }
 }

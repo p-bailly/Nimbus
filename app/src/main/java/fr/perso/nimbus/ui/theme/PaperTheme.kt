@@ -7,10 +7,12 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextMotion
@@ -27,6 +29,26 @@ val PaperSerif = FontFamily(
     Font(R.font.papier_italic, FontWeight.Normal, FontStyle.Italic),
     Font(R.font.papier_bold, FontWeight.Bold, FontStyle.Normal),
     Font(R.font.papier_bold_italic, FontWeight.Bold, FontStyle.Italic),
+)
+
+/**
+ * Google Sans Flex, la police de l'horloge du Pixel (voir design/polices) : sur l'écran verrouillé en fond
+ * d'écran, ce qui est posé à côté de l'heure du système. Régulier et demi-gras, dessin des petites tailles.
+ */
+@OptIn(ExperimentalTextApi::class)
+val GoogleSans = FontFamily(
+    Font(R.font.google_sans_flex, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.google_sans_flex, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+)
+
+/** Google Sans Flex dessinée pour les grandes tailles (la température en gros, comme l'heure). */
+@OptIn(ExperimentalTextApi::class)
+val GoogleSansDisplay = FontFamily(
+    Font(
+        R.font.google_sans_flex,
+        FontWeight.Normal,
+        variationSettings = FontVariation.Settings(FontVariation.weight(400), FontVariation.Setting("opsz", 72f)),
+    ),
 )
 
 /** Couleurs du papier : fond crème, encre presque noire, liens bleus. */
