@@ -12,15 +12,64 @@ import kotlin.random.Random
 // table modulo 7, graphe complet, planche de Galton, marches aléatoires, pluie de points.
 
 internal val numberFigures: List<FigureSpec> = listOf(
-    FigureSpec("ulam", "Spirale d’Ulam", "Nombres", { _ -> "" }) { ulam(it) },
-    FigureSpec("odd_squares", "Somme des impairs", "Nombres", { _ -> "" }) { oddSquares(it) },
-    FigureSpec("venn", "Diagramme de Venn", "Nombres", { _ -> "" }) { venn(it) },
-    FigureSpec("modular_times", "Table modulo 7", "Nombres", { _ -> "" }) { modularTable(it) },
-    FigureSpec("complete_graph", "Graphe complet", "Graphes", { _ -> "" }) { completeGraph(it) },
-    FigureSpec("galton", "Planche de Galton", "Hasard", { _ -> "" }) { galton(it) },
-    FigureSpec("random_walk", "Marches aléatoires", "Hasard", { _ -> "" }) { randomWalk(it) },
-    FigureSpec("monte_carlo", "Pluie de points", "Hasard", { _ -> "" }) { monteCarlo(it) },
-    FigureSpec("maze", "Labyrinthe", "Graphes", { _ -> "" }) { maze(it) },
+    FigureSpec("ulam", "Spirale d’Ulam", "Nombres",
+    { v ->
+        val colors = if (v % 2 == 0) "colorié selon son dernier chiffre (1, 3, 7 ou 9)" else "en rouge s’il a un jumeau, un autre premier à 2 près (comme 11 et 13), en bleu sinon"
+        "On écrit 1 au centre, puis 2, 3, 4… en spirale carrée, et on marque les nombres premiers, chacun $colors. " +
+            "Des diagonales apparaissent : beaucoup de premiers sont des valeurs de polynômes comme 4n² − 2n + 41. Stanislaw Ulam l’a remarqué en 1963, en griffonnant pendant une conférence."
+    }) { ulam(it) },
+    FigureSpec("odd_squares", "Somme des impairs", "Nombres",
+    { v ->
+        val n = intArrayOf(8, 7, 9, 6)[v % 4]
+        "Chaque équerre ajoute un nombre impair de cases : 1, puis 3, puis 5… Après n équerres, on a un carré de n × n cases, d’où 1 + 3 + 5 + … + (2n − 1) = n². " +
+            "Ici, $n équerres : la somme des $n premiers impairs vaut $n × $n = ${n * n}. Une preuve sans mots, connue depuis les pythagoriciens."
+    }) { oddSquares(it) },
+    FigureSpec("venn", "Diagramme de Venn", "Nombres",
+    { v ->
+        if (v % 2 == 0) {
+            "Trois ensembles, trois cercles : chaque région correspond à un choix « dedans » ou « dehors » pour chaque ensemble, soit 2³ = 8 régions, en comptant l’extérieur. " +
+                "Au centre, ce qui appartient aux trois à la fois (A ∩ B ∩ C). Les hachures se croisent et les couleurs se mélangent dans les intersections."
+        } else {
+            "Avec quatre ensembles, des cercles ne suffisent plus à montrer les 2⁴ = 16 cas « dedans » ou « dehors » ; quatre ellipses, si. " +
+                "John Venn a introduit ces diagrammes en 1880. Chaque région, extérieur compris, mêle les couleurs des ensembles qui la contiennent."
+        }
+    }) { venn(it) },
+    FigureSpec("modular_times", "Table modulo 7", "Nombres",
+    { v ->
+        val op = if (v % 2 == 0) "a × b" else "a + b"
+        "La case de la ligne a et de la colonne b (de 0 à 6) est coloriée selon le reste de $op dans la division par 7 ; le reste 0 est laissé blanc. " +
+            if (v % 2 == 0) {
+                "Comme 7 est premier, chaque ligne sauf la première contient chaque couleur une fois : tout nombre de 1 à 6 a un inverse modulo 7, par exemple 3 × 5 = 15 = 2 × 7 + 1."
+            } else {
+                "Chaque ligne est la précédente décalée d’un cran : les couleurs forment des diagonales, comme les heures d’une horloge qui n’en aurait que 7."
+            }
+    }) { modularTable(it) },
+    FigureSpec("complete_graph", "Graphe complet", "Graphes",
+    { v ->
+        val n = if (v % 2 == 0) 9 else 11
+        "Le graphe complet K$n : $n sommets, chacun relié à tous les autres. Chaque sommet a ${n - 1} voisins, et il y a $n × ${n - 1} / 2 = ${n * (n - 1) / 2} arêtes. " +
+            "Les couleurs suivent l’écart entre les deux extrémités sur le cercle, de 1 à ${(n - 1) / 2} : chaque couleur dessine des polygones réguliers ou étoilés."
+    }) { completeGraph(it) },
+    FigureSpec("galton", "Planche de Galton", "Hasard",
+    { _ ->
+        "Chaque bille rebondit sur 12 rangées de clous, à gauche ou à droite avec une chance sur deux. Elle tombe dans la case k si elle est allée k fois à droite : C(12, k) chemins sur 2¹² = 4 096. " +
+            "Les tas dessinent la loi binomiale, en cloche : la case du milieu reçoit C(12, 6) / 4 096 ≈ 23 % des billes, celles du bord presque jamais."
+    }) { galton(it) },
+    FigureSpec("random_walk", "Marches aléatoires", "Hasard",
+    { _ ->
+        "Cinq promeneurs partent du point jaune et font 600 pas chacun, au hasard : nord, sud, est ou ouest, une chance sur quatre. " +
+            "Après n pas, ils sont en moyenne à environ √n pas du départ, ici √600 ≈ 24. Sur un quadrillage du plan, un promeneur finit toujours par repasser par son départ (théorème de Pólya)."
+    }) { randomWalk(it) },
+    FigureSpec("monte_carlo", "Pluie de points", "Hasard",
+    { _ ->
+        "On tire 800 points au hasard dans le carré. Chacun tombe dans le disque inscrit avec une probabilité égale au rapport des aires, πr² / (2r)² = π / 4 ≈ 0,785. " +
+            "On estime donc π par 4 × (points dans le disque) / (points en tout) : c’est la méthode de Monte-Carlo. Plus il y a de points, plus on s’approche de π = 3,14159."
+    }) { monteCarlo(it) },
+    FigureSpec("maze", "Labyrinthe", "Graphes",
+    { _ ->
+        "Un labyrinthe parfait de 25 × 17 = 425 cases : entre deux cases, il existe un chemin et un seul. C’est un arbre couvrant de la grille, avec exactement 424 passages ouverts, un de moins que de cases. " +
+            "Il est creusé en avançant au hasard vers une case jamais visitée, et en reculant quand on est coincé. Le chemin colorié va de l’entrée à la sortie."
+    }) { maze(it) },
 )
 
 private val TWO_PI = 2 * PI.toFloat()

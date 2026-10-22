@@ -347,16 +347,64 @@ private fun Pencil.geodesic(v: Int) {
 }
 
 internal val spaceFigures: List<FigureSpec> = listOf(
-    FigureSpec("tetrahedron", "Tétraèdre", "Espace", { _ -> "" }) { tetrahedron(it) },
-    FigureSpec("cube", "Cube", "Espace", { _ -> "" }) { cube(it) },
-    FigureSpec("octahedron", "Octaèdre", "Espace", { _ -> "" }) { octahedron(it) },
-    FigureSpec("dodecahedron", "Dodécaèdre", "Espace", { _ -> "" }) { dodecahedron(it) },
-    FigureSpec("icosahedron", "Icosaèdre", "Espace", { _ -> "" }) { icosahedron(it) },
-    FigureSpec("stella", "Stella octangula", "Espace", { _ -> "" }) { stella(it) },
-    FigureSpec("tesseract", "Hypercube", "Espace", { _ -> "" }) { tesseract(it) },
-    FigureSpec("torus", "Tore", "Espace", { _ -> "" }) { torus(it) },
-    FigureSpec("mobius", "Ruban de Möbius", "Espace", { _ -> "" }) { mobius(it) },
-    FigureSpec("saddle", "Selle de cheval", "Espace", { _ -> "" }) { saddle(it) },
-    FigureSpec("trefoil", "Nœud de trèfle", "Espace", { _ -> "" }) { trefoil(it) },
-    FigureSpec("geodesic", "Sphère géodésique", "Espace", { _ -> "" }) { geodesic(it) },
+    FigureSpec("tetrahedron", "Tétraèdre", "Espace",
+    { _ ->
+        "Le plus simple des cinq solides de Platon : 4 faces qui sont des triangles équilatéraux, 6 arêtes et 4 sommets, où se rejoignent 3 faces. " +
+            "La relation d’Euler S − A + F = 2 s’écrit 4 − 6 + 4 = 2. Il est son propre dual : en reliant les centres de ses faces, on obtient un autre tétraèdre."
+    }) { tetrahedron(it) },
+    FigureSpec("cube", "Cube", "Espace",
+    { _ ->
+        "Le cube a 6 faces carrées, 12 arêtes et 8 sommets où se rejoignent 3 faces : 8 − 12 + 6 = 2 (relation d’Euler). " +
+            "Ici, deux faces opposées ont la même couleur. En reliant les centres de ses faces, on obtient son dual, l’octaèdre, qui a autant d’arêtes et échange faces et sommets."
+    }) { cube(it) },
+    FigureSpec("octahedron", "Octaèdre", "Espace",
+    { _ ->
+        "L’octaèdre a 8 faces triangulaires équilatérales, 12 arêtes et 6 sommets où se rejoignent 4 faces : 6 − 12 + 8 = 2. C’est le dual du cube : faces et sommets s’échangent. " +
+            "Deux couleurs suffisent pour que deux faces qui se touchent par une arête soient toujours de couleurs différentes."
+    }) { octahedron(it) },
+    FigureSpec("dodecahedron", "Dodécaèdre", "Espace",
+    { _ ->
+        "Le dodécaèdre a 12 faces pentagonales régulières, 30 arêtes et 20 sommets où se rejoignent 3 faces : 20 − 30 + 12 = 2. " +
+            "Ses mesures font intervenir le nombre d’or φ ≈ 1,618 : ses sommets sont, entre autres, aux points (0, ±1/φ, ±φ). Son dual est l’icosaèdre."
+    }) { dodecahedron(it) },
+    FigureSpec("icosahedron", "Icosaèdre", "Espace",
+    { _ ->
+        "L’icosaèdre a 20 faces triangulaires équilatérales, 30 arêtes et 12 sommets où se rejoignent 5 faces : 12 − 30 + 20 = 2. " +
+            "Ses sommets sont aux points (0, ±1, ±φ) et leurs permutations circulaires, avec φ le nombre d’or. C’est le dual du dodécaèdre, et le solide de Platon qui a le plus de faces."
+    }) { icosahedron(it) },
+    FigureSpec("stella", "Stella octangula", "Espace",
+    { _ ->
+        "Deux tétraèdres réguliers imbriqués, l’un retourné par rapport à l’autre : leurs 8 sommets sont ceux d’un cube, et leur partie commune est un octaèdre. " +
+            "Kepler l’a baptisée stella octangula, « étoile à huit branches » : chaque branche est une petite pyramide posée sur une face de l’octaèdre."
+    }) { stella(it) },
+    FigureSpec("tesseract", "Hypercube", "Espace",
+    { _ ->
+        "L’hypercube est au cube ce que le cube est au carré : ses 16 sommets ont 4 coordonnées valant ±1. Deux sommets sont reliés quand ils ne diffèrent que d’une coordonnée : 32 arêtes, une couleur par direction. " +
+            "Projeté de la dimension 4 vers 3, il apparaît comme un petit cube dans un grand, reliés coin à coin ; il a 24 faces carrées et 8 cubes."
+    }) { tesseract(it) },
+    FigureSpec("torus", "Tore", "Espace",
+    { _ ->
+        "Le tore est la surface d’une bouée : un cercle de rayon r qui tourne autour d’un axe, à une distance R de son centre. " +
+            "Son aire vaut 4π²Rr et son volume 2π²Rr². On y trace deux sortes de cercles, les parallèles et les méridiens ; sa caractéristique d’Euler vaut 0, et non 2 comme pour une sphère."
+    }) { torus(it) },
+    FigureSpec("mobius", "Ruban de Möbius", "Espace",
+    { _ ->
+        "On prend une bande de papier, on la tourne d’un demi-tour et on colle ses deux bouts : le ruban de Möbius n’a qu’une seule face et un seul bord. " +
+            "Une fourmi qui en fait le tour revient à son point de départ, mais de l’autre côté du papier. Coupé en son milieu, il ne se sépare pas en deux : il donne un seul ruban, deux fois plus long."
+    }) { mobius(it) },
+    FigureSpec("saddle", "Selle de cheval", "Espace",
+    { _ ->
+        "La selle de cheval est la surface z = x² − y² (paraboloïde hyperbolique) : le long d’un axe elle monte en parabole, le long de l’autre elle descend. " +
+            "Au centre, le col n’est ni un sommet ni un creux. Elle est formée de deux familles de droites : on peut la construire avec des baguettes bien droites. Les couleurs suivent l’altitude."
+    }) { saddle(it) },
+    FigureSpec("trefoil", "Nœud de trèfle", "Espace",
+    { _ ->
+        "Le plus simple des vrais nœuds : la courbe (sin t + 2 sin 2t, cos t − 2 cos 2t, −sin 3t) se referme en se croisant trois fois. " +
+            "Aucune déformation, sans couper le tube, ne le dénoue en un simple anneau. Il existe en deux versions, images l’une de l’autre dans un miroir, qu’on ne peut pas changer l’une en l’autre."
+    }) { trefoil(it) },
+    FigureSpec("geodesic", "Sphère géodésique", "Espace",
+    { _ ->
+        "On part d’un icosaèdre, on découpe chacune de ses 20 faces en 16 petits triangles, puis on pousse leurs sommets sur la sphère : 320 faces, 480 arêtes et 162 sommets, et 162 − 480 + 320 = 2. " +
+            "Douze sommets ont 5 voisins, tous les autres 6. C’est le principe des dômes géodésiques de Buckminster Fuller : solides et légers."
+    }) { geodesic(it) },
 )
