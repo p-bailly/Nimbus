@@ -123,6 +123,8 @@ import kotlin.math.roundToInt
 // sa date à droite. La page pose la météo dessous, sur une ligne, dans la police de l'horloge (Google Sans) ;
 // sur le coloriage ne restent que le maximum et le minimum, coloriés au crayon, sans blanc autour.
 //
+// Une seule police, le Computer Modern droit, en romain ou en gras : ni italique, ni petites capitales.
+//
 // Chaque texte est posé par sa ligne de base, relevée dans la maquette (Chrome arrondit ascendante et
 // descendante au pixel, et pose la ligne de base en conséquence) : haut = base − interligne / 2 − k × taille,
 // k = (ascendante − descendante) / 2 de la face (voir [Face]).
@@ -161,7 +163,6 @@ private const val BODY = 19f
 /** Face de la police, et son k = (ascendante − descendante) / 2, en em. */
 private enum class Face(val k: Float) {
     ROMAN(0.3425f),
-    ITALIC(0.34f),
     BOLD(0.3145f),
 }
 
@@ -170,12 +171,7 @@ private fun top(baseline: Float, size: Float, line: Float = size, face: Face = F
     baseline - line / 2f - face.k * size
 
 private fun style(size: Float, line: Float = size, face: Face = Face.ROMAN, color: Color = PaperColors.Ink): TextStyle =
-    Paper.text(size, line, color).copy(
-        fontWeight = if (face == Face.BOLD) FontWeight.Bold else FontWeight.Normal,
-        fontStyle = if (face == Face.ITALIC) FontStyle.Italic else FontStyle.Normal,
-    )
-
-private fun TextStyle.smallCaps(spacing: Float): TextStyle = copy(fontFeatureSettings = "smcp", letterSpacing = spacing.em)
+    Paper.text(size, line, color).copy(fontWeight = if (face == Face.BOLD) FontWeight.Bold else FontWeight.Normal)
 
 /** Heure (sa case de [TIME] unités) puis date, en haut de la page : il n'y a pas d'en-tête. */
 private const val CLOCK_TOP = 30f
@@ -190,6 +186,12 @@ private const val DATE = 15f
  */
 private const val WEATHER_BASE = 178f
 private const val METEO_WALLPAPER = 192f
+
+/**
+ * En fond d'écran : le bas du rond de l'empreinte que le Pixel pose sur l'écran verrouillé (centré vers
+ * y = 677, 40 de rayon, relevé sur un Pixel 11 Pro) ; la figure commence dessous.
+ */
+private const val FINGERPRINT_BOTTOM = 717f
 
 /** k de Google Sans Flex : (ascendante − descendante) / 2, en em (voir [Face]). */
 private const val SANS_K = 0.34f
@@ -284,7 +286,7 @@ internal fun UnlockPage(
             )
         },
     ) {
-        if (!wallpaper) PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE)
+        if (!wallpaper) PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE, smallCaps = false)
         var y = FIRST
         state.meteo?.let { meteo ->
             val end = MeteoSection(meteo, state.sketch, now.hour, onMeteo, onSketchText, wallpaper)
@@ -301,6 +303,8 @@ internal fun UnlockPage(
         if (state.lines.isNotEmpty() || state.results.isNotEmpty()) {
             y = BasketSection(y, state.lines + state.results, onBasket) + AFTER_BANNER
         }
+        // En fond d'écran, la figure passe sous l'empreinte du Pixel, qui ne la cache plus.
+        if (wallpaper) y = maxOf(y, FINGERPRINT_BOTTOM + 6)
         // La figure du jour, numérotée après le coloriage de Météo s'il est là ; sous elle, un appui déverrouille.
         TapZone("Déverrouiller", Modifier.at(0, y).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - y).coerceAtLeast(0f).dp), onUnlock)
         FigureSection(y, figure ?: dayFigure, if (state.meteo != null && state.sketch != null) 2 else 1, infoShown)
@@ -350,40 +354,41 @@ private fun MeteoSection(
     val t = if (wallpaper) METEO_WALLPAPER else METEO
 
     // Le texte posé sur le coloriage, mesuré là où sera le dessin (même avant qu'il n'arrive) : Météo
-    // dessine autour, et on gomme ici ce qui le toucherait encore.
+    // pousse le soleil, la lune et les nuages à côté, et le ciel passe sous les lettres, sans blanc autour.
     val text = remember { SketchText() }
     val frame = Modifier.at(0, t + SKETCH_TOP).size(PAPER_WIDTH.dp, SKETCH_H.dp)
     Spacer(frame.then(text.frame))
     val density = LocalDensity.current
     val zones = text.zones
     LaunchedEffect(zones, density) { onSketchText(with(density) { imageZones(zones) }) }
-    if (sketch != null) Sketch(sketch, zones, frame)
+    if (sketch != null) Sketch(sketch, frame)
 
     if (wallpaper) {
         WallpaperWeather(meteo)
-        // Sur le dessin, le maximum et le minimum coloriés au crayon : Météo dessine dessous, rien n'est gommé.
+        // Sur le dessin, le maximum et le minimum coloriés au crayon : le ciel passe dessous, le soleil et
+        // les nuages s'écartent.
         val extremes = t + 50
         CrayonText(
             "max ${degrees(meteo.todayMax)}\u00A0°C",
             style(26f, 30f, Face.BOLD),
             Maxi,
             seed = 31,
-            Modifier.at(22, top(extremes, 26f, 30f, Face.BOLD)).width(368.dp).wrapContentWidth(Alignment.End),
+            Modifier.at(22, top(extremes, 26f, 30f, Face.BOLD)).width(368.dp).wrapContentWidth(Alignment.End).then(text.of("max")),
         )
         CrayonText(
             "min ${degrees(meteo.todayMin)}\u00A0°C",
             style(26f, 30f, Face.BOLD),
             Mini,
             seed = 37,
-            Modifier.at(22, top(extremes + 32, 26f, 30f, Face.BOLD)).width(368.dp).wrapContentWidth(Alignment.End),
+            Modifier.at(22, top(extremes + 32, 26f, 30f, Face.BOLD)).width(368.dp).wrapContentWidth(Alignment.End).then(text.of("min")),
         )
         return sketchEnd(meteo, sketch, hour, onOpen, t, extremes + 32 + 6)
     }
 
-    // À gauche : le lieu en petites capitales, la température (« °C » plus petit, en haut), le ressenti.
-    val placeStyle = style(17f, 20f, color = PaperColors.Soft).smallCaps(0.06f)
+    // À gauche : le lieu, la température (« °C » plus petit, en haut), le ressenti.
+    val placeStyle = style(17f, 20f, color = PaperColors.Soft)
     Text(
-        meteo.place.lowercase(Locale.FRENCH),
+        meteo.place,
         style = placeStyle,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -410,10 +415,10 @@ private fun MeteoSection(
     }
     Text(
         "ressenti ${degrees(meteo.feelsLike)}\u00A0°C",
-        style = style(18f, 22f, Face.ITALIC),
+        style = style(18f, 22f, color = PaperColors.Soft),
         softWrap = false,
         onTextLayout = text.layout("feels"),
-        modifier = Modifier.at(22, top(t + 113, 18f, 22f, Face.ITALIC)).then(text.of("feels")),
+        modifier = Modifier.at(22, top(t + 113, 18f, 22f)).then(text.of("feels")),
     )
 
     // À droite : le ciel en gras (sur deux lignes s'il est long, pour laisser le milieu au dessin),
@@ -432,15 +437,12 @@ private fun MeteoSection(
 private fun sketchEnd(meteo: MeteoNow, sketch: ImageBitmap?, hour: Int, onOpen: () -> Unit, t: Float, textEnd: Float): Float {
     val end: Float
     if (sketch != null) {
-        // Légende de la figure, comme sur les autres pages.
-        val caption = buildAnnotatedString {
-            withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure 1") }
-            append(" – ${meteo.place}${moment(hour)?.let { " $it" }.orEmpty()}, dessiné par l'appli Météo.")
-        }
-        val captionStyle = Paper.caption.copy(lineBreak = LineBreak.Heading)
+        // Légende de la figure, comme celle de la figure du jour.
+        val caption = AnnotatedString("Figure 1 – ${meteo.place}${moment(hour)?.let { " $it" }.orEmpty()}")
+        val captionStyle = style(CAPTION, CAPTION_LINE).copy(textAlign = TextAlign.Center, lineBreak = LineBreak.Heading)
         val below = t + SKETCH_TOP + SKETCH_H
-        Text(caption, style = captionStyle, modifier = Modifier.at(22, top(below + 16, 12.5f, 16f)).width(368.dp))
-        end = below + 4 + 16f * lineCount(caption, captionStyle, 368f)
+        Text(caption, style = captionStyle, modifier = Modifier.at(22, top(below + 17, CAPTION, CAPTION_LINE)).width(368.dp))
+        end = below + 3 + CAPTION_LINE * lineCount(caption, captionStyle, 368f)
     } else {
         end = textEnd
     }
@@ -464,7 +466,7 @@ private const val SKY_WIDTH = 165f
  * plus : seul le dessin est redessiné pendant ce temps, rien n'est recomposé.
  */
 @Composable
-private fun Sketch(image: ImageBitmap, text: List<Rect>, modifier: Modifier) {
+private fun Sketch(image: ImageBitmap, modifier: Modifier) {
     val animate = LocalPaper.current.animate
     val progress = remember { Animatable(if (animate) 0f else 1f) }
     if (animate) {
@@ -497,9 +499,6 @@ private fun Sketch(image: ImageBitmap, text: List<Rect>, modifier: Modifier) {
                     Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, startY = 0f, endY = FADE.dp.toPx()),
                     blendMode = BlendMode.DstIn,
                 )
-                // Le texte ne monte pas avec le dessin : la gomme reste en face de lui.
-                val rise = (1f - progress.value) * RISE.dp.toPx()
-                clearText(text.map { it.translate(0f, -rise) })
             },
     ) {
         val p = progress.value
@@ -590,7 +589,7 @@ private fun BasketSection(y0: Float, lines: List<LiveLine>, onOpen: () -> Unit):
         modifier = Modifier.at(24, b - 21).size(28.dp),
     )
     Text("Basket", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(56, top(b, TITLE, face = Face.BOLD)))
-    if (lines.any { it.game.live }) RightText("en direct", style(LABEL, color = Live).smallCaps(0.06f), top(b, LABEL))
+    if (lines.any { it.game.live }) RightText("en direct", style(LABEL, color = Live), top(b, LABEL))
 
     val rows = rememberRows(lines)
     rows.forEachIndexed { i, row -> GameRow(y + 45 + ROW_PITCH * i, row) }
@@ -788,8 +787,8 @@ private fun NotesSection(y0: Float, notes: List<UnlockNote>, today: LocalDate, o
     if (more > 0) {
         Text(
             "et $more autre${if (more > 1) "s" else ""} notification${if (more > 1) "s" else ""}",
-            style = style(14.5f, 18f, Face.ITALIC, PaperColors.Soft).copy(textAlign = TextAlign.End),
-            modifier = Modifier.at(22, top(end + 19, 14.5f, 18f, Face.ITALIC)).width(368.dp),
+            style = style(14.5f, 18f, color = PaperColors.Soft).copy(textAlign = TextAlign.End),
+            modifier = Modifier.at(22, top(end + 19, 14.5f, 18f)).width(368.dp),
         )
         end += 24
     }
@@ -798,7 +797,7 @@ private fun NotesSection(y0: Float, notes: List<UnlockNote>, today: LocalDate, o
 
 /**
  * Une notification : le logo au crayon de l'appli dans une pastille blanche cerclée de sa couleur (son
- * initiale s'il n'y a pas de logo), le titre en gras, l'appli en petites capitales et l'heure à droite,
+ * initiale s'il n'y a pas de logo), le titre en gras, l'appli à sa couleur et l'heure à droite,
  * puis le texte sur une ligne. Appui : déverrouiller et l'ouvrir.
  */
 @Composable
@@ -840,7 +839,7 @@ private fun NoteBanner(y: Float, note: UnlockNote, today: LocalDate, onOpen: (Un
     val first = y + 22
     val second = y + 43
     val meta = buildAnnotatedString {
-        withStyle(SpanStyle(color = ink, fontFeatureSettings = "smcp", letterSpacing = 0.06.em)) { append(note.app.name.lowercase(Locale.FRENCH)) }
+        withStyle(SpanStyle(color = ink)) { append(note.app.name) }
         withStyle(SpanStyle(color = PaperColors.Soft)) { append(" · ${noteTime(note.time, today)}") }
     }
     val metaStyle = style(13f)
@@ -887,7 +886,7 @@ private const val MUSIC_BUTTON = 34f
 
 /**
  * La musique en cours, dans un bandeau colorié à la couleur du lecteur : la pochette (sinon le logo au crayon
- * du lecteur, ou une note), le titre en gras, l'artiste et le lecteur en petites capitales ; à droite,
+ * du lecteur, ou une note), le titre en gras, l'artiste et le lecteur à sa couleur ; à droite,
  * précédent, lecture ou pause, suivant — ou, sur le fond d'écran qui ne reçoit pas les appuis ([controls]
  * faux), « en lecture » ou « en pause ». Appui sur le reste du bandeau : déverrouiller et ouvrir le lecteur.
  * Rend le bas du bandeau.
@@ -948,7 +947,7 @@ private fun MusicSection(y: Float, music: Music, controls: Boolean, onAction: (M
         390 - 3 * MUSIC_BUTTON - 6
     } else {
         val label = if (music.playing) "en lecture" else "en pause"
-        val labelStyle = style(LABEL, color = ink).smallCaps(0.06f)
+        val labelStyle = style(LABEL, color = ink)
         RightText(label, labelStyle, top(first, LABEL))
         390 - textWidth(AnnotatedString(label), labelStyle) - 8
     }
@@ -961,7 +960,7 @@ private fun MusicSection(y: Float, music: Music, controls: Boolean, onAction: (M
     )
     val by = buildAnnotatedString {
         if (music.artist.isNotEmpty()) append("${music.artist} · ")
-        withStyle(SpanStyle(color = ink, fontFeatureSettings = "smcp", letterSpacing = 0.06.em)) { append(music.app.lowercase(Locale.FRENCH)) }
+        withStyle(SpanStyle(color = ink)) { append(music.app) }
     }
     Text(
         by,
@@ -1030,8 +1029,9 @@ private const val PAGE_BOTTOM = 884f
 /** En dessous de cette hauteur, la figure ne se lit plus : la page s'en passe. */
 private const val FIGURE_MIN = 110f
 
-/** Légende de la figure : « Figure 2 – Nom », puis le (i). */
+/** Légendes des figures (« Figure 2 – Nom », puis le (i)) : 14 sur 18. */
 private const val CAPTION = 14f
+private const val CAPTION_LINE = 18f
 private const val CAPTION_H = 20f
 private const val INFO_MARK = 15f
 
@@ -1055,10 +1055,7 @@ private fun FigureSection(y0: Float, figure: DailyFigure, number: Int, infoShown
     val top = y0 + (room - (h + 10f + CAPTION_H)) / 2f
     FigureArt(figure, Modifier.at(22, top).size(368.dp, h.dp))
 
-    val caption = buildAnnotatedString {
-        withStyle(SpanStyle(fontFeatureSettings = "smcp", letterSpacing = 0.04.em)) { append("Figure $number") }
-        append(" – ${figure.title}")
-    }
+    val caption = "Figure $number – ${figure.title}"
     // Sans explication rédigée, pas de (i) : la légende n'est que le nom.
     val hasInfo = figure.info.isNotEmpty()
     val toggle = { open = hasInfo && !open }
@@ -1069,7 +1066,7 @@ private fun FigureSection(y0: Float, figure: DailyFigure, number: Int, infoShown
                 .semantics { contentDescription = if (open) "Ranger l'explication" else "Explication : ${figure.title}" }
                 .clickable(remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClick = toggle),
         ) {
-            Text(caption, style = style(CAPTION, 18f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 340.dp))
+            Text(caption, style = style(CAPTION, CAPTION_LINE), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 340.dp))
             if (hasInfo) {
                 Spacer(Modifier.width(7.dp))
                 InfoMark(open)
@@ -1079,7 +1076,7 @@ private fun FigureSection(y0: Float, figure: DailyFigure, number: Int, infoShown
     if (open && hasInfo) InfoCard(figure.info, top, h, toggle)
 }
 
-/** Le petit (i) : un cercle au crayon fin et un i italique ; plein d'encre quand l'explication est ouverte. */
+/** Le petit (i) : un cercle au crayon fin et un i gras ; plein d'encre quand l'explication est ouverte. */
 @Composable
 private fun InfoMark(open: Boolean) {
     Box(
@@ -1091,7 +1088,7 @@ private fun InfoMark(open: Boolean) {
     ) {
         Text(
             "i",
-            style = style(11.5f, 12f, Face.ITALIC, if (open) PaperColors.Paper else PaperColors.Ink).copy(fontWeight = FontWeight.Bold),
+            style = style(11.5f, 12f, Face.BOLD, if (open) PaperColors.Paper else PaperColors.Ink),
             softWrap = false,
         )
     }

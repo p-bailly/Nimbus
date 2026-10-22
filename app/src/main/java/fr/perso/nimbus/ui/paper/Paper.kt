@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
@@ -167,7 +169,8 @@ fun PaperCanvas(modifier: Modifier = Modifier, content: @Composable BoxScope.() 
     val env = LocalPaper.current
     BoxWithConstraints(modifier.fillMaxSize().background(PaperColors.Paper)) {
         val density = LocalDensity.current
-        val bars = WindowInsets.systemBars
+        // Sans barre d'état (page de déverrouillage), la page reste sous l'appareil photo.
+        val bars = WindowInsets.systemBars.union(WindowInsets.displayCutout)
         val topPx = env.fixedInsets?.first?.let { with(density) { it.dp.toPx() } } ?: bars.getTop(density).toFloat()
         val bottomPx = env.fixedInsets?.second?.let { with(density) { it.dp.toPx() } } ?: bars.getBottom(density).toFloat()
         val w = constraints.maxWidth.toFloat()
@@ -205,11 +208,12 @@ fun PaperPage(modifier: Modifier = Modifier, content: @Composable BoxScope.() ->
 }
 
 /**
- * Heure (appui : alarmes) et date (appui : agenda), centrées en haut de la page ; la page de
- * déverrouillage les pose plus haut et plus grandes ([top], [timeSize], [dateTop], [dateSize]).
+ * Heure (appui : alarmes) et date (appui : agenda, en petites capitales sauf [smallCaps] faux), centrées
+ * en haut de la page ; la page de déverrouillage les pose plus haut et plus grandes ([top], [timeSize],
+ * [dateTop], [dateSize]), la date en romain.
  */
 @Composable
-fun PaperClock(top: Float = 66f, timeSize: Float = 44f, dateTop: Float = 114f, dateSize: Float = 13f) {
+fun PaperClock(top: Float = 66f, timeSize: Float = 44f, dateTop: Float = 114f, dateSize: Float = 13f, smallCaps: Boolean = true) {
     val context = LocalContext.current
     val now by rememberPaperTime()
     val locale = Locale.FRANCE
@@ -231,8 +235,9 @@ fun PaperClock(top: Float = 66f, timeSize: Float = 44f, dateTop: Float = 114f, d
     )
     Text(
         date,
-        style = Paper.text(dateSize, dateSize * 16f / 13f)
-            .copy(fontFeatureSettings = "smcp", letterSpacing = 0.06.em, textAlign = TextAlign.Center),
+        style = Paper.text(dateSize, dateSize * 16f / 13f).let {
+            if (smallCaps) it.copy(fontFeatureSettings = "smcp", letterSpacing = 0.06.em) else it
+        }.copy(textAlign = TextAlign.Center),
         modifier = Modifier
             .at(0, dateTop)
             .width(PAPER_WIDTH.dp)

@@ -72,7 +72,8 @@ object MeteoShare {
 
     /**
      * Le coloriage (calque transparent) de [width] × [height] pixels, dessiné autour de [text] (le texte
-     * qui sera posé dessus, en fractions de l'image). Lève une exception sans dessin
+     * qui sera posé dessus, en fractions de l'image) : le soleil, la lune, les nuages et ce qui vole se
+     * mettent à côté, mais le ciel passe sous les lettres, sans papier blanc autour (`blank=0`). Lève une exception sans dessin
      * (FileNotFoundException) ou si l'image est illisible.
      */
     fun readSketch(resolver: ContentResolver, width: Int, height: Int, text: List<Rect> = emptyList()): ImageBitmap {
@@ -81,6 +82,7 @@ object MeteoShare {
             .appendQueryParameter("width", "$width")
             .appendQueryParameter("height", "$height")
             .apply { if (text.isNotEmpty()) appendQueryParameter("text", textParameter(text)) }
+            .appendQueryParameter("blank", "0")
             .build()
         val bitmap = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
         return checkNotNull(bitmap) { "Dessin illisible" }.asImageBitmap()
