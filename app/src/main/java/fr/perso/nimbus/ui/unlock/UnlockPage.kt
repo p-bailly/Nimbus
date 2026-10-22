@@ -116,7 +116,8 @@ import kotlin.math.roundToInt
 // différente à chaque affichage. Une section sans données disparaît, la suite remonte.
 //
 // En fond de l'écran verrouillé ([UnlockWallpaper]), l'heure est celle du Pixel, petite, en haut à gauche :
-// la page ne pose que la date dessous et, à droite, la météo, dans la police de l'horloge (Google Sans) ;
+// la page ne pose à sa droite que la météo, dans la police de l'horloge (Google Sans) — la date est celle
+// du système, qu'il écrit toujours à côté de l'heure ;
 // sur le coloriage ne restent que le maximum et le minimum, coloriés au crayon, sans blanc autour.
 //
 // Chaque texte est posé par sa ligne de base, relevée dans la maquette (Chrome arrondit ascendante et
@@ -178,11 +179,14 @@ private const val DATE_TOP = 112f
 private const val DATE = 15f
 
 /**
- * En fond d'écran : ligne de base de la petite horloge du Pixel (la température s'y aligne) et de la date
- * posée dessous.
+ * En fond d'écran : ligne de base de la petite horloge du Pixel (la température s'y aligne) et de la ligne
+ * de la date du système, dessous.
  */
 private const val SYSTEM_CLOCK_BASE = 98f
 private const val SYSTEM_DATE_BASE = 126f
+
+/** Largeur au plus du ciel en fond d'écran : la date du système (« Mer. 30 sept. ») tient à sa gauche. */
+private const val SKY_BESIDE_DATE = 200f
 
 /** k de Google Sans Flex : (ascendante − descendante) / 2, en em (voir [Face]). */
 private const val SANS_K = 0.34f
@@ -243,8 +247,8 @@ internal fun UnlockPage(
      */
     onSketchText: (List<Rect>) -> Unit = {},
     /**
-     * Fond de l'écran verrouillé : l'heure est celle du système (petite, en haut à gauche), la page pose la
-     * date et la météo autour d'elle.
+     * Fond de l'écran verrouillé : l'heure et la date sont celles du système (petite horloge, en haut à
+     * gauche), la page pose la météo à leur droite.
      */
     wallpaper: Boolean = false,
 ) {
@@ -275,7 +279,7 @@ internal fun UnlockPage(
             )
         },
     ) {
-        if (wallpaper) SystemClockHeader(now, state.meteo) else PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE)
+        if (wallpaper) SystemClockHeader(state.meteo) else PaperClock(CLOCK_TOP, TIME, DATE_TOP, DATE)
         var y = FIRST
         state.meteo?.let { meteo ->
             val end = MeteoSection(meteo, state.sketch, now.hour, onMeteo, onSketchText, wallpaper)
@@ -297,23 +301,19 @@ internal fun UnlockPage(
 // ---------------------------------------------------------------- Fond d'écran
 
 /**
- * À côté de la petite horloge du Pixel : la date dessous, alignée sur elle à gauche, et à droite la météo
- * (la température en gros sur la ligne de l'heure, le ciel, le ressenti), en Google Sans comme l'heure.
+ * À droite de la petite horloge du Pixel, en Google Sans comme elle : la température en gros sur la ligne de
+ * l'heure, le ciel, le ressenti. La date du système, sous l'heure, reste à gauche.
  */
 @Composable
-private fun SystemClockHeader(now: LocalDateTime, meteo: MeteoNow?) {
-    val date = now.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE)).replaceFirstChar { it.uppercase() }
-    val dateStyle = sans(17f, FontWeight.Medium)
-    Text(date, style = dateStyle, softWrap = false, modifier = Modifier.at(24, sansTop(SYSTEM_DATE_BASE, 17f)))
+private fun SystemClockHeader(meteo: MeteoNow?) {
     meteo ?: return
     RightText("${degrees(meteo.temperature)}°C", sans(46f, display = true), sansTop(SYSTEM_CLOCK_BASE, 46f))
-    // Le ciel, sur la ligne de la date (un peu plus haut) : il s'arrête 18 unités avant elle.
-    val skyWidth = 390 - (24 + textWidth(AnnotatedString(date), dateStyle) + 18)
+    // Le ciel, sur la ligne de la date du système (un peu plus haut) : il lui laisse la gauche.
     RightText(
         meteo.sky,
         sans(16f, FontWeight.Medium),
         sansTop(SYSTEM_DATE_BASE - 4, 16f),
-        Modifier.widthIn(max = skyWidth.coerceAtLeast(60f).dp),
+        Modifier.widthIn(max = SKY_BESIDE_DATE.dp),
         maxLines = 1,
     )
     RightText("ressenti ${degrees(meteo.feelsLike)}°C", sans(15f, color = PaperColors.Soft), sansTop(SYSTEM_DATE_BASE + 16, 15f))
