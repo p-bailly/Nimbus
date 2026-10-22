@@ -12,19 +12,74 @@ import kotlin.random.Random
 // Figures du thème « Pavages » : chaque pavage remplit un cadre (rectangle ou disque), découpé au bord.
 
 internal val tilingFigures: List<FigureSpec> = listOf(
-    FigureSpec("penrose", "Pavage de Penrose", "Pavages", { _ -> "" }) { penrose(it) },
-    FigureSpec("truchet", "Pavage de Truchet", "Pavages", { _ -> "" }) { truchet(it) },
-    FigureSpec("honeycomb", "Nid d’abeilles", "Pavages", { _ -> "" }) { honeycomb(it) },
-    FigureSpec("cairo", "Pavage du Caire", "Pavages", { _ -> "" }) { cairo(it) },
-    FigureSpec("trihexagonal", "Pavage trihexagonal", "Pavages", { _ -> "" }) { trihexagonal(it) },
-    FigureSpec("snub_square", "Pavage carré adouci", "Pavages", { _ -> "" }) { snubSquare(it) },
-    FigureSpec("scales", "Pavage en écailles", "Pavages", { _ -> "" }) { scales(it) },
-    FigureSpec("eight_stars", "Étoiles à huit branches", "Pavages", { _ -> "" }) { eightStars(it) },
-    FigureSpec("rhombitrihexagonal", "Pavage 3.4.6.4", "Pavages", { _ -> "" }) { rhombitrihexagonal(it) },
-    FigureSpec("octagons", "Octogones et carrés", "Pavages", { _ -> "" }) { octagons(it) },
-    FigureSpec("pythagorean_tiling", "Pavage pythagoricien", "Pavages", { _ -> "" }) { pythagoreanTiling(it) },
-    FigureSpec("voronoi", "Vitrail de Voronoï", "Pavages", { _ -> "" }) { voronoi(it) },
-    FigureSpec("hyperbolic", "Pavage hyperbolique", "Pavages", { _ -> "" }) { hyperbolic(it) },
+    FigureSpec("penrose", "Pavage de Penrose", "Pavages", { _ ->
+        "Deux losanges seulement : un mince (angles de 36° et 144°) et un épais (72° et 108°). Chaque pièce se redécoupe en pièces " +
+            "plus petites dans le rapport du nombre d’or φ = (1 + √5) / 2 ≈ 1,618, ici quatre fois de suite. Le pavage ne se répète " +
+            "jamais par translation (il est apériodique), et il y a environ φ fois plus de losanges épais que de minces."
+    }) { penrose(it) },
+    FigureSpec("truchet", "Pavage de Truchet", "Pavages", { _ ->
+        "Chaque carreau porte deux quarts de cercle centrés sur deux coins opposés ; on le pose dans un sens ou dans l’autre, au hasard. " +
+            "Les arcs se raccordent toujours au milieu des côtés et forment des chemins sinueux. Avec 12 × 8 = 96 carreaux, il y a " +
+            "2⁹⁶ dessins possibles, et chacun se colorie en deux couleurs sans que deux régions voisines aient la même."
+    }) { truchet(it) },
+    FigureSpec("honeycomb", "Nid d’abeilles", "Pavages", { _ ->
+        "Trois hexagones réguliers se rejoignent en chaque sommet : 3 × 120° = 360°, d’où sa notation 6.6.6. Seuls trois polygones " +
+            "réguliers pavent seuls le plan : le triangle, le carré et l’hexagone. Des pavages en cellules de même aire, l’hexagonal " +
+            "a les murs les plus courts : c’est le choix des abeilles (prouvé par Thomas Hales en 1999)."
+    }) { honeycomb(it) },
+    FigureSpec("cairo", "Pavage du Caire", "Pavages", { _ ->
+        "Des pentagones tous identiques, mais pas réguliers : chacun a deux angles droits. En chaque sommet se rejoignent trois ou " +
+            "quatre pentagones. On le trouve sur les trottoirs du Caire ; en reliant les centres des pentagones voisins, on obtient " +
+            "le pavage carré adouci, qui est son dual."
+    }) { cairo(it) },
+    FigureSpec("trihexagonal", "Pavage trihexagonal", "Pavages", { _ ->
+        "Hexagones et triangles équilatéraux alternent autour de chaque sommet : 60° + 120° + 60° + 120° = 360°, d’où la notation " +
+            "3.6.3.6. Chaque côté sépare un triangle d’un hexagone, et les côtés s’alignent en trois familles de droites parallèles. " +
+            "Les vanniers japonais l’appellent « kagome » : c’est le motif de leurs paniers tressés."
+    }) { trihexagonal(it) },
+    FigureSpec("snub_square", "Pavage carré adouci", "Pavages", { _ ->
+        "Autour de chaque sommet : trois triangles équilatéraux et deux carrés, dans l’ordre 3.3.4.3.4, soit 3 × 60° + 2 × 90° = 360°. " +
+            "Les carrés sont tournés de 15° alternativement dans un sens et dans l’autre. C’est l’un des huit pavages semi-réguliers : " +
+            "des polygones réguliers, et le même entourage en chaque sommet."
+    }) { snubSquare(it) },
+    FigureSpec("scales", "Pavage en écailles", "Pavages", { _ ->
+        "Chaque écaille est un demi-cercle de rayon r posé sur deux quarts de cercle creusés qui descendent en pointe. Ce que le " +
+            "demi-cercle ajoute en haut, les quarts de cercle l’enlèvent en bas : l’écaille a exactement l’aire d’un rectangle " +
+            "2r × r, soit 2r². Décalées d’une demi-écaille à chaque rang, elles s’emboîtent sans trou."
+    }) { scales(it) },
+    FigureSpec("eight_stars", "Étoiles à huit branches", "Pavages", { _ ->
+        "Chaque étoile à huit branches est faite de deux carrés superposés, tournés de 45°. Posées sur un quadrillage, pointe contre " +
+            "pointe, les étoiles laissent entre elles des croix, qui complètent le pavage. Ce motif de l’art islamique a les symétries " +
+            "du carré : il reste identique après un quart de tour autour d’une étoile."
+    }) { eightStars(it) },
+    FigureSpec("rhombitrihexagonal", "Pavage 3.4.6.4", "Pavages", { _ ->
+        "Autour de chaque sommet : un triangle, un carré, un hexagone et un carré, dans cet ordre, d’où le nom 3.4.6.4. Les angles " +
+            "font bien le tour : 60° + 90° + 120° + 90° = 360°. Chaque hexagone est entouré de six carrés, et les triangles comblent " +
+            "les coins entre eux."
+    }) { rhombitrihexagonal(it) },
+    FigureSpec("octagons", "Octogones et carrés", "Pavages", { _ ->
+        "Un octogone régulier a des angles de 135°. Deux octogones et un carré font le tour d’un sommet : 135° + 135° + 90° = 360°, " +
+            "d’où la notation 4.8.8. Des octogones seuls ne suffiraient pas (deux font 270°, trois dépassent 360°) : les petits carrés " +
+            "comblent les trous."
+    }) { octagons(it) },
+    FigureSpec("pythagorean_tiling", "Pavage pythagoricien", "Pavages", { _ ->
+        "Deux tailles de carrés, de côtés a et b, pavent le plan. Le quadrillage incliné en rouge a pour côté c, l’hypoténuse du " +
+            "triangle rectangle de côtés a et b. Chacun de ses carrés se découpe en morceaux qui reforment un grand et un petit " +
+            "carré : c’est une preuve du théorème de Pythagore, a² + b² = c²."
+    }) { pythagoreanTiling(it) },
+    FigureSpec("voronoi", "Vitrail de Voronoï", "Pavages", { _ ->
+        "Une vingtaine de points, les germes, sont tirés au hasard. La cellule d’un germe rassemble les points du plan plus proches de " +
+            "lui que de tout autre. Les frontières sont des morceaux de médiatrices, les cellules des polygones convexes, et là où " +
+            "trois cellules se touchent, on est à égale distance de trois germes."
+    }) { voronoi(it) },
+    FigureSpec("hyperbolic", "Pavage hyperbolique", "Pavages", { v ->
+        val heptagons = v % 2 == 0
+        val tiles = if (heptagons) "trois heptagones" else "quatre pentagones"
+        val angle = if (heptagons) "120°" else "90°"
+        "Dans le plan, $tiles réguliers ne peuvent pas se rejoindre en un sommet. Dans le plan hyperbolique, si : leurs angles y " +
+            "valent $angle. Le disque de Poincaré représente ce plan infini ; les droites y sont des arcs de cercle perpendiculaires " +
+            "au bord. Toutes les tuiles ont la même taille, mais elles semblent rapetisser vers le bord, qui est à l’infini."
+    }) { hyperbolic(it) },
 )
 
 /** Le cadre rectangulaire des pavages. */

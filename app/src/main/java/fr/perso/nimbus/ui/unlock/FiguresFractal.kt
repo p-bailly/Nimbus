@@ -15,20 +15,76 @@ import kotlin.math.sqrt
 // Cantor, arbre, fougère, Vicsek, H, pentaflocon, Pascal modulo p, Mandelbrot, Julia et Newton.
 
 internal val fractalFigures: List<FigureSpec> = listOf(
-    FigureSpec("levy", "Courbe de Lévy", "Fractales", { _ -> "" }) { levy(it) },
-    FigureSpec("cantor", "Ensemble de Cantor", "Fractales", { _ -> "" }) { cantor(it) },
-    FigureSpec("fractal_tree", "Arbre fractal", "Fractales", { _ -> "" }) { fractalTree(it) },
-    FigureSpec("fern", "Fougère de Barnsley", "Fractales", { _ -> "" }) { fern(it) },
-    FigureSpec("gosper", "Courbe de Gosper", "Fractales", { _ -> "" }) { gosper(it) },
-    FigureSpec("arrowhead", "Pointe de flèche de Sierpiński", "Fractales", { _ -> "" }) { arrowhead(it) },
-    FigureSpec("vicsek", "Flocon de Vicsek", "Fractales", { _ -> "" }) { vicsek(it) },
-    FigureSpec("h_tree", "Fractale en H", "Fractales", { _ -> "" }) { hTree(it) },
-    FigureSpec("pentaflake", "Pentaflocon", "Fractales", { _ -> "" }) { pentaflake(it) },
-    FigureSpec("minkowski", "Saucisse de Minkowski", "Fractales", { _ -> "" }) { minkowski(it) },
-    FigureSpec("pascal_mod", "Triangle de Pascal modulo", "Fractales", { _ -> "" }) { pascalMod(it) },
-    FigureSpec("mandelbrot", "Ensemble de Mandelbrot", "Fractales", { _ -> "" }) { mandelbrot(it) },
-    FigureSpec("julia", "Ensemble de Julia", "Fractales", { _ -> "" }) { julia(it) },
-    FigureSpec("newton", "Fractale de Newton", "Fractales", { _ -> "" }) { newton(it) },
+    FigureSpec("levy", "Courbe de Lévy", "Fractales", { _ ->
+        "On remplace chaque segment par les deux petits côtés d’un triangle rectangle isocèle dont il est l’hypoténuse : deux segments √2 fois plus courts. " +
+            "Après 12 étapes, la courbe compte 2¹² = 4 096 segments. Comme 2 × (1/√2)² = 1, sa dimension fractale vaut log 2 / log √2 = 2 : à la limite, elle couvre une surface."
+    }) { levy(it) },
+    FigureSpec("cantor", "Ensemble de Cantor", "Fractales", { _ ->
+        "On part d’un segment et on ôte son tiers central, puis le tiers central de chacun des deux morceaux restants, et ainsi de suite, un étage par étape. " +
+            "À l’étape n, il reste 2ⁿ morceaux de longueur (1/3)ⁿ : la longueur totale (2/3)ⁿ tend vers 0, et pourtant il reste une infinité de points. " +
+            "Dimension fractale : log 2 / log 3 ≈ 0,631."
+    }) { cantor(it) },
+    FigureSpec("fractal_tree", "Arbre fractal", "Fractales", { v ->
+        val a = FractalParams.treeAngle(v)
+        "Chaque branche se partage en deux branches 0,7 fois plus courtes, écartées de $a° de part et d’autre. Dix partages donnent 2¹¹ − 1 = 2 047 branches " +
+            "et 1 024 bourgeons. Les longueurs forment une suite géométrique de raison 0,7 : un chemin du pied à un bourgeon mesure moins de 1 / (1 − 0,7) ≈ 3,3 fois le tronc."
+    }) { fractalTree(it) },
+    FigureSpec("fern", "Fougère de Barnsley", "Fractales", { _ ->
+        "Un point saute 14 000 fois au hasard en appliquant l’une de quatre transformations affines : 85 % du temps celle qui fait de toute la fougère sa copie un peu plus haute, " +
+            "7 % chacune des deux premières feuilles, 1 % la tige. Les points visités dessinent la seule figure que ces quatre transformations laissent inchangée : " +
+            "la fougère de Michael Barnsley (1988)."
+    }) { fern(it) },
+    FigureSpec("gosper", "Courbe de Gosper", "Fractales", { _ ->
+        "Chaque segment est remplacé par 7 segments √7 fois plus courts, qui tournent de 60° ou de 120°. Après 4 étapes, la courbe compte 7⁴ = 2 401 segments " +
+            "et ne se croise jamais. À la limite, elle remplit l’île de Gosper : sept copies de cette île, collées, forment une île semblable √7 fois plus grande."
+    }) { gosper(it) },
+    FigureSpec("arrowhead", "Pointe de flèche de Sierpiński", "Fractales", { v ->
+        val n = FractalParams.arrowheadOrder(v)
+        val count = if (n == 6) "729" else "2 187"
+        "Chaque segment devient trois segments deux fois plus courts, qui zigzaguent en tournant de 60°. Après $n étapes, les 3^$n = $count segments " +
+            "parcourent le triangle de Sierpiński sans jamais se croiser ; à la limite, la courbe est ce triangle, de dimension log 3 / log 2 ≈ 1,585."
+    }) { arrowhead(it) },
+    FigureSpec("vicsek", "Flocon de Vicsek", "Fractales", { v ->
+        val kept = if (v % 2 == 0) "le centre et les quatre bras, en croix" else "le centre et les quatre coins, en X"
+        "On coupe un carré en 9 carrés égaux et on n’en garde que 5 : $kept. On recommence dans chacun : après 3 étapes, 5³ = 125 carrés de côté 1/27. " +
+            "L’aire tend vers 0 et la dimension fractale vaut log 5 / log 3 ≈ 1,465."
+    }) { vicsek(it) },
+    FigureSpec("h_tree", "Fractale en H", "Fractales", { _ ->
+        "À chaque bout d’un segment, on centre un segment perpendiculaire √2 fois plus court : les H s’emboîtent. Après 8 étapes, 511 segments et 512 extrémités, " +
+            "toutes à la même distance du centre en suivant les traits. À la limite, l’arbre passe aussi près qu’on veut de chaque point d’un rectangle au format A4 ; " +
+            "on s’en sert pour distribuer l’horloge dans les puces."
+    }) { hTree(it) },
+    FigureSpec("pentaflake", "Pentaflocon", "Fractales", { _ ->
+        "Un pentagone est remplacé par six pentagones, un au centre et cinq aux sommets, plus petits d’un facteur (3 − √5)/2 ≈ 0,382 = 1/φ², où φ est le nombre d’or. " +
+            "Après 3 étapes, 6³ = 216 pentagones. Dimension fractale : log 6 / log φ² ≈ 1,862."
+    }) { pentaflake(it) },
+    FigureSpec("minkowski", "Saucisse de Minkowski", "Fractales", { _ ->
+        "Chaque côté est coupé en quatre et remplacé par un créneau de 8 segments de longueur 1/4 : une bosse vers l’extérieur, un creux vers l’intérieur, de même aire. " +
+            "L’île garde donc l’aire du carré de départ, alors que son périmètre double à chaque étape. Dimension : log 8 / log 4 = 1,5. On voit les îles après 0, 1, 2 et 3 étapes."
+    }) { minkowski(it) },
+    FigureSpec("pascal_mod", "Triangle de Pascal modulo", "Fractales", { v ->
+        val p = FractalParams.pascalPrime(v)
+        val rows = when (p) { 2 -> 32; 3 -> 27; 5 -> 25; else -> 28 }
+        "Dans le triangle de Pascal, chaque nombre est la somme des deux du dessus : ce sont les coefficients binomiaux. Ici, $rows lignes où l’on ne garde que " +
+            "le reste de la division par $p : les cases nulles restent vides, les autres sont coloriées selon leur reste. Des triangles vides s’emboîtent à l’échelle $p " +
+            "(théorème de Lucas) ; pour 2, c’est le triangle de Sierpiński."
+    }) { pascalMod(it) },
+    FigureSpec("mandelbrot", "Ensemble de Mandelbrot", "Fractales", { _ ->
+        "Pour chaque point c du plan complexe, on itère z ↦ z² + c en partant de z = 0. Si |z| ne dépasse jamais 2, c est dans l’ensemble (en gris foncé) ; " +
+            "sinon, la couleur dit en combien d’étapes il s’échappe (60 au plus ici). L’ensemble est d’un seul tenant, il touche l’axe réel de −2 à 1/4, " +
+            "et son bord est découpé à l’infini."
+    }) { mandelbrot(it) },
+    FigureSpec("julia", "Ensemble de Julia", "Fractales", { v ->
+        val c = listOf("−0,8 + 0,156 i", "−0,4 + 0,6 i", "0,285 + 0,01 i", "−0,70176 − 0,3842 i")[v % JULIA_C.size]
+        "On fixe c = $c et on itère z ↦ z² + c en partant de chaque point z du plan complexe. Les points dont la suite reste bornée forment l’ensemble de Julia rempli " +
+            "(couleur unie) ; les autres sont coloriés selon leur vitesse de fuite. Quand c est dans l’ensemble de Mandelbrot, cet ensemble est d’un seul tenant ; " +
+            "sinon, il éclate en poussière."
+    }) { julia(it) },
+    FigureSpec("newton", "Fractale de Newton", "Fractales", { _ ->
+        "Pour résoudre z³ = 1, la méthode de Newton répète z ↦ z − (z³ − 1)/(3z²). Selon le point de départ, elle mène à l’une des trois racines, 1 et (−1 ± i√3)/2 " +
+            "(points jaunes) : chaque case prend la couleur de la sienne, plus pâle s’il faut beaucoup d’étapes. Les frontières sont fractales : " +
+            "là où deux couleurs se touchent, la troisième est toujours là."
+    }) { newton(it) },
 )
 
 /** Paramètres des variantes, communs au dessin et à l'explication. */
