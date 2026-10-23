@@ -108,7 +108,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   une nouvelle à chaque affichage de la page, dans un ordre mélangé ; ses couleurs ou ses paramètres
   changent d'un tour à l'autre.
   Un petit (i) après le nom, quand l'explication est rédigée, la montre sur une fiche posée sur la
-  figure. La figure prend la place qui reste, et disparaît si la page est trop pleine. Une section
+  figure. La figure prend la place qui reste : elle grandit jusqu'à toute la largeur de la page quand
+  il y a de la place (sans messages), et disparaît si la page est trop pleine. Une section
   sans données (appli absente, rien en direct) disparaît.
 - Glisser vers le haut, toucher le bas de la page ou Retour : le système demande l'empreinte, le
   visage ou le code, puis la page s'efface. Toucher la météo ouvre Météo, toucher les matchs ouvre
