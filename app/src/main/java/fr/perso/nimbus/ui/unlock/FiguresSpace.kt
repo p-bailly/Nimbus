@@ -2,23 +2,28 @@ package fr.perso.nimbus.ui.unlock
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.lerp
 import fr.perso.nimbus.ui.theme.PaperColors
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 
 // Figures du thème « Espace » : les cinq solides de Platon, la stella octangula, l'hypercube, et des
-// surfaces (tore, ruban de Möbius, selle de cheval, nœud de trèfle), le ballon de football, la sphère
-// géodésique et la double hélice. Un petit moteur 3D les tourne, les
-// projette en perspective légère et les dessine de la face la plus lointaine à la plus proche (algorithme
-// du peintre) ; chaque face est éclairée selon son orientation : plus pâle et peu hachurée face à la
-// lumière, plus appuyée dans l'ombre.
+// surfaces (tore, ruban de Möbius, selle de cheval, nœud de trèfle), la sphère géodésique. Deuxième
+// série : la fibration de Hopf, un nœud torique, les dodécaèdres étoilés de Kepler-Poinsot, le
+// rhombicosidodécaèdre, des loxodromies, la bouteille de Klein, l'hyperboloïde en fils tendus,
+// l'hélicoïde, un coquillage, l'empilement de Kepler et le triangle impossible de Penrose.
+// Un petit moteur 3D les tourne, les projette en perspective légère et les dessine de la face la plus
+// lointaine à la plus proche (algorithme du peintre) ; chaque face est éclairée selon son orientation :
+// plus pâle et peu hachurée face à la lumière, plus appuyée dans l'ombre.
 
 private class Vec3(val x: Float, val y: Float, val z: Float) {
     operator fun plus(o: Vec3) = Vec3(x + o.x, y + o.y, z + o.z)
@@ -32,8 +37,11 @@ private class Vec3(val x: Float, val y: Float, val z: Float) {
 
 private fun vec3(x: Number, y: Number, z: Number) = Vec3(x.toFloat(), y.toFloat(), z.toFloat())
 
-/** Une face à dessiner : ses sommets (dans l'espace) et sa couleur. */
-private class SolidFace(val pts: List<Vec3>, val color: Color)
+/**
+ * Une face à dessiner : ses sommets (dans l'espace) et sa couleur. Les faces d'un même [group] (une pointe
+ * d'étoile) sont dessinées ensemble, à la profondeur moyenne du groupe.
+ */
+private class SolidFace(val pts: List<Vec3>, val color: Color, val group: Int = -1)
 
 /** Le nombre d'or. */
 private val PHI = ((1 + sqrt(5.0)) / 2).toFloat()
@@ -82,7 +90,10 @@ private fun Pencil.render(
     lw: Float = 1.2f,
     margin: Float = 12f,
 ) {
-    class DrawnFace(val pts: List<Offset>, val depth: Float, val light: Float, val color: Color)
+    class DrawnFace(val pts: List<Offset>, val depth: Float, val light: Float, val color: Color, val groupDepth: Float)
+    val groupDepths = faces.filter { it.group >= 0 }.groupBy { it.group }.mapValues { (_, g) ->
+        g.flatMap { f -> f.pts }.map { view.turn(it).z }.average().toFloat()
+    }
     val drawn = mutableListOf<DrawnFace>()
     for (f in faces) {
         val t = f.pts.map { view.turn(it) }
@@ -91,10 +102,11 @@ private fun Pencil.render(
         n = n.unit()
         if (cull && n.z <= 0.01f) continue
         val light = if (cull) n dot LIGHT else abs(n dot LIGHT)
-        drawn += DrawnFace(t.map { view.project(it) }, t.sumOf { it.z.toDouble() }.toFloat() / t.size, light, f.color)
+        val depth = t.sumOf { it.z.toDouble() }.toFloat() / t.size
+        drawn += DrawnFace(t.map { view.project(it) }, depth, light, f.color, groupDepths[f.group] ?: depth)
     }
     val fit = Fit(drawn.map { it.pts }, margin)
-    for ((i, d) in drawn.sortedBy { it.depth }.withIndex()) {
+    for ((i, d) in drawn.sortedWith(compareBy({ it.groupDepth }, { it.depth })).withIndex()) {
         val pts = fit(d.pts)
         // Éclairement de 0 (ombre) à 1 (face à la lumière).
         val b = ((d.light + 1f) / 2f).coerceIn(0f, 1f)
@@ -407,4 +419,458 @@ internal val spaceFigures: List<FigureSpec> = listOf(
         "On part d’un icosaèdre, on découpe chacune de ses 20 faces en 16 petits triangles, puis on pousse leurs sommets sur la sphère : 320 faces, 480 arêtes et 162 sommets, et 162 − 480 + 320 = 2. " +
             "Douze sommets ont 5 voisins, tous les autres 6. C’est le principe des dômes géodésiques de Buckminster Fuller : solides et légers."
     }) { geodesic(it) },
+)
+
+// ------------------------------------------------------------ Deuxième série
+
+private val TWO_PI = (2 * PI).toFloat()
+
+/** Oriente la face [pts] pour que sa normale s'éloigne du point [inside]. */
+private fun facing(pts: List<Vec3>, inside: Vec3): List<Vec3> {
+    val n = (pts[1] - pts[0]) cross (pts[2] - pts[0])
+    val g = pts.reduce { a, b -> a + b } * (1f / pts.size)
+    return if ((n dot (g - inside)) < 0) pts.reversed() else pts
+}
+
+/** Milieux des arêtes (de longueur [edge]) d'un polyèdre de sommets [verts]. */
+private fun edgeMidpoints(verts: List<Vec3>, edge: Float): List<Vec3> {
+    val out = mutableListOf<Vec3>()
+    for (i in verts.indices) for (j in i + 1 until verts.size)
+        if (abs((verts[i] - verts[j]).norm() - edge) < 1e-3f) out += (verts[i] + verts[j]) * 0.5f
+    return out
+}
+
+/**
+ * Petit rhombicosidodécaèdre : les 12 faces du dodécaèdre écartées du centre (chaque sommet repoussé le
+ * long de la normale de sa face), de sorte que les vides deviennent des carrés et des triangles.
+ */
+private fun Pencil.rhombicosidodecahedron(v: Int) {
+    val edge = 2f / PHI
+    val push = edge / sqrt(2f - 2f / sqrt(5f))
+    val verts = regularFaces(DODECA_VERTS, DODECA_NORMALS) { Graphite }.flatMapIndexed { i, f ->
+        val n = DODECA_NORMALS[i].unit()
+        f.pts.map { it + n * push }
+    }
+    val sets = listOf(
+        listOf(Crayons.rouge, Crayons.orange, Crayons.jaune, Crayons.turquoise),
+        listOf(Crayons.violet, Crayons.rose, Crayons.jaune, Crayons.vert),
+        listOf(Crayons.marine, Crayons.bleu, Crayons.orange, Crayons.jaune),
+        listOf(Crayons.sapin, Crayons.vert, Crayons.rose, Crayons.bleu),
+    )
+    val pal = sets[v % sets.size]
+    val pentagons = Crayons.rainbow.filter { it != pal[2] && it != pal[3] }.rot(v % 5)
+    val faces = regularFaces(verts, DODECA_NORMALS) { i -> pentagons[pairIndex(DODECA_NORMALS, i) % 6] } +
+        regularFaces(verts, DODECA_VERTS) { pal[2] } +
+        regularFaces(verts, edgeMidpoints(DODECA_VERTS, edge)) { pal[3] }
+    render(faces, solidView(v, 16f, 18f), cull = true, hatchArea = 260f, lw = 1f, margin = 12f)
+}
+
+/**
+ * Deux polyèdres de Kepler-Poinsot côte à côte, chacun tourné sur lui-même : à gauche le petit
+ * dodécaèdre étoilé (une pyramide à base pentagonale sur chaque face d'un dodécaèdre), à droite le grand
+ * dodécaèdre étoilé (une pyramide à base triangulaire sur chaque face d'un icosaèdre, de sommets ceux
+ * d'un dodécaèdre).
+ */
+private fun Pencil.stellatedDodecahedra(v: Int) {
+    val faces = mutableListOf<SolidFace>()
+    val warm = listOf(Crayons.rouge, Crayons.orange, Crayons.jaune, Crayons.rose, Crayons.violet, Crayons.brun).rot(v % 6)
+    val cool = listOf(Crayons.bleu, Crayons.turquoise, Crayons.vert, Crayons.marine, Crayons.violet).rot(v % 5)
+    // Vus le long d'un axe d'ordre 5 (à gauche) et d'ordre 3 (à droite), un peu de biais.
+    val viewA = SolidView(6f * (v % 3), 58.28f - 8f * (v % 2), 6f * (v % 4))
+    val viewB = SolidView(-45f + 7f * (v % 3), 35.26f + 6f * (v % 2), -8f * (v % 2))
+    fun place(view: SolidView, shift: Float, scale: Float, p: Vec3) = view.turn(p * scale) + vec3(shift, 0, 0)
+    // Petit dodécaèdre étoilé : la pointe est là où se croisent les plans des cinq faces voisines.
+    regularFaces(DODECA_VERTS, DODECA_NORMALS) { Graphite }.forEachIndexed { i, f ->
+        val n = DODECA_NORMALS[i].unit()
+        val apex = n * ((f.pts[0] dot n) * sqrt(5f))
+        val base = f.pts.reduce { a, b -> a + b } * 0.2f
+        val color = warm[pairIndex(DODECA_NORMALS, i) % 6]
+        for (k in f.pts.indices) {
+            val tri = facing(listOf(f.pts[k], f.pts[(k + 1) % 5], apex), base)
+            faces += SolidFace(tri.map { place(viewA, -1.03f, 0.28f, it) }, color, i)
+        }
+    }
+    // Grand dodécaèdre étoilé : icosaèdre intérieur et pointes aux sommets d'un dodécaèdre.
+    val core = DODECA_NORMALS.map { it.unit() * 0.72654f }
+    regularFaces(core, DODECA_VERTS) { Graphite }.forEachIndexed { i, f ->
+        val apex = DODECA_VERTS[i]
+        val base = f.pts.reduce { a, b -> a + b } * (1f / 3)
+        val color = cool[pairIndex(DODECA_VERTS, i) % 5]
+        for (k in f.pts.indices) {
+            val tri = facing(listOf(f.pts[k], f.pts[(k + 1) % 3], apex), base)
+            faces += SolidFace(tri.map { place(viewB, 1.03f, 0.5f, it) }, color, 100 + i)
+        }
+    }
+    render(faces, SolidView(0f, 0f), cull = true, hatchArea = 200f, lw = 0.9f, margin = 12f)
+}
+
+/**
+ * Fibration de Hopf : des cercles de la sphère S³, (cos η e^{it}, sin η e^{i(t + φ)}), projetés de S³ vers
+ * l'espace par projection stéréographique. Pour un η donné, ils couvrent un tore ; chaque cercle est
+ * dessiné comme un tube (trait de couleur bordé de graphite), morceau par morceau du plus lointain au
+ * plus proche.
+ */
+private fun Pencil.hopf(v: Int) {
+    val etas = if (v % 2 == 0) listOf(0.1f, 0.2f) else listOf(0.08f, 0.15f, 0.22f)
+    val perTorus = if (v % 2 == 0) 10 else 8
+    val n = 120
+    val view = SolidView(10f + 20f * (v % 3), 62f + 6f * (v % 2), 0f)
+    val pal = Crayons.rainbow.rot(v % 8)
+    class Piece(val a: Vec3, val b: Vec3, val color: Color)
+    val pieces = mutableListOf<Piece>()
+    etas.forEachIndexed { e, eta ->
+        val ce = cos(eta * PI.toFloat()); val se = sin(eta * PI.toFloat())
+        for (f in 0 until perTorus) {
+            val phase = TWO_PI * f / perTorus + e * 0.6f
+            val color = pal[(f * 8 / perTorus + 3 * e) % 8]
+            val ring = (0..n).map { i ->
+                val t = TWO_PI * i / n
+                val d = 1 - se * sin(t + phase)
+                view.turn(vec3(ce * cos(t) / d, se * cos(t + phase) / d, ce * sin(t) / d) * 0.8f)
+            }
+            for (i in 0 until n) pieces += Piece(ring[i], ring[i + 1], color)
+        }
+    }
+    val fit = Fit(pieces.map { listOf(view.project(it.a)) }, 16f)
+    // Bord de graphite en bout droit, couleur en bout rond : les morceaux d'un même tube se raccordent sans couture.
+    for (p in pieces.sortedBy { it.a.z + it.b.z }) {
+        val a = px(fit(view.project(p.a))); val b = px(fit(view.project(p.b)))
+        // Le bord est un peu prolongé à chaque bout : pas de jour entre deux morceaux.
+        val dl = (b - a) * (0.3f * k / max((b - a).getDistance(), 1e-3f))
+        val z = (p.a.z + p.b.z) / 2
+        val w = 2.8f * EYE / (EYE - z)
+        val light = (z / 1.5f).coerceIn(-1f, 1f)
+        scope.drawLine(Graphite, a - dl, b + dl, strokeWidth = (w + 1.4f) * k, cap = StrokeCap.Butt, alpha = 0.9f)
+        scope.drawLine(PaperColors.Paper, a, b, strokeWidth = w * k, cap = StrokeCap.Round)
+        scope.drawLine(lerp(p.color, Graphite, 0.15f * (1 - light)), a, b, strokeWidth = w * k, cap = StrokeCap.Round, alpha = 0.6f + 0.15f * light)
+    }
+}
+
+/**
+ * Nœud torique (p, q) en tube : la courbe s'enroule p fois autour de l'axe du tore et q fois autour de
+ * son âme.
+ */
+private fun Pencil.torusKnot(v: Int) {
+    val (p, q) = TORUS_KNOTS[v % TORUS_KNOTS.size]
+    val nu = 70 * p + 20; val nv = 8; val tube = 0.26f
+    // Tore un peu aplati : la courbe ne plonge jamais à pic dans le trou.
+    fun curve(t: Float) = vec3((2.3f + 0.8f * cos(q * t)) * cos(p * t), 0.45f * sin(q * t), (2.3f + 0.8f * cos(q * t)) * sin(p * t))
+    val pal = Crayons.rainbow.rot((v * 3) % 8)
+    val faces = surface(nu, nv, true, true, { i, j ->
+        val t = TWO_PI * i / nu
+        val c = curve(t)
+        val tangent = (curve(t + 0.01f) - curve(t - 0.01f)).unit()
+        // Repère du tube : la normale du tore, redressée perpendiculairement à la courbe ; pas de torsion parasite.
+        val nrm = vec3(cos(q * t) * cos(p * t), sin(q * t), cos(q * t) * sin(p * t)).let { (it - tangent * (it dot tangent)).unit() }
+        val b = tangent cross nrm
+        val w = TWO_PI * j / nv
+        c + nrm * (tube * cos(w)) + b * (tube * sin(w))
+    }) { i, _ -> pal[(i * 2 * q / nu) % 8] }
+    render(faces, SolidView(10f * (v % 3), 52f - 6f * (v % 2), 0f), cull = false, hatchArea = 120f, lw = 0.5f, margin = 10f)
+}
+
+/** Les nœuds toriques (p, q) des variantes, p et q premiers entre eux. */
+private val TORUS_KNOTS = listOf(2 to 5, 3 to 5, 2 to 7, 3 to 4)
+
+/** Nombre minimal de croisements du nœud torique (p, q). */
+private fun torusCrossings(p: Int, q: Int) = min(p * (q - 1), q * (p - 1))
+
+/**
+ * Loxodromies : des bandes de la sphère bordées par des courbes qui coupent tous les méridiens sous le
+ * même angle (longitude = a − pente × ln tan(π/4 + latitude/2)) ; une bande sur deux est enlevée, et
+ * l'on voit l'intérieur de la sphère par les vides, comme dans les Sphères en spirales d'Escher.
+ */
+private fun Pencil.loxodromes(v: Int) {
+    val bands = LOXODROME_BANDS[v % LOXODROME_BANDS.size]
+    val across = 5; val rows = 36; val slope = 1.05f
+    val pal = Crayons.rainbow.rot((v * 3) % 8)
+    val faces = mutableListOf<SolidFace>()
+    fun at(a: Float, lat: Float): Vec3 {
+        val lon = a - slope * ln(kotlin.math.tan(PI.toFloat() / 4 + lat / 2))
+        return vec3(cos(lat) * cos(lon), sin(lat), cos(lat) * sin(lon))
+    }
+    for (b in 0 until bands) for (i in 0 until across) for (j in 0 until rows) {
+        val a0 = TWO_PI * (2 * b * across + i) / (2 * bands * across)
+        val a1 = TWO_PI * (2 * b * across + i + 1) / (2 * bands * across)
+        val l0 = rad(-74f + 148f * j / rows); val l1 = rad(-74f + 148f * (j + 1) / rows)
+        val color = lerp(pal[(b * 8 / bands) % 8], Graphite, (j / 3 % 2) * 0.16f)
+        faces += SolidFace(listOf(at(a0, l0), at(a1, l0), at(a1, l1), at(a0, l1)), color)
+    }
+    render(faces, solidView(v, 10f, 18f), cull = false, hatchArea = 90f, lw = 0.5f, margin = 12f)
+}
+
+/** Nombre de bandes de la sphère selon la variante. */
+private val LOXODROME_BANDS = listOf(4, 3, 5)
+
+/**
+ * Bouteille de Klein dans son immersion classique (paramétrage de Wikipédia, en forme de bouteille) : le
+ * goulot traverse la paroi et rejoint le fond par l'intérieur. La panse est dessinée en écorché.
+ */
+private fun Pencil.kleinBottle(v: Int) {
+    val nu = 64; val nv = 18
+    val pal = Crayons.rainbow.rot((v * 5) % 8)
+    val faces = surface(nu + 1, nv, false, true, { i, j ->
+        val u = PI.toFloat() * i / nu; val w = TWO_PI * j / nv
+        val c = cos(u); val s = sin(u); val cw = cos(w)
+        val c2 = c * c; val c4 = c2 * c2; val c6 = c4 * c2
+        val x = -2f / 15 * c * (3 * cw - 30 * s + 90 * c4 * s - 60 * c6 * s + 5 * c * cw * s)
+        val y = -1f / 15 * s * (3 * cw - 3 * c2 * cw - 48 * c4 * cw + 48 * c6 * cw - 60 * s + 5 * c * cw * s -
+            5 * c2 * c * cw * s - 80 * c4 * c * cw * s + 80 * c6 * c * cw * s)
+        val z = 2f / 15 * (3 + 5 * c * s) * sin(w)
+        vec3(x - 0.15f, y - 2.1f, z)
+    }) { i, _ -> pal[min(7, i * 8 / nu)] }
+    // Écorché : on enlève la moitié avant de la panse (là où le tube est large) pour voir le goulot y entrer.
+    val cut = faces.filterIndexed { k, _ ->
+        val i = k / nv; val j = k % nv
+        val u = PI.toFloat() * (i + 0.5f) / nu; val w = TWO_PI * (j + 0.5f) / nv
+        !(3 + 5 * cos(u) * sin(u) > 4.6f && sin(w) > 0.05f)
+    }
+    render(cut, SolidView(-20f + 25f * (v % 3), 14f, -78f + 8f * (v % 2)), cull = false, hatchArea = 140f, lw = 0.5f, margin = 10f)
+}
+
+/**
+ * Hyperboloïde à une nappe en fils tendus : deux familles de droites joignent les points de deux cercles
+ * décalés de ±2β. Les fils de derrière sont pâles ; un léger lavis donne la surface.
+ */
+private fun Pencil.hyperboloid(v: Int) {
+    val n = 30; val ring = 1.2f; val half = 1.2f
+    val beta = rad(listOf(64f, 56f, 70f)[v % 3])
+    val view = solidView(v, 8f, 20f)
+    val pal = Crayons.rainbow.rot((v * 3) % 8)
+    val colors = listOf(pal[0], pal[4])
+    val k2 = (ring * sin(beta) / half).let { it * it }
+    fun at(a: Float, y: Float) = vec3(ring * cos(a), y, ring * sin(a))
+    fun proj(p: Vec3) = view.project(view.turn(p))
+    fun front(p: Vec3, nrm: Vec3): Boolean {
+        val t = view.turn(p)
+        return (view.turn(nrm) dot (vec3(0, 0, EYE) - t)) > 0
+    }
+    val rings = listOf(-half, half).map { y -> (0..72).map { at(TWO_PI * it / 72, y) } }
+    val fit = Fit(rings.map { r -> r.map { proj(it) } }, 18f)
+    // Lavis : les bandes entre deux fils voisins d'une même famille.
+    for (f in 0 until n) {
+        val a = TWO_PI * f / n; val b = TWO_PI * (f + 1) / n
+        val quad = listOf(at(a - beta, -half), at(b - beta, -half), at(b + beta, half), at(a + beta, half)).map { fit(proj(it)) }
+        fill(quad, pal[2], hatch = false, wash = 0.07f, outline = false)
+    }
+    class Piece(val a: Offset, val b: Offset, val front: Boolean, val color: Color)
+    val pieces = mutableListOf<Piece>()
+    for (family in 0..1) for (f in 0 until n) {
+        val a = TWO_PI * (f + 0.5f * family) / n
+        val sgn = if (family == 0) 1f else -1f
+        val p0 = at(a - sgn * beta, -half); val p1 = at(a + sgn * beta, half)
+        for (s in 0 until 14) {
+            val q0 = p0 + (p1 - p0) * (s / 14f); val q1 = p0 + (p1 - p0) * ((s + 1) / 14f)
+            val m = (q0 + q1) * 0.5f
+            pieces += Piece(fit(proj(q0)), fit(proj(q1)), front(m, vec3(m.x, -k2 * m.y, m.z)), colors[family])
+        }
+    }
+    // Les morceaux d'un même fil, mis bout à bout tant qu'ils restent du même côté.
+    fun runs(front: Boolean): List<Pair<List<Offset>, Color>> {
+        val out = mutableListOf<Pair<List<Offset>, Color>>()
+        var cur = mutableListOf<Offset>()
+        for ((i, p) in pieces.withIndex()) {
+            if (i % 14 == 0 || p.front != front) {
+                if (cur.size > 1) out += cur to pieces[i - 1].color
+                cur = mutableListOf()
+            }
+            if (p.front == front) { if (cur.isEmpty()) cur += p.a; cur += p.b }
+        }
+        if (cur.size > 1) out += cur to pieces.last().color
+        return out
+    }
+    for ((run, color) in runs(false)) line(run, color, 0.8f, 0.5f)
+    fun hoop(r: List<Vec3>) {
+        val pts = r.map { fit(proj(it)) }
+        line(pts, Graphite, 3.4f)
+        line(pts, Crayons.brun, 2f, 0.8f)
+    }
+    hoop(rings[0])
+    for ((run, color) in runs(true)) line(run, color, 1.4f, 0.95f)
+    hoop(rings[1])
+    for (family in 0..1) for (f in 0 until n) {
+        val a = TWO_PI * (f + 0.5f * family) / n
+        val sgn = if (family == 0) 1f else -1f
+        dot(fit(proj(at(a + sgn * beta, half))), 1.1f, Graphite, 0.8f)
+    }
+}
+
+/** Hélicoïde : une droite qui avance le long d'un axe (ici couché) en tournant, en bandes de couleur. */
+private fun Pencil.helicoid(v: Int) {
+    val turns = if (v % 2 == 0) 2f else 1.5f
+    val nu = (turns * 44).toInt(); val nv = 6
+    val pal = Crayons.rainbow.rot(v % 8)
+    val faces = surface(nu + 1, nv + 1, false, false, { i, j ->
+        val t = -turns * PI.toFloat() + TWO_PI * turns * i / nu
+        val s = -1f + 2f * j / nv
+        vec3(0.62f * t / turns, s * cos(t), s * sin(t))
+    }) { i, j -> lerp(pal[(i * 16 / nu) % 8], Graphite, if (j == 0 || j == nv - 1) 0.12f else 0f) }
+    render(faces, SolidView(-28f + 14f * (v % 3), 16f, 4f - 4f * (v % 2)), cull = false, hatchArea = 45f, lw = 0.55f, margin = 12f)
+}
+
+/**
+ * Coquillage : un tube dont toutes les mesures sont multipliées par [growth] à chaque tour, enroulé le
+ * long d'une spirale logarithmique tracée sur un cône. Les tours successifs se touchent.
+ */
+private fun Pencil.seashell(v: Int) {
+    val turret = v % 2 == 0
+    val growth = SHELL_GROWTH
+    val k = ln(growth) / TWO_PI
+    val h = if (turret) 1.45f else 0.5f
+    val rho = (growth - 1) * sqrt(1 + h * h) / (growth + 1) * 1.06f
+    val turns = if (turret) 5f else 4f
+    val nu = (turns * 28).toInt(); val nv = 12
+    val pal = listOf(
+        listOf(Crayons.orange, Crayons.jaune, Crayons.rouge, Crayons.jaune),
+        listOf(Crayons.rose, Crayons.violet, Crayons.jaune, Crayons.violet),
+        listOf(Crayons.turquoise, Crayons.jaune, Crayons.bleu, Crayons.jaune),
+        listOf(Crayons.rouge, Crayons.rose, Crayons.orange, Crayons.rose),
+    )[v % 4]
+    val faces = surface(nu + 1, nv, false, true, { i, j ->
+        val t = -TWO_PI * turns * (1 - i.toFloat() / nu)
+        val g = exp(k * t)
+        val s = TWO_PI * j / nv
+        val radial = vec3(cos(t), 0, sin(t))
+        radial * (g * (1 + rho * cos(s))) + vec3(0, g * (-h + rho * sin(s)) + h * 0.5f, 0)
+    }) { i, j -> if (i % 7 == 0) Crayons.brun else pal[(j / 3) % 4] }
+    render(faces, SolidView(20f + 30f * (v % 3), if (turret) 16f else 34f, if (turret) 0f else -8f), cull = false, hatchArea = 140f, lw = 0.5f, margin = 10f)
+}
+
+/** Facteur d'agrandissement du coquillage à chaque tour. */
+private const val SHELL_GROWTH = 1.55f
+
+/**
+ * Empilement de Kepler : des boules qui se touchent, en pyramide à base carrée (4 × 4) ou triangulaire
+ * (côté 5) selon la variante, dessinées de la plus lointaine à la plus proche, une couleur par étage.
+ */
+private fun Pencil.spherePacking(v: Int) {
+    val square = v % 2 == 0
+    val centers = mutableListOf<Pair<Vec3, Int>>()
+    if (square) {
+        for (k in 0 until 4) for (i in 0 until 4 - k) for (j in 0 until 4 - k)
+            centers += vec3(i + k / 2f, k * sqrt(0.5f), j + k / 2f) to k
+    } else {
+        val h = sqrt(3f) / 2
+        for (k in 0 until 5) for (i in 0 until 5 - k) for (j in 0 until 5 - k - i)
+            centers += vec3(i + j / 2f + k / 2f, k * sqrt(2f / 3f), j * h + k * h / 3f) to k
+    }
+    val mean = centers.map { it.first }.reduce { a, b -> a + b } * (1f / centers.size)
+    val scale = 0.62f
+    val view = if (square) solidView(v, 24f, 22f) else SolidView(15f + 30f * (v % 4), 36f, -4f)
+    val pal = listOf(Crayons.orange, Crayons.jaune, Crayons.rouge, Crayons.rose, Crayons.orange).let { if (square) it else Crayons.rainbow.rot((v * 3) % 8) }
+    class Ball(val c: Offset, val r: Float, val depth: Float, val layer: Int)
+    val balls = centers.map { (p, layer) ->
+        val t = view.turn((p - mean) * scale)
+        Ball(view.project(t), 0.5f * scale * EYE / (EYE - t.z), t.z, layer)
+    }
+    val fit = Fit(balls.map { circle(it.c.x, it.c.y, it.r, 24) }, 14f)
+    for ((i, b) in balls.sortedBy { it.depth }.withIndex()) {
+        val c = fit(b.c); val r = b.r * fit.s
+        val disc = circle(c.x, c.y, r, 40)
+        val color = pal[b.layer % pal.size]
+        scope.drawPath(path(disc), PaperColors.Paper)
+        fill(disc, color, angle = -58f + 31f * (i % 5), gap = 3.4f, wash = 0.4f, lw = 1.1f)
+        // Ombre propre en bas à droite, reflet en haut à gauche.
+        line((0..10).map { c + dir(rad(-20f + 13f * it)) * (r * 0.8f) }, lerp(color, Graphite, 0.35f), 1.6f, 0.55f)
+        dot(c + Offset(-0.36f * r, -0.4f * r), 0.2f * r, PaperColors.Paper, 0.85f)
+    }
+}
+
+/**
+ * Triangle de Penrose : trois faces en L, images l'une de l'autre par un tiers de tour, dessinées sur
+ * un réseau triangulaire (poutres d'épaisseur 1, triangle de côté n). Chaque coin est vraisemblable, pas
+ * l'ensemble.
+ */
+private fun Pencil.penroseTriangle(v: Int) {
+    val m = (4 + v % 3).toFloat()
+    val face = listOf(pt(-1f, -1f), pt(m, -1f), pt(m, m - 1f), pt(m - 1f, m - 2f), pt(m - 1f, 0f), pt(-1f, 0f))
+    val c = pt(2 * m / 3, m / 3)
+    fun turn(p: Offset): Offset { val q = p - c; return c + Offset(-q.y, q.x - q.y) }
+    val ex = dir(rad(30f)); val ey = dir(rad(150f))
+    val mirror = if (v % 2 == 1) -1f else 1f
+    fun screen(p: Offset): Offset { val s = ex * p.x + ey * p.y; return Offset(s.y * mirror, -s.x) }
+    val faces = listOf(face, face.map { turn(it) }, face.map { turn(turn(it)) }).map { f -> f.map { screen(it) } }
+    val fit = Fit(faces, 20f)
+    val pal = Crayons.rainbow.rot(v % 8)
+    val colors = listOf(pal[0], pal[3], pal[5])
+    faces.forEachIndexed { i, f ->
+        fill(fit(f), lerp(colors[i], Graphite, 0.1f * i), angle = listOf(-58f, 20f, 75f)[i], gap = listOf(5f, 3.6f, 2.6f)[i],
+            wash = listOf(0.22f, 0.38f, 0.55f)[i], lw = 1.8f)
+    }
+}
+
+/** Deuxième série du thème « Espace ». */
+internal val moreSpaceFigures: List<FigureSpec> = listOf(
+    FigureSpec("hopf", "Fibration de Hopf", "Espace",
+    { v ->
+        val tori = if (v % 2 == 0) 2 else 3
+        val circles = if (v % 2 == 0) 10 else 8
+        "La sphère de dimension 3, qui vit en dimension 4, se range en cercles disjoints, un par point d’une sphère ordinaire : c’est la fibration de Hopf (1931). " +
+            "Projetés dans notre espace, ces cercles deviennent des cercles de Villarceau : deux d’entre eux sont toujours enlacés comme deux maillons. " +
+            "Ici, $tori tores emboîtés de $circles cercles chacun."
+    }) { hopf(it) },
+    FigureSpec("torus_knot", "Nœud torique", "Espace",
+    { v ->
+        val (p, q) = TORUS_KNOTS[v % TORUS_KNOTS.size]
+        "Un nœud torique (p, q) s’enroule p fois autour de l’axe d’un tore et q fois autour de son âme, sans jamais se couper. Ici p = $p et q = $q : " +
+            "comme p et q sont premiers entre eux, la courbe se referme en un seul nœud, qui ne peut pas se dessiner avec moins de ${torusCrossings(p, q)} croisements. " +
+            "Le nœud de trèfle est le nœud torique (2, 3)."
+    }) { torusKnot(it) },
+    FigureSpec("stellated_dodecahedra", "Dodécaèdres étoilés", "Espace",
+    { _ ->
+        "Deux des quatre polyèdres réguliers étoilés de Kepler-Poinsot. À gauche, le petit dodécaèdre étoilé : 12 faces en pentagramme, 30 arêtes, 12 sommets, " +
+            "et 12 − 30 + 12 = −6 : la relation d’Euler ne vaut plus 2 quand les faces se traversent. À droite, le grand dodécaèdre étoilé : 12 pentagrammes, 30 arêtes " +
+            "et 20 sommets, ceux d’un dodécaèdre."
+    }) { stellatedDodecahedra(it) },
+    FigureSpec("loxodromes", "Loxodromies", "Espace",
+    { v ->
+        val bands = LOXODROME_BANDS[v % LOXODROME_BANDS.size]
+        "Une loxodromie coupe tous les méridiens sous le même angle : c’est la route d’un navire qui garde le même cap. Elle tourne sans fin autour du pôle " +
+            "sans jamais l’atteindre, et pourtant sa longueur est finie. Sur une carte de Mercator, c’est une droite ; vue depuis le pôle, une spirale " +
+            "logarithmique. Ici $bands bandes, comme dans les Sphères en spirales d’Escher (1958)."
+    }) { loxodromes(it) },
+    FigureSpec("klein_bottle", "Bouteille de Klein", "Espace",
+    { _ ->
+        "La bouteille de Klein (1882) est une surface fermée sans intérieur ni extérieur : comme le ruban de Möbius, elle n’a qu’une face. " +
+            "Dans notre espace, son goulot doit traverser la paroi pour rejoindre le fond par l’intérieur (ici, la panse est ouverte pour le montrer) ; en dimension 4, il passerait à côté. " +
+            "Sa caractéristique d’Euler vaut 0, comme celle du tore, et coupée en deux, elle donne deux rubans de Möbius."
+    }) { kleinBottle(it) },
+    FigureSpec("hyperboloid", "Hyperboloïde à une nappe", "Espace",
+    { _ ->
+        "L’hyperboloïde à une nappe, x² + z² − y² = 1 à l’échelle près, est une surface courbe faite de droites : par chacun de ses points passent deux droites " +
+            "tracées sur la surface, une de chaque famille (ici deux couleurs). On le construit avec des fils tendus entre deux cercles tournés l’un par rapport " +
+            "à l’autre ; c’est la forme des tours de refroidissement."
+    }) { hyperboloid(it) },
+    FigureSpec("helicoid", "Hélicoïde", "Espace",
+    { v ->
+        val turns = if (v % 2 == 0) "deux tours" else "un tour et demi"
+        "Une droite horizontale monte le long d’un axe en tournant à vitesse constante, ici sur $turns : elle balaie l’hélicoïde, un escalier en colimaçon lisse. " +
+            "C’est une surface minimale, comme un film de savon (Meusnier, 1776), et, avec le plan, la seule surface minimale réglée (Catalan, 1842). " +
+            "On peut l’enrouler en caténoïde sans l’étirer."
+    }) { helicoid(it) },
+    FigureSpec("seashell", "Coquillage", "Espace",
+    { v ->
+        val shape = if (v % 2 == 0) "une tourelle pointue" else "un escargot plus aplati"
+        "Un tube qui grandit en s’enroulant : à chaque tour, toutes ses mesures sont multipliées par 1,55, et son axe suit une spirale logarithmique tracée sur un cône. " +
+            "Chaque tour a la forme du précédent en plus grand, comme les loges du nautile. Selon la pente du cône, on obtient $shape : " +
+            "presque toutes les coquilles suivent cette règle."
+    }) { seashell(it) },
+    FigureSpec("sphere_packing", "Empilement de Kepler", "Espace",
+    { v ->
+        val pile = if (v % 2 == 0) "pyramide à base carrée : 16 + 9 + 4 + 1 = 30 boules" else "pyramide à base triangulaire : 15 + 10 + 6 + 3 + 1 = 35 boules"
+        "La pile d’oranges du marchand, ici une $pile. Kepler affirma en 1611 qu’aucun empilement de boules identiques n’est plus dense : " +
+            "elles occupent π/√18 ≈ 74 % de l’espace. Thomas Hales l’a démontré en 1998, et sa preuve a été vérifiée par ordinateur en 2014."
+    }) { spherePacking(it) },
+    FigureSpec("rhombicosidodecahedron", "Rhombicosidodécaèdre", "Espace",
+    { _ ->
+        "Un des 13 solides d’Archimède : 20 triangles, 30 carrés et 12 pentagones réguliers, soit 62 faces, 120 arêtes et 60 sommets, et 60 − 120 + 62 = 2. " +
+            "Autour de chaque sommet : triangle, carré, pentagone, carré (3.4.5.4). On l’obtient en écartant les 12 faces d’un dodécaèdre ; les vides se comblent " +
+            "de carrés et de triangles."
+    }) { rhombicosidodecahedron(it) },
+    FigureSpec("penrose_triangle", "Triangle de Penrose", "Espace",
+    { _ ->
+        "Trois poutres à section carrée, assemblées deux à deux à angle droit, forment pourtant un triangle. Chaque coin est vraisemblable ; c’est l’ensemble qui " +
+            "est impossible : en suivant les poutres, on s’éloigne sans cesse de l’œil et l’on revient au départ. Dessiné par Oscar Reutersvärd en 1934, puis par " +
+            "Lionel et Roger Penrose en 1958 ; Escher en a tiré sa Chute d’eau."
+    }) { penroseTriangle(it) },
 )
