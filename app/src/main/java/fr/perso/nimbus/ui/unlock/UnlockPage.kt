@@ -1013,12 +1013,19 @@ private fun MusicButtons(top: Float, playing: Boolean, ink: Color, onAction: (Mu
 
 // ---------------------------------------------------------------- Figure du jour
 
-/** Hauteur de la figure, au plus ; plus bas, la page s'arrête vers [PAGE_BOTTOM]. */
+/** Hauteur de la figure dans sa case de 368 unités de large ; plus bas, la page s'arrête vers [PAGE_BOTTOM]. */
 private const val FIGURE_MAX = FH
 private const val PAGE_BOTTOM = 884f
 
 /** En dessous de cette hauteur, la figure ne se lit plus : la page s'en passe. */
 private const val FIGURE_MIN = 110f
+
+/**
+ * Quand la page a de la place (pas de messages, peu de sections), la figure grandit, jusqu'à toute la
+ * largeur de la page, en gardant au moins [FIGURE_AIR] d'air au-dessus et au-dessous.
+ */
+private const val FIGURE_GROW = PAPER_WIDTH / FW
+private const val FIGURE_AIR = 24f
 
 /** Légendes des figures (« Figure 2 – Nom », puis le (i)) : 14 sur 18. */
 private const val CAPTION = 14f
@@ -1028,7 +1035,7 @@ private const val INFO_MARK = 15f
 
 /**
  * La figure du jour dessinée au crayon, et sa légende dessous, « Figure 2 – Nom » suivie d'un petit (i),
- * centrées dans la place qui reste sous les sections. Toucher la légende montre l'explication
+ * centrées dans la place qui reste sous les sections, la figure agrandie si cette place le permet. Toucher la légende montre l'explication
  * mathématique sur une fiche posée sur la figure ; la toucher de nouveau (ou la fiche) la range. Elle
  * est rangée à chaque réveil.
  */
@@ -1041,10 +1048,12 @@ private fun FigureSection(y0: Float, figure: DailyFigure, number: Int, infoShown
     LaunchedEffect(awake) { if (!awake && !infoShown) open = false }
 
     val room = PAGE_BOTTOM - y0
-    val h = minOf(FIGURE_MAX, room - CAPTION_H - 10f)
+    val grow = ((room - CAPTION_H - 10f - 2 * FIGURE_AIR) / FIGURE_MAX).coerceAtMost(FIGURE_GROW)
+    val w = if (grow > 1f) FW * grow else FW
+    val h = if (grow > 1f) FIGURE_MAX * grow else minOf(FIGURE_MAX, room - CAPTION_H - 10f)
     if (h < FIGURE_MIN) return
     val top = y0 + (room - (h + 10f + CAPTION_H)) / 2f
-    FigureArt(figure, Modifier.at(22, top).size(368.dp, h.dp))
+    FigureArt(figure, Modifier.at((PAPER_WIDTH - w) / 2f, top).size(w.dp, h.dp))
 
     val caption = "Figure $number – ${figure.title}"
     // Sans explication rédigée, pas de (i) : la légende n'est que le nom.
