@@ -24,7 +24,8 @@ internal class FigureSpec(
 
 /** Toutes les figures, par thème. */
 internal val ALL_FIGURES: List<FigureSpec> =
-    classicFigures + fractalFigures + circleFigures + curveFigures + tilingFigures + geometryFigures + spaceFigures + numberFigures
+    classicFigures + fractalFigures + circleFigures + curveFigures + tilingFigures + geometryFigures + spaceFigures + numberFigures +
+        moreCurveFigures + moreGeometryFigures + moreNumberFigures + moreFractalFigures + moreSpaceFigures + moreTilingFigures
 
 /** La figure d'un jour et sa variante. */
 internal class DailyFigure(val spec: FigureSpec, val variant: Int) {

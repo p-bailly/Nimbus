@@ -408,3 +408,6 @@ internal val spaceFigures: List<FigureSpec> = listOf(
             "Douze sommets ont 5 voisins, tous les autres 6. C’est le principe des dômes géodésiques de Buckminster Fuller : solides et légers."
     }) { geodesic(it) },
 )
+
+/** Deuxième série du thème « Espace ». */
+internal val moreSpaceFigures: List<FigureSpec> = listOf()
