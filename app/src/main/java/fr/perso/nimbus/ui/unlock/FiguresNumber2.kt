@@ -1,10 +1,7 @@
 package fr.perso.nimbus.ui.unlock
 
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.lerp
 import kotlin.math.PI
@@ -16,35 +13,16 @@ import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sinh
 import kotlin.math.sqrt
 import kotlin.random.Random
 
-// Figures des thèmes « Cercles », « Nombres » et « Graphes », deuxième série : moirés, inversion,
-// faisceaux d'Apollonius, engrenages, sangaku, cercles osculateurs, bulles ; tas de sable, PGCD,
-// diviseurs, Collatz, carrés magiques, spirale de Sacks, Catalan, Nicomaque ; Petersen, Heawood,
-// Königsberg, quatre couleurs, cavalier.
+// Figures des thèmes « Cercles », « Nombres » et « Graphes », deuxième série : faisceaux d'Apollonius,
+// engrenages, bulles ; tas de sable, PGCD, spirale de Sacks, Catalan ; quatre couleurs, cavalier.
 
 internal val moreNumberFigures: List<FigureSpec> = listOf(
     // ------------------------------------------------------------ Cercles
-    FigureSpec("moire_rings", "Moiré de cercles", "Cercles", { v ->
-        if (v % 2 == 0) {
-            "Deux familles de cercles concentriques, également espacés, autour de deux centres voisins. Là où les traits se superposent ou s’intercalent, l’œil voit " +
-                "des franges : ce sont les points où le n-ième cercle de l’une croise le m-ième de l’autre avec n − m constant, donc où la différence des distances " +
-                "aux deux centres est constante. Ce sont des hyperboles, de foyers les deux centres."
-        } else {
-            "Des cercles concentriques et des droites parallèles, avec le même écart. Les franges du moiré relient les croisements du n-ième cercle et de la m-ième droite " +
-                "avec n − m constant : la distance au centre y est égale à la distance à une droite fixe, plus une constante. Ce sont des paraboles, toutes de même foyer, " +
-                "le centre des cercles."
-        }
-    }) { moireRings(it) },
-    FigureSpec("grid_inversion", "Inversion d’une grille", "Cercles", { _ ->
-        "L’inversion de centre O et de rayon R envoie chaque point P sur le point P′ de la demi-droite [OP) tel que OP × OP′ = R². Elle fixe le cercle, échange " +
-            "son intérieur et son extérieur, et change les droites en cercles passant par O. Le damier du dehors se retrouve plié dans le disque, ses cases rapetissant " +
-            "vers O, où file tout ce qui est très loin."
-    }) { gridInversion(it) },
     FigureSpec("apollonius_pencils", "Faisceaux d’Apollonius", "Cercles", { _ ->
         "Deux familles de cercles autour de deux points A et B. Les uns passent par A et B. Les autres, coloriés, sont les cercles d’Apollonius : l’ensemble des points P " +
             "tels que PA / PB = k, pour k fixé, est un cercle centré sur la droite (AB). Chaque cercle d’une famille coupe ceux de l’autre à angle droit, comme les lignes " +
@@ -58,18 +36,6 @@ internal val moreNumberFigures: List<FigureSpec> = listOf(
             "le même pas ; trois satellites également espacés exigent que $zs + $zr soit divisible par 3. Couronne fixe, le porte-satellites tourne ${zs / g} fois quand " +
             "le soleil en fait ${(zs + zr) / g} (formule de Willis)."
     }) { planetaryGears(it) },
-    FigureSpec("sangaku", "Sangaku", "Cercles", { _ ->
-        "Dans un carré de côté a, deux quarts de cercle de rayon a, centrés en deux coins voisins. Le cercle posé entre eux sur le côté a pour rayon 3a/8, celui coincé " +
-            "au-dessus de leur croisement a/16, et ceux des bords a/6. Ces problèmes de contacts étaient peints sur des tablettes de bois offertes aux temples du Japon, " +
-            "les sangaku, à l’époque d’Edo."
-    }) { sangakuTablet(it) },
-    FigureSpec("osculating", "Cercles osculateurs", "Cercles", { v ->
-        val ratio = OSC_A / oscB(v)
-        val cube = String.format(java.util.Locale.FRANCE, "%.1f", ratio * ratio * ratio)
-        "En chaque point d’une ellipse, le cercle osculateur épouse la courbe au plus près : même tangente, même courbure. Son centre décrit la développée, l’étoile " +
-            "rouge. Le long d’un arc entre deux sommets, la courbure varie dans un seul sens, et ces cercles s’emboîtent sans jamais se couper (théorème de Tait " +
-            "et Kneser). Ici a/b ≈ ${String.format(java.util.Locale.FRANCE, "%.2f", ratio)} : le plus grand rayon, a²/b, vaut $cube fois le plus petit, b²/a."
-    }) { osculatingCircles(it) },
     FigureSpec("bubbles", "Bulles", "Cercles", { v ->
         val c = String.format(java.util.Locale.FRANCE, "%.2f", bubbleExponent(v))
         "Les bulles sont semées une à une, à des places tirées au hasard, en refusant celles qui en chevaucheraient une autre. La n-ième a une aire proportionnelle à " +
@@ -89,27 +55,6 @@ internal val moreNumberFigures: List<FigureSpec> = listOf(
             "les couples premiers entre eux : vus depuis l’origine, aucun autre point du réseau ne les cache. Sur un carré de plus en plus grand, leur proportion " +
             "tend vers 6/π² ≈ 60,8 %."
     }) { gcdQuilt(it) },
-    FigureSpec("divisor_arcs", "Toile des diviseurs", "Nombres", { v ->
-        val n = divisorCount(v)
-        "Les entiers de 1 à $n, sur une échelle logarithmique ; un arc relie m à 2m (au-dessus), à 3m (au-dessous), à 5m, à 7m…, une couleur par nombre premier. " +
-            "Multiplier par p, c’est avancer d’un pas fixe : les arcs d’un même premier sont identiques. Chaque nombre reçoit autant d’arcs qu’il a de facteurs " +
-            "premiers distincts ; les premiers, pointés en jaune, n’en reçoivent qu’un, venu de 1."
-    }) { divisorArcs(it) },
-    FigureSpec("collatz", "Corail de Collatz", "Nombres", { v ->
-        val n = collatzParams(v).first
-        "Suite de Syracuse : si n est pair, on le divise par 2, sinon on le remplace par 3n + 1. Les trajectoires des nombres de 1 à $n, remontées depuis 1, " +
-            "tournent un peu à droite à chaque nombre pair et à gauche à chaque impair ; elles forment ce corail, épais là où passent beaucoup de trajectoires. " +
-            "Toutes finissent-elles par 1 ? C’est la conjecture de Collatz (1937), vérifiée jusqu’à 2⁶⁸."
-    }) { collatzCoral(it) },
-    FigureSpec("magic_lines", "Lignes magiques", "Nombres", { v ->
-        val (n, which) = when (v % 3) {
-            0 -> 4 to "celui de Dürer, gravé dans Melencolia I en 1514"
-            1 -> 5 to "construit par la méthode siamoise de La Loubère (1693)"
-            else -> 8 to "obtenu en écrivant 1 à 64 dans l’ordre puis en remplaçant k par 65 − k sur les diagonales des blocs 4 × 4"
-        }
-        "Un carré magique d’ordre $n, $which. Chaque ligne, colonne et diagonale fait la même somme, n(n² + 1)/2 = ${n * (n * n + 1) / 2}. Les cases sont teintées " +
-            "selon leur nombre, et le trait relie 1, 2, 3… dans l’ordre, du petit rond au point final : les « lignes magiques » dont l’architecte Claude Bragdon tirait des ornements."
-    }) { magicLines(it) },
     FigureSpec("sacks_spiral", "Spirale de Sacks", "Nombres", { v ->
         val colors = if (v % 2 == 0) {
             "en rouge ceux de la forme 4k + 1 (sommes de deux carrés, selon Fermat), en bleu ceux de la forme 4k + 3"
@@ -124,42 +69,7 @@ internal val moreNumberFigures: List<FigureSpec> = listOf(
             "1, 2, 5, 14, 42, 132… Ces nombres de Catalan comptent aussi les parenthésages et les chemins de Dyck. Les triangles sont coloriés selon leur nombre de côtés " +
             "pris sur l’hexagone : deux, un ou aucun."
     }) { hexTriangulations(it) },
-    FigureSpec("nicomachus", "Somme des cubes", "Nombres", { v ->
-        val n = 5 + v % 3
-        val t = n * (n + 1) / 2
-        "Le carré de côté 1 + 2 + … + $n = $t se découpe en équerres ; la k-ième, de largeur k, est faite de k carrés de côté k (pour k pair, deux moitiés en font un) : " +
-            "elle vaut k³. D’où 1³ + 2³ + … + ${n}³ = (1 + 2 + … + $n)² = ${t}² = ${t * t}. Cette identité est attribuée à Nicomaque de Gérase, vers l’an 100."
-    }) { cubeSum(it) },
     // ------------------------------------------------------------ Graphes
-    FigureSpec("petersen", "Graphe de Petersen", "Graphes", { v ->
-        if (v % 2 == 0) {
-            "Dix sommets, quinze arêtes, chaque sommet a trois voisins : un pentagone, une étoile à cinq branches et cinq rayons qui les relient. Trois couleurs suffisent " +
-                "pour les sommets, deux voisins n’ayant jamais la même. Deux sommets non voisins ont toujours exactement un voisin commun, et aucun circuit ne passe " +
-                "une seule fois par chaque sommet. Julius Petersen, 1898."
-        } else {
-            "Le graphe de Petersen, avec ses arêtes coloriées de sorte que deux arêtes d’un même sommet diffèrent. Trois couleurs ne suffisent pas : il en faut une " +
-                "quatrième, bien que chaque sommet n’ait que trois arêtes. C’est le plus petit « snark », graphe cubique sans pont qui résiste à trois couleurs ; " +
-                "le nom, pris à Lewis Carroll, est dû à Martin Gardner (1976)."
-        }
-    }) { petersenGraph(it) },
-    FigureSpec("heawood", "Graphe de Heawood", "Graphes", { v ->
-        val shape = if (v % 2 == 0) {
-            "Ses 14 sommets sont posés sur un cercle, reliés en anneau et par des cordes qui sautent cinq places"
-        } else {
-            "Dehors, les 7 points du plan de Fano ; dedans, ses 7 droites ; une arête relie chaque droite à ses 3 points"
-        }
-        "$shape. Le graphe de Heawood a 21 arêtes, chaque sommet trois voisins, et son plus petit circuit compte 6 arêtes : c’est le plus petit graphe ainsi. " +
-            "Deux arêtes d’une même couleur ne se touchent jamais. Percy Heawood, 1890 : ce sont les frontières de sa carte à 7 pays sur un tore, tous voisins entre eux."
-    }) { heawoodGraph(it) },
-    FigureSpec("konigsberg", "Ponts de Königsberg", "Graphes", { v ->
-        val walk = if (v % 2 == 0) {
-            "Le graphe par-dessus : un sommet par rive ou île, une arête par pont."
-        } else {
-            "Le promeneur en pointillé passe six ponts et reste coincé : le septième, en ${listOf("rouge", "violet", "orange", "rose")[(v / 2) % 4]}, lui échappe."
-        }
-        "Peut-on traverser les sept ponts de Königsberg une fois chacun ? Euler a répondu non en 1736 : il faudrait qu’au plus deux des quatre terres touchent un nombre " +
-            "impair de ponts, or l’île en touche 5 et les trois autres 3. C’est l’acte de naissance de la théorie des graphes. $walk"
-    }) { konigsbergBridges(it) },
     FigureSpec("four_colors", "Carte à quatre couleurs", "Graphes", { v ->
         val (a, b, c) = mapRings(v)
         "Une carte de ${1 + a + b + c} pays : un au centre, puis des anneaux de $a, $b et $c. Quatre couleurs suffisent pour que deux pays qui partagent une frontière " +
@@ -181,10 +91,6 @@ private fun gcd(a: Int, b: Int): Int = if (b == 0) abs(a) else gcd(b, a % b)
 
 private fun rect(x: Float, y: Float, w: Float, h: Float = w) = listOf(pt(x, y), pt(x + w, y), pt(x + w, y + h), pt(x, y + h))
 
-/** Dessine [block] découpé dans le polygone [shape] (ou hors de lui, si [outside]). */
-private inline fun Pencil.clipTo(shape: List<Offset>, outside: Boolean = false, crossinline block: () -> Unit) =
-    scope.clipPath(path(shape), if (outside) ClipOp.Difference else ClipOp.Intersect) { block() }
-
 /** Dessine [block] découpé dans le rectangle [x0, x1] × [y0, y1] de la figure. */
 private inline fun Pencil.clipToRect(x0: Float, y0: Float, x1: Float, y1: Float, crossinline block: () -> Unit) =
     scope.clipRect(ox + x0 * k, oy + y0 * k, ox + x1 * k, oy + y1 * k) { block() }
@@ -197,108 +103,6 @@ private fun gradient(colors: List<Color>, t: Float): Color {
 }
 
 // ------------------------------------------------------------ Cercles
-
-/**
- * Moiré : deux familles de cercles concentriques (ou des cercles et des droites) superposées dans un
- * disque. Les traits sont tirés au compas et à la règle, sans tremblé : le moiré naît de leur régularité.
- */
-private fun Pencil.moireRings(v: Int) {
-    val d = floatArrayOf(15f, 21f, 12f)[v % 3]
-    val pal = listOf(Crayons.rouge, Crayons.marine, Crayons.violet, Crayons.sapin, Crayons.orange, Crayons.bleu)
-    // Les deux familles du même crayon : le moiré est une affaire de clair et de sombre.
-    val ink = pal[(v / 2) % 6]
-    val big = 116f
-    val step = 4.6f
-    val win = circle(center.x, center.y, big, 220)
-    fill(win, Crayons.jaune, hatch = false, wash = 0.16f, outline = false)
-    val pen = Stroke(2.1f * k)
-    fun rings(c: Offset) {
-        var r = step
-        while (r < big + abs(c.x - center.x) + abs(c.y - center.y) + step) {
-            scope.drawCircle(ink, r * k, px(c), alpha = 0.85f, style = pen)
-            r += step
-        }
-    }
-    clipTo(win) {
-        if (v % 2 == 0) {
-            rings(pt(center.x - d, center.y))
-            rings(pt(center.x + d, center.y))
-        } else {
-            rings(pt(center.x, center.y + d))
-            var y = center.y - big
-            while (y <= center.y + big) {
-                scope.drawLine(ink, px(pt(center.x - big, y)), px(pt(center.x + big, y)), 2.1f * k, alpha = 0.85f)
-                y += step
-            }
-        }
-    }
-    outline(win, lw = 1.7f)
-}
-
-/**
- * Inversion d'un damier par rapport à un cercle : dehors, le damier tel quel ; dedans, l'image des cases
- * du dehors (des quadrilatères à côtés en arcs de cercle, qui rapetissent vers le centre).
- */
-private fun Pencil.gridInversion(v: Int) {
-    val o = center
-    val big = 104f
-    val h = 40f
-    val shift = if (v % 2 == 0) 0f else h / 2
-    val m = 14
-    val pal = Crayons.rainbow.rot((v * 3) % 8)
-    fun inv(p: Offset): Offset {
-        val d = p - o
-        return o + d * (big * big / (d.x * d.x + d.y * d.y))
-    }
-    val disk = circle(o.x, o.y, big, 220)
-    fun corner(i: Int, j: Int) = pt(o.x + shift + i * h, o.y + shift + j * h)
-    fun colorOf(i: Int, j: Int): Color? {
-        if ((i + j) and 1 != 0) return null
-        val c = corner(i, j) + pt(h / 2, h / 2) - o
-        val ring = (max(abs(c.x), abs(c.y)) / h).roundToInt()
-        return pal[ring % 8]
-    }
-    // Dehors : les cases elles-mêmes.
-    val frame = rect(6f, 6f, FW - 12f, FH - 12f)
-    clipTo(frame) {
-        clipTo(disk, outside = true) {
-            for (i in -m until m) for (j in -m until m) {
-                val c = colorOf(i, j) ?: continue
-                val a = corner(i, j)
-                if (a.x > FW || a.y > FH || a.x + h < 0 || a.y + h < 0) continue
-                fill(rect(a.x, a.y, h), c, gap = 4.4f, angle = -58f + 25f * (i - j), wash = 0.3f, lw = 0.9f)
-            }
-        }
-    }
-    outline(frame, lw = 1.5f)
-    // Dedans : les images des cases du dehors, et celles des droites de la grille.
-    clipTo(disk) {
-        fill(disk, pal[(v + 2) % 8], hatch = false, wash = 0.08f, outline = false)
-        for (i in -m until m) for (j in -m until m) {
-            val c = colorOf(i, j) ?: continue
-            val a = corner(i, j)
-            val far = listOf(a, a + pt(h, 0f), a + pt(h, h), a + pt(0f, h)).maxOf { (it - o).getDistance() }
-            if (far <= big) continue
-            val near = max(abs(a.x + h / 2 - o.x) - h / 2, abs(a.y + h / 2 - o.y) - h / 2).coerceAtLeast(1f)
-            if (big * big * h / (near * near + h * h) < 0.6f) continue
-            val sides = listOf(a, a + pt(h, 0f), a + pt(h, h), a + pt(0f, h))
-            val poly = (0 until 4).flatMap { s -> List(10) { t -> inv(sides[s] + (sides[(s + 1) % 4] - sides[s]) * (t / 10f)) } }
-            fill(poly, c, hatch = false, wash = 0.55f, outline = false)
-        }
-        val reach = m * h
-        for (i in -m..m) {
-            val a = shift + i * h
-            if (abs(a) < 0.5f) continue
-            val n = 160
-            val vert = List(n + 1) { t -> inv(pt(o.x + a, o.y - reach + 2 * reach * t / n)) }
-            val horiz = List(n + 1) { t -> inv(pt(o.x - reach + 2 * reach * t / n, o.y + a)) }
-            line(vert, Graphite, 0.55f, 0.5f)
-            line(horiz, Graphite, 0.55f, 0.5f)
-        }
-    }
-    outline(disk, lw = 1.7f)
-    dot(o, 2.4f, Graphite)
-}
 
 /**
  * Faisceaux d'Apollonius : les cercles PA / PB = k (coloriés, emboîtés autour de A et de B) et les
@@ -395,101 +199,6 @@ private fun Pencil.planetaryGears(v: Int) {
     fill(circle(o.x, o.y, m * 2.2f, 22), Crayons.brun, hatch = false, wash = 0.6f, lw = 1f)
 }
 
-/**
- * Sangaku : dans un carré de côté a, deux quarts de cercle de rayon a centrés en deux coins voisins ; le
- * cercle posé sur le côté (rayon 3a/8), celui coincé au-dessus du croisement (a/16), ceux des bords (a/6).
- */
-private fun Pencil.sangakuTablet(v: Int) {
-    val a = 226f
-    val q = v % 4
-    // (x, y) en fractions de a, y vers le haut ; le tout tourné d'un quart de tour par variante.
-    fun at(x: Float, y: Float): Offset {
-        var u = x - 0.5f
-        var w = 0.5f - y
-        repeat(q) { val t = u; u = -w; w = t }
-        return pt(center.x + u * a, center.y + w * a)
-    }
-    fun disc(cx: Float, cy: Float, r: Float) = List(150) { val t = FULL_TURN * it / 150; at(cx + r * cos(t), cy + r * sin(t)) }
-    fun quarter(cx: Float, from: Float, to: Float) = listOf(at(cx, 0f)) + (0..70).map { val t = from + (to - from) * it / 70; at(cx + cos(t), sin(t)) }
-    // Deux quarts de cercle qui se mêlent bien, puis le grand cercle, le petit, et ceux des bords.
-    val pal = listOf(
-        listOf(Crayons.bleu, Crayons.jaune, Crayons.rouge, Crayons.vert, Crayons.violet),
-        listOf(Crayons.rose, Crayons.jaune, Crayons.turquoise, Crayons.orange, Crayons.bleu),
-        listOf(Crayons.turquoise, Crayons.jaune, Crayons.violet, Crayons.rouge, Crayons.orange),
-        listOf(Crayons.bleu, Crayons.rose, Crayons.jaune, Crayons.vert, Crayons.orange),
-    )[v % 4]
-    val square = listOf(at(0f, 0f), at(1f, 0f), at(1f, 1f), at(0f, 1f))
-    fill(square, Crayons.brun, hatch = false, wash = 0.08f, outline = false)
-    fill(quarter(0f, 0f, PI.toFloat() / 2), pal[0], hatch = false, wash = 0.22f, lw = 1.2f)
-    fill(quarter(1f, PI.toFloat() / 2, PI.toFloat()), pal[1], hatch = false, wash = 0.26f, lw = 1.2f)
-    fill(disc(0.5f, 3f / 8, 3f / 8), pal[2], gap = 3.8f, angle = -20f, wash = 0.45f, lw = 1.3f)
-    fill(disc(0.5f, 15f / 16, 1f / 16), pal[3], gap = 2.8f, lw = 1.1f)
-    val side = sqrt(2f / 3)
-    fill(disc(1f / 6, side, 1f / 6), pal[4], gap = 3.2f, angle = 60f, lw = 1.2f)
-    fill(disc(5f / 6, side, 1f / 6), pal[4], gap = 3.2f, angle = 120f, lw = 1.2f)
-    outline(square, lw = 1.8f)
-}
-
-/** Demi-grand axe des cercles osculateurs, et demi-petit axe selon la variante. */
-private const val OSC_A = 116f
-private fun oscB(v: Int) = floatArrayOf(80f, 88f, 76f)[v % 3]
-
-/**
- * Cercles osculateurs d'une ellipse : le long de deux arcs opposés, de sommet à sommet, des cercles
- * emboîtés (Tait–Kneser) ; la développée (lieu des centres), en étoile, et les normales.
- */
-private fun Pencil.osculatingCircles(v: Int) {
-    val a = OSC_A
-    val b = oscB(v)
-    val flip = if (v % 2 == 0) 1f else -1f
-    val o = center
-    val e = a * a - b * b
-    fun at(t: Float) = pt(o.x + a * cos(t), o.y - flip * b * sin(t))
-    fun centerOf(t: Float): Offset {
-        val c = cos(t); val s = sin(t)
-        return pt(o.x + e / a * c * c * c, o.y + flip * e / b * s * s * s)
-    }
-    fun radius(t: Float): Float {
-        val s = sin(t); val c = cos(t)
-        return (a * a * s * s + b * b * c * c).pow(1.5f) / (a * b)
-    }
-    val pal = Crayons.rainbow.rot((v * 3) % 8)
-    val ellipse = List(200) { at(FULL_TURN * it / 200) }
-    // Les paramètres : rayons en progression géométrique, de b²/a au plus grand cercle qui tient dans le cadre.
-    fun fits(t: Float) = abs(centerOf(t).y - o.y) + radius(t) <= FH / 2 - 6 && abs(centerOf(t).x - o.x) + radius(t) <= FW / 2 - 6
-    var tMax = 0f
-    while (tMax < PI.toFloat() / 2 && fits(tMax + 0.01f)) tMax += 0.01f
-    val r0 = radius(0f)
-    val r1 = radius(tMax)
-    val count = 7
-    val ts = List(count) { i ->
-        val target = r0 * (r1 / r0).pow(i / (count - 1f))
-        var lo = 0f; var hi = PI.toFloat() / 2
-        repeat(40) { val mid = (lo + hi) / 2; if (radius(mid) < target) lo = mid else hi = mid }
-        lo
-    }
-    clipToRect(4f, 4f, FW - 4f, FH - 4f) {
-        fill(ellipse, pal[2], hatch = false, wash = 0.1f, outline = false)
-        for (base in listOf(0f, PI.toFloat())) for (i in count - 1 downTo 0) {
-            val t = base + ts[i]
-            val c = centerOf(t)
-            val r = radius(t)
-            val color = pal[(i + if (base > 0) 4 else 0) % 8]
-            val disc = circle(c.x, c.y, r, (r * 1.1f).toInt().coerceIn(30, 220))
-            fill(disc, color, hatch = i == 0, gap = 3.6f, wash = 0.12f, strokeAlpha = 0.6f, outline = false)
-            outline(disc, lw = 1f, color = lerp(color, Graphite, 0.45f))
-        }
-        for (base in listOf(0f, PI.toFloat())) for (i in 0 until count) {
-            val t = base + ts[i]
-            stroke(at(t), centerOf(t), Graphite, 0.6f, 0.45f)
-            dot(at(t), 2f, Graphite)
-            dot(centerOf(t), 1.6f, Graphite, 0.8f)
-        }
-        line(List(241) { centerOf(FULL_TURN * it / 240) }, Crayons.rouge, 1.3f, 0.9f)
-    }
-    outline(ellipse, lw = 1.8f)
-}
-
 /** Exposant de décroissance des aires des bulles, selon la variante. */
 private fun bubbleExponent(v: Int) = floatArrayOf(1.3f, 1.24f, 1.36f)[v % 3]
 
@@ -548,13 +257,6 @@ private fun Pencil.seededBubbles(v: Int) {
 }
 
 // ------------------------------------------------------------ Nombres
-
-private fun isPrimeNumber(n: Int): Boolean {
-    if (n < 2) return false
-    var d = 2
-    while (d * d <= n) { if (n % d == 0) return false; d++ }
-    return true
-}
 
 private val sandCache = HashMap<Int, Array<IntArray>>()
 
@@ -665,214 +367,6 @@ private fun Pencil.gcdQuilt(v: Int) {
     outline(rect(x0, y0, cols * cell, rows * cell), lw = 1.2f)
 }
 
-/** Nombre d'entiers de la toile des diviseurs, selon la variante. */
-private fun divisorCount(v: Int) = if (v % 2 == 0) 60 else 48
-
-/**
- * Toile des diviseurs : les entiers sur une échelle logarithmique, un arc de m à pm pour chaque nombre
- * premier p (tous de même taille pour un même p), au-dessus ou au-dessous selon p ; les premiers en jaune.
- */
-private fun Pencil.divisorArcs(v: Int) {
-    val n = divisorCount(v)
-    val x0 = 18f
-    val w = FW - 2 * x0
-    fun x(i: Int) = x0 + w * ln(i.toFloat()) / ln(n.toFloat())
-    val y = center.y
-    val primes = (2..n).filter { isPrimeNumber(it) }
-    val pal = Crayons.rainbow.rot((v * 3) % 8)
-    for (index in primes.indices.reversed()) {
-        val p = primes[index]
-        val side = if (index % 2 == 0) -1f else 1f
-        val half = (x(p) - x(1)) / 2
-        val height = min(half, 108f - 2f * index)
-        for (m in 1..n / p) {
-            val a = x(m)
-            val arc = List(41) { t -> val th = PI.toFloat() * t / 40; pt(a + half - half * cos(th), y + side * height * sin(th)) }
-            line(arc, pal[index % 8], if (index < 4) 1.3f else 1f, 0.8f)
-        }
-    }
-    line(listOf(pt(x0 - 8, y), pt(FW - x0 + 8, y)), Graphite, 0.8f, 0.6f)
-    for (i in 1..n) {
-        val c = pt(x(i), y)
-        // Les points se serrent vers la droite : leur taille suit l'écart avec le voisin.
-        val room = (x(i + 1) - x(i)) * 0.45f
-        when {
-            i == 1 -> fill(circle(c.x, c.y, 4.4f, 16), Graphite, hatch = false, wash = 0.8f, lw = 0.9f)
-            isPrimeNumber(i) -> fill(circle(c.x, c.y, min(3.2f, max(1.3f, room)), 14), Crayons.jaune, hatch = false, wash = 0.95f, lw = 0.7f)
-            else -> dot(c, min(1.7f, max(0.8f, room)), Graphite, 0.85f)
-        }
-    }
-}
-
-/** Paramètres du corail : nombres de départ, et (virage des pairs, virage des impairs, raccourcissement du pas). */
-private fun collatzParams(v: Int): Pair<Int, FloatArray> =
-    if (v % 2 == 0) 2000 to floatArrayOf(0.15f, 0.30f, 1f) else 1500 to floatArrayOf(0.12f, 0.26f, 0.996f)
-
-private val collatzCache = HashMap<Int, List<Pair<List<Offset>, Int>>>()
-
-/**
- * Le corail de Collatz de la variante [v] : chaque nombre n est placé au bout de son père f(n) (n/2 ou
- * 3n + 1), après un virage à gauche s'il est pair, à droite s'il est impair. L'arbre est découpé en
- * brins (en suivant toujours l'enfant le plus fréquenté), chacun avec le nombre de trajectoires qui y
- * passent ; le tout tourné pour remplir au mieux le cadre.
- */
-private fun collatzBranches(v: Int): List<Pair<List<Offset>, Int>> = collatzCache.getOrPut(v % 2) {
-    val (starts, p) = collatzParams(v)
-    val turnEven = p[0].toDouble()
-    val turnOdd = p[1].toDouble()
-    val decay = p[2].toDouble()
-    // Position, cap et longueur du pas de chaque nombre visité.
-    val px = HashMap<Long, Double>()
-    val py = HashMap<Long, Double>()
-    val head = HashMap<Long, Double>()
-    val step = HashMap<Long, Double>()
-    val count = HashMap<Long, Int>()
-    val children = HashMap<Long, MutableList<Long>>()
-    px[1L] = 0.0; py[1L] = 0.0; head[1L] = -PI / 2; step[1L] = 1.0
-    for (s in 1..starts) {
-        val traj = mutableListOf(s.toLong())
-        while (traj.last() != 1L && traj.last() !in px) {
-            val n = traj.last()
-            traj += if (n % 2 == 0L) n / 2 else 3 * n + 1
-        }
-        // Les comptes : toute la trajectoire, jusqu'à 1.
-        var n = s.toLong()
-        while (true) {
-            count[n] = (count[n] ?: 0) + 1
-            if (n == 1L) break
-            n = if (n % 2 == 0L) n / 2 else 3 * n + 1
-        }
-        for (i in traj.size - 2 downTo 0) {
-            val m = traj[i]
-            val f = traj[i + 1]
-            val h = head[f]!! + if (m % 2 == 0L) turnEven else -turnOdd
-            val l = step[f]!!
-            px[m] = px[f]!! + l * kotlin.math.cos(h)
-            py[m] = py[f]!! + l * kotlin.math.sin(h)
-            head[m] = h
-            step[m] = l * decay
-            children.getOrPut(f) { mutableListOf() } += m
-        }
-    }
-    // La rotation qui laisse la plus grande échelle dans le cadre.
-    var bestAngle = 0.0
-    var bestScale = 0.0
-    for (r in 0 until 72) {
-        val a = PI * r / 72
-        val ca = kotlin.math.cos(a)
-        val sa = kotlin.math.sin(a)
-        var minX = Double.MAX_VALUE; var maxX = -Double.MAX_VALUE; var minY = Double.MAX_VALUE; var maxY = -Double.MAX_VALUE
-        for (key in px.keys) {
-            val x = px[key]!! * ca - py[key]!! * sa
-            val y = px[key]!! * sa + py[key]!! * ca
-            minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
-        }
-        val sc = min((FW - 24) / (maxX - minX), (FH - 24) / (maxY - minY))
-        if (sc > bestScale) { bestScale = sc; bestAngle = a }
-    }
-    val ca = kotlin.math.cos(bestAngle)
-    val sa = kotlin.math.sin(bestAngle)
-    fun at(n: Long) = pt((px[n]!! * ca - py[n]!! * sa).toFloat(), (px[n]!! * sa + py[n]!! * ca).toFloat())
-    fun level(n: Long) = 31 - Integer.numberOfLeadingZeros(count[n] ?: 1)
-    // Les brins : on suit l'enfant le plus fréquenté ; on coupe quand l'épaisseur (log₂ du compte) change.
-    val pieces = ArrayList<Pair<List<Long>, Int>>()
-    val todo = ArrayDeque<Pair<Long, Long>>()
-    todo.addLast(1L to 1L)
-    while (todo.isNotEmpty()) {
-        val (from, first) = todo.removeFirst()
-        var node = first
-        if (first == from) {
-            val kids = children[from].orEmpty()
-            if (kids.isEmpty()) continue
-            node = kids.maxBy { count[it] ?: 0 }
-            for (kid in kids) if (kid != node) todo.addLast(from to kid)
-        }
-        var cur = mutableListOf(from)
-        var lv = level(node)
-        while (true) {
-            if (level(node) != lv) {
-                pieces += cur to (1 shl lv)
-                cur = mutableListOf(cur.last())
-                lv = level(node)
-            }
-            cur += node
-            val kids = children[node].orEmpty()
-            if (kids.isEmpty()) break
-            val heavy = kids.maxBy { count[it] ?: 0 }
-            for (kid in kids) if (kid != heavy) todo.addLast(node to kid)
-            node = heavy
-        }
-        pieces += cur to (1 shl lv)
-    }
-    val polys = pieces.map { (nodes, c) -> nodes.map { at(it) } to c }
-    val fit = Fit(polys.map { it.first }, 12f)
-    polys.map { (pts, c) -> fit(pts) to c }.sortedBy { it.second }
-}
-
-/** Corail de Collatz : l'arbre des trajectoires de Syracuse, épais et sombre au tronc, clair aux pointes. */
-private fun Pencil.collatzCoral(v: Int) {
-    val pieces = collatzBranches(v)
-    val maxLog = ln(pieces.maxOf { it.second }.toFloat())
-    val pal = listOf(
-        listOf(Crayons.marine, Crayons.violet, Crayons.rose, Crayons.orange, Crayons.jaune),
-        listOf(Crayons.brun, Crayons.rouge, Crayons.orange, Crayons.jaune, Crayons.vert),
-        listOf(Crayons.sapin, Crayons.turquoise, Crayons.bleu, Crayons.violet, Crayons.rose),
-    )[v % 3]
-    for ((pts, c) in pieces) {
-        val t = ln(c.toFloat()) / maxLog
-        line(pts, gradient(pal, 1f - t), 0.5f + 2.8f * t, 0.5f + 0.45f * t)
-    }
-}
-
-/** Le carré magique de la variante : Dürer (4), méthode siamoise (5), ou ordre 8 par diagonales. */
-private fun magicSquare(v: Int): Array<IntArray> = when (v % 3) {
-    0 -> arrayOf(intArrayOf(16, 3, 2, 13), intArrayOf(5, 10, 11, 8), intArrayOf(9, 6, 7, 12), intArrayOf(4, 15, 14, 1))
-    1 -> {
-        val n = 5
-        val a = Array(n) { IntArray(n) }
-        var r = 0
-        var c = n / 2
-        for (k in 1..n * n) {
-            a[r][c] = k
-            val nr = (r - 1 + n) % n
-            val nc = (c + 1) % n
-            if (a[nr][nc] != 0) r = (r + 1) % n else { r = nr; c = nc }
-        }
-        a
-    }
-    else -> Array(8) { i -> IntArray(8) { j -> val k = i * 8 + j + 1; if (i % 4 == j % 4 || i % 4 + j % 4 == 3) 65 - k else k } }
-}
-
-/** Lignes magiques : les cases teintées selon leur nombre, et le trait qui relie 1, 2, 3… dans l'ordre. */
-private fun Pencil.magicLines(v: Int) {
-    val sq = magicSquare(v)
-    val n = sq.size
-    val side = 224f
-    val cell = side / n
-    val x0 = center.x - side / 2
-    val y0 = center.y - side / 2
-    val pal = listOf(
-        listOf(Crayons.jaune, Crayons.orange, Crayons.rouge, Crayons.violet, Crayons.marine),
-        listOf(Crayons.jaune, Crayons.vert, Crayons.turquoise, Crayons.bleu, Crayons.violet),
-        listOf(Crayons.rose, Crayons.orange, Crayons.jaune, Crayons.vert, Crayons.sapin),
-    )[(v / 3) % 3]
-    val last = n * n - 1f
-    val where = arrayOfNulls<Offset>(n * n + 1)
-    for (i in 0 until n) for (j in 0 until n) {
-        val k = sq[i][j]
-        where[k] = pt(x0 + (j + 0.5f) * cell, y0 + (i + 0.5f) * cell)
-        fill(rect(x0 + j * cell, y0 + i * cell, cell), gradient(pal, (k - 1) / last), hatch = false, wash = 0.2f + 0.25f * (k - 1) / last, lw = 0.7f, strokeAlpha = 0.5f)
-    }
-    for (k in 1 until n * n) {
-        line(listOf(where[k]!!, where[k + 1]!!), lerp(gradient(pal, (k - 0.5f) / last), Graphite, 0.45f), 2.2f, 0.9f)
-    }
-    val s = where[1]!!
-    outline(circle(s.x, s.y, cell * 0.16f, 18), lw = 1.4f)
-    val e = where[n * n]!!
-    fill(circle(e.x, e.y, cell * 0.12f, 16), Graphite, hatch = false, wash = 0.9f, lw = 1f)
-    outline(rect(x0, y0, side), lw = 1.6f)
-}
-
 /** Spirale de Sacks : n à la distance √n du centre et à l'angle 2π√n ; les nombres premiers pointés. */
 private fun Pencil.sacksSpiral(v: Int) {
     val n = 10000
@@ -947,42 +441,6 @@ private fun Pencil.hexTriangulations(v: Int) {
     }
 }
 
-/**
- * Somme des cubes : le carré de côté T = 1 + 2 + … + n découpé en équerres ; la k-ième, de largeur k,
- * faite de k carrés k × k (deux moitiés pour k pair), vaut k³.
- */
-private fun Pencil.cubeSum(v: Int) {
-    val n = 5 + v % 3
-    val total = n * (n + 1) / 2f
-    val side = 226f
-    val u = side / total
-    val x0 = center.x - side / 2
-    val yb = center.y + side / 2
-    fun at(x: Float, y: Float) = pt(x0 + x * u, yb - y * u)
-    val pal = Crayons.rainbow.rot((v * 3) % 8)
-    for (k in 1..n) {
-        val a = (k - 1) * k / 2f
-        val b = k * (k + 1) / 2f
-        val gnomon = listOf(at(0f, a), at(0f, b), at(b, b), at(b, 0f), at(a, 0f), at(a, a))
-        fill(gnomon, pal[(k - 1) % 8], gap = 3.6f, angle = -58f + 37f * k, wash = 0.34f, lw = 1.3f)
-        // Les carrés k × k de l'équerre : celui du coin, puis le long des deux bras, depuis les axes.
-        stroke(at(a, a), at(a, b), Graphite, 0.8f, 0.7f)
-        stroke(at(a, a), at(b, a), Graphite, 0.8f, 0.7f)
-        var t = k.toFloat()
-        while (t < a - 0.01f) {
-            stroke(at(a, t), at(b, t), Graphite, 0.8f, 0.7f)
-            stroke(at(t, a), at(t, b), Graphite, 0.8f, 0.7f)
-            t += k
-        }
-    }
-    // Le quadrillage des unités : T² petits carrés en tout.
-    for (i in 1 until total.toInt()) {
-        stroke(at(i.toFloat(), 0f), at(i.toFloat(), total), Graphite, 0.4f, 0.16f)
-        stroke(at(0f, i.toFloat()), at(total, i.toFloat()), Graphite, 0.4f, 0.16f)
-    }
-    outline(listOf(at(0f, 0f), at(total, 0f), at(total, total), at(0f, total)), lw = 1.7f)
-}
-
 // ------------------------------------------------------------ Graphes
 
 /**
@@ -1002,151 +460,6 @@ private fun backtrackColoring(count: Int, colors: Int, conflicts: List<List<Int>
         return false
     }
     return if (go(0)) c else null
-}
-
-/** Les arêtes du graphe de Petersen : pentagone extérieur (0 à 4), rayons, pentagramme intérieur (5 à 9). */
-private val petersenEdges: List<Pair<Int, Int>> = (0 until 5).flatMap { i -> listOf(i to (i + 1) % 5, i to 5 + i, 5 + i to 5 + (i + 2) % 5) }
-
-/**
- * Graphe de Petersen en étoile : sommets coloriés en trois couleurs (variante paire), ou arêtes
- * coloriées en quatre, deux arêtes d'un même sommet différant toujours (variante impaire).
- */
-private fun Pencil.petersenGraph(v: Int) {
-    val o = center + pt(0f, 6f)
-    val turn = rad(-90f)
-    val pos = List(10) { i -> o + dir(turn + FULL_TURN * (i % 5) / 5) * (if (i < 5) 114f else 52f) }
-    val pal = Crayons.rainbow.rot((v * 3) % 8)
-    fill(pos.subList(0, 5), pal[2], hatch = false, wash = 0.12f, outline = false)
-    fill(listOf(pos[5], pos[7], pos[9], pos[6], pos[8]), pal[5], wash = 0.16f, gap = 5f, strokeAlpha = 0.4f, outline = false)
-    if (v % 2 == 0) {
-        val kinds = listOf(Crayons.marine, Crayons.brun, Crayons.violet)
-        petersenEdges.forEachIndexed { e, (a, b) -> line(listOf(pos[a], pos[b]), kinds[e % 3], 2.4f, 0.85f) }
-        val adj = List(10) { i -> petersenEdges.filter { it.first == i || it.second == i }.map { if (it.first == i) it.second else it.first }.filter { it < i } }
-        val col = backtrackColoring(10, 3, adj)!!
-        val vcol = listOf(pal[0], pal[3], pal[6])
-        for (i in 0 until 10) fill(circle(pos[i].x, pos[i].y, 8f, 22), vcol[col[i]], gap = 2.6f, wash = 0.7f, lw = 1.2f)
-    } else {
-        val conflicts = petersenEdges.indices.map { e ->
-            val (a, b) = petersenEdges[e]
-            (0 until e).filter { f -> val (c, d) = petersenEdges[f]; a == c || a == d || b == c || b == d }
-        }
-        val col = backtrackColoring(petersenEdges.size, 4, conflicts)!!
-        val ecol = listOf(pal[0], pal[3], pal[6], Graphite)
-        petersenEdges.forEachIndexed { e, (a, b) -> line(listOf(pos[a], pos[b]), ecol[col[e]], if (col[e] == 3) 3.2f else 2.6f, 0.9f) }
-        for (i in 0 until 10) fill(circle(pos[i].x, pos[i].y, 6.5f, 20), Crayons.jaune, hatch = false, wash = 0.9f, lw = 1.2f)
-    }
-}
-
-/**
- * Graphe de Heawood : en anneau à 14 sommets avec les cordes i → i + 5 (variante paire), ou en graphe
- * d'incidence du plan de Fano, les points dehors et les droites {j, j + 1, j + 3} dedans (variante impaire).
- * Les arêtes sont en trois couleurs, deux arêtes d'un même sommet différant toujours.
- */
-private fun Pencil.heawoodGraph(v: Int) {
-    val o = center
-    val pal = Crayons.rainbow.rot((v * 3) % 8)
-    val edgeColors = listOf(pal[0], pal[3], pal[5])
-    val pointColor = Crayons.jaune
-    val lineColor = Crayons.violet
-    if (v % 2 == 0) {
-        val pos = List(14) { o + dir(rad(-90f) + FULL_TURN * it / 14) * 114f }
-        fill(pos, pal[2], hatch = false, wash = 0.1f, outline = false)
-        for (i in 0 until 14 step 2) line(listOf(pos[i], pos[(i + 5) % 14]), edgeColors[2], 2.4f, 0.85f)
-        for (i in 0 until 14) line(listOf(pos[i], pos[(i + 1) % 14]), edgeColors[i % 2], 2.6f, 0.9f)
-        for (i in 0 until 14) fill(circle(pos[i].x, pos[i].y, 7f, 20), if (i % 2 == 0) pointColor else lineColor, gap = 2.6f, wash = 0.75f, lw = 1.2f)
-    } else {
-        val points = List(7) { o + dir(rad(-90f) + FULL_TURN * it / 7) * 114f }
-        val lines = List(7) { o + dir(rad(-90f) + FULL_TURN * (it + 4f / 3) / 7) * 50f }
-        fill(points, pal[2], hatch = false, wash = 0.1f, outline = false)
-        fill(lines, pal[6], wash = 0.14f, gap = 5f, strokeAlpha = 0.4f, outline = false)
-        for (j in 0 until 7) listOf(0, 1, 3).forEachIndexed { d, off ->
-            line(listOf(lines[j], points[(j + off) % 7]), edgeColors[d], 2.4f, 0.88f)
-        }
-        for (p in points) fill(circle(p.x, p.y, 7.5f, 20), pointColor, gap = 2.6f, wash = 0.75f, lw = 1.2f)
-        for (p in lines) fill(circle(p.x, p.y, 6.5f, 20), lineColor, gap = 2.6f, wash = 0.75f, lw = 1.2f)
-    }
-}
-
-/** Arrondit un polygone fermé par la méthode de Chaikin ([n] passes). */
-private fun smooth(pts: List<Offset>, n: Int = 2): List<Offset> {
-    var p = pts
-    repeat(n) {
-        p = p.indices.flatMap { i ->
-            val a = p[i]
-            val b = p[(i + 1) % p.size]
-            listOf(a * 0.75f + b * 0.25f, a * 0.25f + b * 0.75f)
-        }
-    }
-    return p
-}
-
-/** Une planche de pont de [a] à [b], de demi-largeur [w]. */
-private fun plank(a: Offset, b: Offset, w: Float): List<Offset> {
-    val d = b - a
-    val n = pt(-d.y, d.x) * (w / d.getDistance())
-    return listOf(a + n, b + n, b - n, a - n)
-}
-
-/** Courbe de [a] à [b] passant par [m] (une parabole, de sommet près de [m]). */
-private fun through(a: Offset, m: Offset, b: Offset): List<Offset> {
-    val c = m * 2f - (a + b) * 0.5f
-    return List(25) { i -> val t = i / 24f; a * ((1 - t) * (1 - t)) + c * (2 * t * (1 - t)) + b * (t * t) }
-}
-
-/**
- * Ponts de Königsberg : la Pregel, l'île du Kneiphof, la terre de l'est entre les deux bras, les sept
- * ponts ; par-dessus, le graphe d'Euler (variante paire) ou un promeneur coincé après six ponts.
- */
-private fun Pencil.konigsbergBridges(v: Int) {
-    val pal = listOf(Crayons.rouge, Crayons.violet, Crayons.orange, Crayons.rose)
-    val accent = pal[(v / 2) % pal.size]
-    // L'eau : un bras autour de l'île, qui se partage à l'est autour de la terre D.
-    val water = smooth(
-        listOf(
-            pt(-30f, 76f), pt(60f, 70f), pt(130f, 77f), pt(200f, 70f), pt(232f, 70f), pt(268f, 56f), pt(310f, 44f), pt(400f, 26f),
-            pt(400f, 74f), pt(322f, 90f), pt(280f, 108f), pt(252f, 125f), pt(280f, 142f), pt(322f, 160f), pt(400f, 176f),
-            pt(400f, 224f), pt(310f, 206f), pt(268f, 194f), pt(232f, 180f), pt(200f, 180f), pt(130f, 173f), pt(60f, 180f), pt(-30f, 174f),
-        ),
-    )
-    val island = List(90) { val t = FULL_TURN * it / 90; pt(138f + 64f * cos(t), 125f + 27f * sin(t)) }
-    val frame = rect(6f, 6f, FW - 12f, FH - 12f)
-    clipTo(frame) {
-        fill(frame, Crayons.vert, wash = 0.12f, gap = 7f, strokeAlpha = 0.25f, outline = false)
-        fill(water, Crayons.bleu, wash = 0.3f, gap = 3.6f, angle = 12f, strokeAlpha = 0.55f, lw = 1.1f)
-        fill(island, Crayons.jaune, wash = 0.35f, gap = 4.6f, angle = -40f, lw = 1.2f)
-    }
-    outline(frame, lw = 1.5f)
-    // Les ponts : a, b vers le nord, c, d vers le sud, e vers l'est, f et g sur les bras.
-    fun islandEdge(x: Float, side: Float) = pt(x, 125f + side * 27f * sqrt(1 - ((x - 138f) / 64f) * ((x - 138f) / 64f)))
-    val bridges = listOf(
-        islandEdge(108f, -1f) to pt(108f, 68f), islandEdge(168f, -1f) to pt(168f, 68f),
-        islandEdge(108f, 1f) to pt(108f, 182f), islandEdge(168f, 1f) to pt(168f, 182f),
-        pt(200f, 125f) to pt(258f, 125f),
-        pt(296f, 47f) to pt(306f, 99f), pt(296f, 203f) to pt(306f, 151f),
-    )
-    val unused = if (v % 2 == 1) 4 else -1
-    bridges.forEachIndexed { i, (a, b) ->
-        val ext = (b - a) * (3f / (b - a).getDistance())
-        fill(plank(a - ext, b + ext, 4.2f), if (i == unused) accent else Crayons.brun, hatch = false, wash = 0.75f, lw = 1f)
-    }
-    // Le graphe : N, S, l'île K, la terre de l'est D.
-    val north = pt(138f, 30f)
-    val south = pt(138f, 220f)
-    val isle = pt(138f, 125f)
-    val east = pt(334f, 125f)
-    fun mid(i: Int) = (bridges[i].first + bridges[i].second) * 0.5f
-    val ends = listOf(isle to north, isle to north, isle to south, isle to south, isle to east, north to east, south to east)
-    if (v % 2 == 0) {
-        ends.forEachIndexed { i, (a, b) -> line(through(a, mid(i), b), accent, 2.2f, 0.9f) }
-    } else {
-        // Le promeneur : N → K → S → K → N → D → S, puis plus de pont pour lui.
-        val walk = listOf(0 to (north to isle), 2 to (isle to south), 3 to (south to isle), 1 to (isle to north), 5 to (north to east), 6 to (east to south))
-        for ((i, ab) in walk) {
-            val pts = through(ab.first, mid(i), ab.second)
-            for (j in 0 until pts.size - 1 step 2) stroke(pts[j], pts[j + 1], Graphite, 1.6f, 0.85f)
-        }
-    }
-    for (p in listOf(north, south, isle, east)) fill(circle(p.x, p.y, 7f, 20), if (p == isle) Crayons.orange else accent, gap = 2.6f, wash = 0.8f, lw = 1.2f)
 }
 
 /** Nombres de pays des trois anneaux de la carte, selon la variante. */

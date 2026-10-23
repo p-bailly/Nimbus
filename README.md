@@ -102,8 +102,9 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   période comprises) et leurs résultats de la nuit (gagnante en gras, perdante en gris, « victoire »
   ou « défaite » de la favorite surlignée au crayon ; quatre lignes en tout ; un résultat disparaît
   12 h après la fin du match), puis la figure du jour, dessinée au crayon (contour au crayon de
-  papier, coloriage aux crayons de couleur), avec sa légende « Figure 2 – Nom » : 200 figures par
-  thème (classiques, fractales, cercles, courbes, pavages, géométrie, espace, nombres, graphes et hasard),
+  papier, coloriage aux crayons de couleur), avec sa légende « Figure 2 – Nom » : 164 figures par
+  thème (classiques, fractales, cercles, courbes, pavages, géométrie, espace, nombres, graphes, hasard et
+  fonctions),
   une nouvelle à chaque affichage de la page, dans un ordre mélangé ; ses couleurs ou ses paramètres
   changent d'un tour à l'autre.
   Un petit (i) après le nom, quand l'explication est rédigée, la montre sur une fiche posée sur la

@@ -19,8 +19,9 @@ import kotlin.math.sin
 import kotlin.math.sinh
 import kotlin.math.sqrt
 
-// Figures du thème « Géométrie », deuxième série : coniques, porisme de Poncelet, vitrail gothique,
-// sangaku, inversion, dissections, rectangle parfait, patrons du cube et pentaminos.
+// Figures du thème « Géométrie », deuxième série : coniques, porisme de Poncelet, cercles exinscrits,
+// kaléidoscope, inversion, spidron, Pythagore et Van Aubel, rectangle parfait, patrons du cube et
+// pentaminos.
 
 internal val moreGeometryFigures: List<FigureSpec> = listOf(
     FigureSpec("vertex_conics", "Coniques de même sommet", "Géométrie", { v ->
@@ -36,12 +37,6 @@ internal val moreGeometryFigures: List<FigureSpec> = listOf(
             "c’est la différence des distances qui est constante) : elles se coupent partout à angle droit et découpent ce damier courbe " +
             "en ${confocalSectors(v)} secteurs."
     }) { confocalConics(it) },
-    FigureSpec("pascal_hexagram", "Hexagramme de Pascal", "Géométrie", { _ ->
-        "Six points sur une ellipse, reliés dans le désordre : un hexagone croisé, l’« hexagramme mystique ». Ses côtés opposés, " +
-            "prolongés, se coupent deux à deux en trois points (de la couleur de leur paire), et ces trois points sont toujours alignés, " +
-            "sur la droite de Pascal. Blaise Pascal l’a découvert à 16 ans, en 1640, pour toutes les coniques ; six points donnent " +
-            "60 hexagones, donc 60 droites de Pascal."
-    }) { pascalHexagram(it) },
     FigureSpec("excircles", "Cercles exinscrits", "Géométrie", { _ ->
         "Un triangle, son cercle inscrit et ses trois cercles exinscrits : chacun touche les trois droites des côtés. Leurs centres " +
             "forment un grand triangle dont les hauteurs sont les bissectrices du petit. Les rayons vérifient 1/r = 1/r₁ + 1/r₂ + 1/r₃. " +
@@ -71,26 +66,6 @@ internal val moreGeometryFigures: List<FigureSpec> = listOf(
             "V, W, X, Y et Z qu’elles évoquent, remplissent exactement ce rectangle 6 × 10 de 60 cases. Il y a 2339 façons de le faire, " +
             "sans compter les symétries du rectangle : les Haselgrove les ont toutes trouvées par ordinateur en 1960."
     }) { pentominoes(it) },
-    FigureSpec("archimedes_pi", "Polygones d’Archimède", "Géométrie", { v ->
-        val bounds = archimedesSides(v).joinToString(" ; ") { n ->
-            val t = PI / n
-            "${frNum(n * sin(t), 4)} < π < ${frNum(n * kotlin.math.tan(t), 4)}"
-        }
-        "Archimède encadre le cercle entre deux polygones réguliers, l’un inscrit, l’autre circonscrit : pour un diamètre 1, leurs " +
-            "périmètres prennent π en sandwich. Avec ${archimedesSides(v).joinToString(", ")} côtés : $bounds. Il est allé jusqu’à " +
-            "96 côtés, d’où 223/71 < π < 22/7."
-    }) { archimedesPi(it) },
-    FigureSpec("gothic_window", "Fenêtre gothique", "Géométrie", { v ->
-        val foils = when (gothicFoils(v)) {
-            3 -> "un trilobe"
-            4 -> "un quadrilobe"
-            5 -> "cinq lobes"
-            else -> "six lobes"
-        }
-        "Un remplage gothique tracé au compas : l’arc brisé a pour rayon la largeur de la baie, et il abrite deux arcs deux fois plus " +
-            "petits et un oculus. Pour que l’oculus touche les quatre arcs, son rayon doit valoir le quart de la largeur ; son sommet " +
-            "monte alors à φ = (1 + √5)/2 fois la demi-largeur, le nombre d’or. Dans chaque oculus, $foils tangents."
-    }) { gothicWindow(it) },
     FigureSpec("spidron", "Spidron", "Géométrie", { _ ->
         "Un hexagone découpé en six bras qui s’enroulent vers le centre : chaque bras enchaîne un triangle isocèle d’angles 30°, 30° " +
             "et 120° et un triangle équilatéral, puis recommence √3 fois plus petit. C’est un spidron, imaginé en 1979 par le graphiste " +
@@ -102,30 +77,11 @@ internal val moreGeometryFigures: List<FigureSpec> = listOf(
             "rapport $a : $b). À gauche, il reste le carré de l’hypoténuse, c² ; à droite, les carrés des deux autres côtés, a² et b². " +
             "Les restes ont la même aire : a² + b² = c². Une preuve sans calcul, dont la figure de gauche orne déjà le Zhoubi suanjing chinois."
     }) { pythagorasShuffle(it) },
-    FigureSpec("dudeney", "Dissection de Dudeney", "Géométrie", { _ ->
-        "Le casse-tête du mercier, posé par Henry Dudeney en 1902 : un triangle équilatéral coupé en quatre pièces qui se réarrangent " +
-            "en un carré de même aire. Les pièces tiennent par trois charnières (les points) ; en les faisant pivoter d’un demi-tour, " +
-            "la chaîne se referme en carré. Pour un triangle de côté 2, le carré a pour côté ⁴√3 ≈ 1,316. En 2024, on a prouvé que trois " +
-            "pièces ne suffisent pas."
-    }) { dudeney(it) },
     FigureSpec("van_aubel", "Théorème de Van Aubel", "Géométrie", { _ ->
         "Sur les quatre côtés d’un quadrilatère quelconque, on pose quatre carrés vers l’extérieur. Les segments qui joignent les " +
             "centres de deux carrés opposés, en rouge et en bleu, ont toujours la même longueur et se coupent à angle droit. Henricus " +
             "van Aubel l’a publié en 1878 ; c’est un cousin du théorème de Napoléon, qui pose des triangles équilatéraux sur un triangle."
     }) { vanAubel(it) },
-    FigureSpec("pick", "Théorème de Pick", "Géométrie", { v ->
-        val (twoA, b, i) = pickCounts(PICK_POLYGONS[v % 3])
-        val area = if (twoA % 2 == 0) "${twoA / 2}" else "${twoA / 2},5"
-        "Un polygone dont les sommets sont des points d’un quadrillage a pour aire A = I + B/2 − 1, où I compte les points " +
-            "intérieurs (en bleu) et B les points du bord (en rouge). Ici I = $i et B = $b : A = $i + $b/2 − 1 = $area carreaux. " +
-            "Georg Pick l’a publié en 1899 ; en dimension 3, aucune formule de ce genre ne marche."
-    }) { pick(it) },
-    FigureSpec("sangaku_tablet", "Tablette de sangaku", "Géométrie", { v ->
-        val corners = if (v % 2 == 0) "du bas" else "du haut"
-        "À l’époque d’Edo, au Japon, on accrochait dans les temples des tablettes de bois peintes de problèmes de géométrie, les " +
-            "sangaku. Celui-ci : dans un carré de côté a, deux quarts de cercle centrés aux coins $corners. Le grand cercle a pour rayon " +
-            "3a/8, les deux cercles des côtés a/6 et le petit a/16 ; chacun touche les deux arcs et un côté du carré."
-    }) { sangaku(it) },
     FigureSpec("kaleidoscope", "Kaléidoscope", "Géométrie", { v ->
         val n = kaleidoscopeOrder(v)
         val angle = if (180 % n == 0) "${180 / n}°" else "180°/$n"
@@ -134,28 +90,11 @@ internal val moreGeometryFigures: List<FigureSpec> = listOf(
             "$n rotations et $n réflexions. Pour qu’elles se raccordent, l’angle des miroirs doit diviser 180°. David Brewster a " +
             "inventé l’instrument en 1816."
     }) { kaleidoscope(it) },
-    FigureSpec("malfatti", "Cercles de Malfatti", "Géométrie", { v ->
-        "En 1803, Malfatti cherchait à tailler dans un prisme triangulaire trois colonnes de plus grand volume, et proposa ces trois " +
-            "cercles qui se touchent deux à deux et touchent chacun deux côtés (à gauche). Ce n’est jamais le mieux : la méthode gloutonne, " +
-            "le cercle inscrit puis à chaque fois le plus grand cercle possible (à droite), couvre ici ${frNum(malfattiGain(v), 1)} % de " +
-            "plus. Zalgaller et Los ont prouvé en 1994 qu’elle est toujours la meilleure."
-    }) { malfatti(it) },
     FigureSpec("inversion", "Inversion", "Géométrie", { _ ->
         "L’inversion de centre O et de rayon R envoie chaque point M sur le point M′ de la demi-droite OM tel que OM × OM′ = R² : " +
             "le cercle rouge reste en place, son intérieur et son extérieur s’échangent. L’image d’un damier : ses droites deviennent " +
             "des cercles qui passent par O, et comme l’inversion conserve les angles, les cases se croisent toujours à angle droit."
     }) { inversion(it) },
-    FigureSpec("routh", "Triangle de Routh", "Géométrie", { v ->
-        val n = routhDivision(v)
-        val frac = when (n) {
-            3 -> "1/7"
-            4 -> "4/13"
-            else -> "9/21 = 3/7"
-        }
-        "Chaque sommet est relié au point situé au 1/$n du côté suivant, toujours dans le même sens. Les trois droites découpent au " +
-            "centre un triangle d’aire (n − 2)²/(n² − n + 1) fois celle du grand, soit $frac ici ; pour n = 3, c’est exactement un " +
-            "septième, et les autres pièces valent 1/21 (les petits triangles) et 5/21. C’est un cas du théorème de Routh (1896)."
-    }) { routh(it) },
 )
 
 private fun Offset.unit() = this / getDistance()
@@ -171,12 +110,6 @@ private fun frNum(x: Double, d: Int) = String.format(Locale.ROOT, "%.${d}f", x).
 private fun meet(p: Offset, d: Offset, q: Offset, e: Offset): Offset {
     val t = cross(q - p, e) / cross(d, e)
     return p + d * t
-}
-
-/** Pied de la perpendiculaire menée de [p] sur la droite (a, b). */
-private fun footOn(p: Offset, a: Offset, b: Offset): Offset {
-    val u = (b - a).unit()
-    return a + u * dotp(p - a, u)
 }
 
 /** Polygone régulier : [n] sommets sur un cercle de rayon [r], le premier à l'angle [start] (degrés). */
@@ -320,48 +253,6 @@ private fun Pencil.confocalConics(v: Int) {
     mark(f1, Graphite, 3.4f)
     mark(f2, Graphite, 3.4f)
     mark(pin, Crayons.brun, 3.4f)
-}
-
-/** Les six points de l'hexagramme sur l'ellipse (angles en degrés, dans l'ordre de l'hexagone). */
-private val PASCAL_ANGLES = listOf(
-    floatArrayOf(10f, 115f, 325f, 175f, 245f, 70f),
-    floatArrayOf(25f, 185f, 80f, 110f, 330f, 225f),
-    floatArrayOf(265f, 155f, 320f, 85f, 55f, 225f),
-)
-
-/**
- * Hexagramme de Pascal : un hexagone croisé inscrit dans une ellipse ; ses côtés opposés, prolongés, se
- * coupent en trois points alignés sur la droite de Pascal.
- */
-private fun Pencil.pascalHexagram(v: Int) {
-    val b = 0.72f
-    val p = PASCAL_ANGLES[v % 3].map { pt(cos(rad(it)), -b * sin(rad(it))) }
-    fun side(i: Int) = p[i % 6] to p[(i + 1) % 6]
-    val xs = (0 until 3).map { i ->
-        val (a1, a2) = side(i); val (b1, b2) = side(i + 3)
-        meet(a1, a2 - a1, b1, b2 - b1)
-    }
-    val ell = (0 until 140).map { val t = 2 * PI.toFloat() * it / 140; pt(cos(t), b * sin(t)) }
-    val fit = Fit(listOf(ell, xs), 12f)
-    val pal = Crayons.rainbow.rot((v * 3 + 1) % 8)
-    fill(fit(ell), pal[2], wash = 0.2f, gap = 5f, strokeAlpha = 0.4f, lw = 1.4f)
-    fill(fit(p), pal[6], wash = 0.3f, gap = 3.4f, angle = 30f, outline = false)
-    val colors = listOf(Crayons.rouge, Crayons.marine, Crayons.sapin)
-    for (i in 0 until 3) {
-        val x = xs[i]
-        for (s in listOf(i, i + 3)) {
-            val (a1, a2) = side(s)
-            val far = if ((a1 - x).getDistance() > (a2 - x).getDistance()) a1 else a2
-            stroke(fit(x), fit(far), colors[i], 1.1f, 0.75f)
-            line(listOf(fit(a1), fit(a2)), colors[i], 2f)
-        }
-    }
-    // La droite de Pascal, un peu au-delà des trois points.
-    val u = (xs[1] - xs[0]).unit()
-    val ts = xs.map { dotp(it - xs[0], u) }
-    line(listOf(fit(xs[0] + u * (ts.min() - 0.08f)), fit(xs[0] + u * (ts.max() + 0.08f))), Graphite, 1.6f)
-    for (q in p) dot(fit(q), 2.4f, Graphite)
-    xs.forEachIndexed { i, x -> mark(fit(x), colors[i], 4.2f) }
 }
 
 // ——— Triangles et cercles ———
@@ -584,92 +475,6 @@ private fun Pencil.pentominoes(v: Int) {
     for (y in 0..6) stroke(o + Offset(0f, y * cell), o + Offset(10 * cell, y * cell), Graphite, 0.5f, 0.22f)
 }
 
-/** Nombres de côtés des trois polygones d'Archimède, selon la variante. */
-private fun archimedesSides(v: Int) = if (v % 2 == 0) intArrayOf(6, 12, 24) else intArrayOf(4, 8, 16)
-
-/**
- * Polygones d'Archimède : autour d'un même cercle, les polygones circonscrits et inscrits à n, 2n et 4n
- * côtés ; chaque bande entre deux polygones voisins (ou entre un polygone et le cercle) a sa couleur.
- */
-private fun Pencil.archimedesPi(v: Int) {
-    val ns = archimedesSides(v)
-    val r = 112f
-    val o = center
-    val start = if (ns[0] == 6) 0f else 45f
-    val pal = Crayons.rainbow.rot((v * 3 + 2) % 8)
-    // Tous partagent les points de contact du premier : les polygones circonscrits s'emboîtent en rognant
-    // les coins, les sommets des polygones inscrits comprennent ces points de contact.
-    val touch = start + 180f / ns[0]
-    fun out(n: Int) = ngon(o, r / cos(PI.toFloat() / n), n, touch - 180f / n)
-    fun inn(n: Int) = ngon(o, r, n, touch)
-    val disc = circle(o.x, o.y, r, 240)
-    val rings = listOf(out(ns[0]), out(ns[1]), out(ns[2]), disc, inn(ns[2]), inn(ns[1]), inn(ns[0]))
-    val colors = listOf(pal[0], pal[1], pal[2], pal[4], pal[5], pal[6])
-    for (i in 0 until rings.size - 1) {
-        // Le bord extérieur refermé, puis le bord intérieur à rebours depuis le même angle : une bande trouée.
-        val outer = rings[i] + rings[i][0]
-        val inner = (rings[i + 1] + rings[i + 1][0]).reversed()
-        fill(outer + inner, colors[i], gap = 3.4f, wash = 0.36f, angle = -58f + 35f * i, outline = false)
-        outline(rings[i], true, 1f)
-    }
-    val core = rings.last()
-    for (i in core.indices) {
-        fill(listOf(o, core[i], core[(i + 1) % core.size]), if (i % 2 == 0) pal[3] else pal[7], hatch = false, wash = 0.18f, lw = 0.9f)
-    }
-    // Les rayons vers les sommets du plus fin des polygones inscrits.
-    for (p in rings[4]) stroke(o, p, Graphite, 0.6f, 0.3f)
-    outline(disc, true, 1.3f)
-}
-
-/** Nombre de lobes dans les oculus, selon la variante. */
-private fun gothicFoils(v: Int) = intArrayOf(3, 4, 6, 5)[v % 4]
-
-/**
- * Arc brisé équilatéral de demi-portée [w] centré en [cx], naissant à y = 0 et descendu à −[h] (y vers le
- * haut) : chaque côté est un arc de rayon 2w centré au pied opposé.
- */
-private fun gothicArch(cx: Float, w: Float, h: Float, n: Int = 22): List<Offset> {
-    val third = PI.toFloat() / 3
-    val left = (0..n).map { i -> val t = PI.toFloat() - third * i / n; pt(cx + w + 2 * w * cos(t), 2 * w * sin(t)) }
-    val right = (0..n).map { i -> val t = third * (1f - i.toFloat() / n); pt(cx - w + 2 * w * cos(t), 2 * w * sin(t)) }
-    return listOf(pt(cx - w, -h)) + left + right.drop(1) + listOf(pt(cx + w, -h))
-}
-
-/**
- * Fenêtre gothique : chaque arc brisé abrite deux arcs deux fois plus petits et un oculus de rayon w/2,
- * centré à la hauteur w√5/2, tangent aux quatre arcs ; dans l'oculus, des lobes tangents. Deux baies plus
- * petites l'encadrent.
- */
-private fun Pencil.gothicWindow(v: Int) {
-    val foils = gothicFoils(v)
-    val depth = 2 + v % 2
-    val h = 0.85f
-    val s = (FH - 16) / (sqrt(3f) + h)
-    fun at(p: Offset) = pt(FW / 2 + p.x * s, FH - 8 - (p.y + h) * s)
-    val pal = Crayons.rainbow.rot((v * 3) % 8)
-    fun window(cx: Float, w: Float, level: Int, maxLevel: Int) {
-        val lw = (1.6f - 0.35f * level).coerceAtLeast(0.6f)
-        val glass = if (level == 0) Crayons.bleu else pal[(level * 3 + if (cx > 0) 1 else 0) % 8]
-        val leaf = level >= maxLevel
-        fill(gothicArch(cx, w, h).map(::at), glass, hatch = leaf, wash = if (leaf) 0.3f else 0.16f, gap = 4.2f - 0.4f * level, angle = -58f + 35f * level, strokeAlpha = 0.6f, lw = lw)
-        if (level >= maxLevel) return
-        window(cx - w / 2, w / 2, level + 1, maxLevel)
-        window(cx + w / 2, w / 2, level + 1, maxLevel)
-        val oc = pt(cx, sqrt(5f) / 2 * w)
-        val rho = w / 2
-        fill(circle(oc.x, oc.y, rho, 80).map(::at), Crayons.jaune, wash = 0.32f, gap = 3.6f, angle = 20f, lw = lw)
-        val sn = sin(PI.toFloat() / foils)
-        val rf = rho * sn / (1 + sn)
-        for (k in 0 until foils) {
-            val fc = oc + dir(rad(90f + 360f * k / foils)) * (rho - rf)
-            fill(circle(fc.x, fc.y, rf, 40).map(::at), pal[(5 + k % 2) % 8], wash = 0.36f, gap = 2.8f, angle = 360f * k / foils, lw = lw * 0.8f)
-        }
-    }
-    window(0f, 1f, 0, depth)
-    window(-1.52f, 0.42f, 1, 2)
-    window(1.52f, 0.42f, 1, 2)
-}
-
 /**
  * Spidron : dans l'hexagone, les centres des six triangles équilatéraux (centre, côté) forment un
  * hexagone √3 fois plus petit, tourné de 30° ; entre les deux, six triangles 30-30-120 et six équilatéraux.
@@ -736,56 +541,6 @@ private fun Pencil.pythagorasShuffle(v: Int) {
     line(listOf(pt(mx - 6f, FH / 2 + 4f), pt(mx + 6f, FH / 2 + 4f)), Graphite, 1.6f)
 }
 
-/**
- * La dissection de Dudeney, triangle de côté 2 (y vers le haut) : E milieu de BC, D milieu de AB, J sur AC
- * avec EJ = ⁴√3 (le côté du carré), K sur AC avec JK = 1, L et M pieds des perpendiculaires de D et K sur
- * EJ. Les pièces du carré : demi-tours autour des charnières D, E, K enchaînés, puis le carré redressé.
- * Renvoie les pièces du triangle, celles du carré et les charnières dans chacun.
- */
-private val DUDENEY: List<List<List<Offset>>> by lazy {
-    val a = pt(0f, 0f); val b = pt(2f, 0f); val c = pt(1f, sqrt(3f))
-    val side = sqrt(sqrt(3f))
-    val d = (a + b) / 2f; val e = (b + c) / 2f
-    // |E − A − tU|² = côté², U = C − A : 4t² − 2t (E − A)·U + |E − A|² − côté² = 0, plus petite racine.
-    val u = c - a; val ea = e - a
-    val bq = -2 * dotp(ea, u); val cq = dotp(ea, ea) - side * side
-    val t = (-bq - sqrt(bq * bq - 16 * cq)) / 8
-    val j = a + u * t
-    val k = j + u / 2f
-    val l = footOn(d, e, j); val m = footOn(k, e, j)
-    val tri = listOf(listOf(a, d, l, j), listOf(d, b, e, l), listOf(e, c, k, m), listOf(k, j, m))
-    fun r(p: Offset, ctr: Offset) = ctr * 2f - p
-    val moves = listOf<(Offset) -> Offset>({ it }, { r(it, d) }, { r(r(it, e), d) }, { r(r(r(it, k), e), d) })
-    val sq = tri.mapIndexed { i, p -> p.map(moves[i]) }
-    val mm = moves[2](m); val ll = moves[1](l)
-    val ang = atan2(ll.y - mm.y, ll.x - mm.x)
-    val ctr = (mm + l) / 2f
-    fun straighten(p: Offset) = rotate(p - ctr, -ang)
-    listOf(tri, sq.map { p -> p.map(::straighten) }, listOf(listOf(d, e, k), listOf(d, moves[1](e), moves[2](k)).map(::straighten)))
-}
-
-/** Dissection de Dudeney : le triangle et le carré, mêmes pièces, mêmes couleurs, charnières marquées. */
-private fun Pencil.dudeney(v: Int) {
-    val (tri, sq, hinges) = DUDENEY
-    val swap = v % 2 == 1
-    val side = sqrt(sqrt(3f))
-    // Le triangle à gauche (y vers le haut, retourné à l'écran), le carré à droite, centrés sur la même hauteur.
-    val triShift = Offset(if (swap) side + 0.45f else 0f, -sqrt(3f) / 2)
-    val sqShift = Offset(if (swap) side / 2 else 2f + 0.45f + side / 2, 0f)
-    fun flip(p: Offset) = pt(p.x, -p.y)
-    val tp = tri.map { p -> p.map { flip(it + triShift) } }
-    val sp = sq.map { p -> p.map { flip(it + sqShift) } }
-    val fit = Fit(tp + sp, 14f)
-    val pal = Crayons.rainbow.rot((v * 3 + 1) % 8)
-    val colors = listOf(pal[0], pal[2], pal[5], pal[6])
-    for (i in 0 until 4) {
-        fill(fit(tp[i]), colors[i], gap = 3.4f, wash = 0.36f, angle = -58f + 40f * i, lw = 1.4f)
-        fill(fit(sp[i]), colors[i], gap = 3.4f, wash = 0.36f, angle = -58f + 40f * i, lw = 1.4f)
-    }
-    hinges[0].forEach { mark(fit(flip(it + triShift)), Graphite, 3f) }
-    hinges[1].forEach { mark(fit(flip(it + sqShift)), Graphite, 3f) }
-}
-
 /** Quadrilatères de Van Aubel, selon la variante. */
 private val VAN_AUBEL_QUADS = listOf(
     listOf(pt(-1f, 0.3f), pt(0.15f, 0.55f), pt(0.8f, -0.1f), pt(-0.35f, -0.55f)),
@@ -820,92 +575,7 @@ private fun Pencil.vanAubel(v: Int) {
 
 // ——— Quadrillages ———
 
-/** Polygones de Pick (sommets entiers, sur un quadrillage 15 × 10), selon la variante. */
-private val PICK_POLYGONS = listOf(
-    listOf(1 to 4, 4 to 1, 6 to 3, 9 to 0, 13 to 2, 11 to 5, 13 to 8, 8 to 7, 5 to 9, 3 to 6),
-    listOf(0 to 5, 3 to 2, 5 to 4, 7 to 0, 9 to 3, 12 to 1, 14 to 4, 11 to 6, 13 to 9, 8 to 8, 6 to 9, 4 to 7),
-    listOf(2 to 1, 7 to 0, 12 to 2, 10 to 4, 14 to 6, 9 to 6, 7 to 9, 5 to 6, 0 to 8, 3 to 4),
-)
-
-private fun gcd(a: Int, b: Int): Int = if (b == 0) abs(a) else gcd(b, a % b)
-
-/** (2 × aire, points du bord, points intérieurs) d'un polygone à sommets entiers, par la formule de Pick. */
-private fun pickCounts(poly: List<Pair<Int, Int>>): Triple<Int, Int, Int> {
-    val n = poly.size
-    var twoA = 0
-    var b = 0
-    for (i in 0 until n) {
-        val (x1, y1) = poly[i]; val (x2, y2) = poly[(i + 1) % n]
-        twoA += x1 * y2 - x2 * y1
-        b += gcd(abs(x2 - x1), abs(y2 - y1))
-    }
-    twoA = abs(twoA)
-    return Triple(twoA, b, (twoA - b + 2) / 2)
-}
-
-/** Théorème de Pick : le polygone, les points du bord en rouge, les points intérieurs en bleu. */
-private fun Pencil.pick(v: Int) {
-    val poly = PICK_POLYGONS[v % 3]
-    val g = 24f
-    val o = pt(FW / 2 - 7 * g, FH / 2 - 4.5f * g)
-    fun at(x: Int, y: Int) = o + Offset(x * g, y * g)
-    val pal = Crayons.rainbow.rot((v * 3 + 3) % 8)
-    fill(poly.map { (x, y) -> at(x, y) }, pal[0], gap = 3.8f, wash = 0.3f, strokeAlpha = 0.6f, lw = 1.5f)
-    val n = poly.size
-    fun onBorder(x: Int, y: Int) = (0 until n).any { i ->
-        val (x1, y1) = poly[i]; val (x2, y2) = poly[(i + 1) % n]
-        (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1) == 0 && x in min(x1, x2)..max(x1, x2) && y in min(y1, y2)..max(y1, y2)
-    }
-    fun inside(x: Int, y: Int): Boolean {
-        var c = false
-        for (i in 0 until n) {
-            val (x1, y1) = poly[i]; val (x2, y2) = poly[(i + 1) % n]
-            if ((y1 > y) != (y2 > y) && x < x1 + (y - y1).toFloat() * (x2 - x1) / (y2 - y1)) c = !c
-        }
-        return c
-    }
-    for (y in 0..9) for (x in 0..14) {
-        val p = at(x, y)
-        when {
-            onBorder(x, y) -> mark(p, Crayons.rouge, 3.4f)
-            inside(x, y) -> mark(p, Crayons.marine, 2.6f)
-            else -> dot(p, 1.3f, Graphite, 0.4f)
-        }
-    }
-}
-
 // ——— Cercles tangents ———
-
-/**
- * Sangaku : dans un carré de côté a, deux quarts de cercle de rayon a centrés aux coins du bas ; le grand
- * cercle (rayon 3a/8) touche les deux arcs par l'intérieur et le bas, les cercles des côtés (a/6) un arc par
- * l'intérieur, l'autre par l'extérieur, et un côté ; le petit (a/16) les deux arcs par l'extérieur et le haut.
- * Le tout sur une tablette de bois.
- */
-private fun Pencil.sangaku(v: Int) {
-    val a = 200f
-    val x0 = (FW - a) / 2
-    val yb = FH / 2 + a / 2
-    val flip = v % 2 == 1
-    fun at(x: Float, y: Float) = pt(x0 + x, if (flip) yb - a + y else yb - y)
-    val m = 17f
-    fill(listOf(pt(x0 - m, yb - a - m), pt(x0 + a + m, yb - a - m), pt(x0 + a + m, yb + m), pt(x0 - m, yb + m)), Crayons.brun, angle = 4f, gap = 5f, wash = 0.22f, strokeAlpha = 0.4f, lw = 1.6f)
-    fill(listOf(at(0f, 0f), at(a, 0f), at(a, a), at(0f, a)), Color(0xFFFFF6E0), hatch = false, wash = 1f, lw = 1.3f)
-    val pal = Crayons.rainbow.rot((v * 3 + 4) % 8)
-    val half = PI.toFloat() / 2
-    val q1 = listOf(at(0f, 0f)) + (0..50).map { val t = half * it / 50; at(a * cos(t), a * sin(t)) }
-    val q2 = listOf(at(a, 0f)) + (0..50).map { val t = half + half * it / 50; at(a + a * cos(t), a * sin(t)) }
-    fill(q1, pal[5], wash = 0.2f, gap = 5f, angle = 35f, strokeAlpha = 0.55f, lw = 1.2f)
-    fill(q2, pal[3], wash = 0.2f, gap = 5f, angle = -35f, strokeAlpha = 0.55f, lw = 1.2f)
-    fun disc(cx: Float, cy: Float, r: Float, color: Color, angle: Float) {
-        val c = at(cx, cy)
-        fill(circle(c.x, c.y, r, 70), color, gap = 3.4f, wash = 0.36f, angle = angle, lw = 1.2f)
-    }
-    disc(a / 2, 3 * a / 8, 3 * a / 8, pal[0], -58f)
-    disc(a / 6, a * sqrt(2f / 3f), a / 6, pal[1], 20f)
-    disc(5 * a / 6, a * sqrt(2f / 3f), a / 6, pal[1], 70f)
-    disc(a / 2, a - a / 16, a / 16, pal[6], -20f)
-}
 
 /** Ordre du kaléidoscope (nombre de rotations), selon la variante. */
 private fun kaleidoscopeOrder(v: Int) = intArrayOf(6, 5, 8, 7)[v % 4]
@@ -1023,12 +693,6 @@ private fun malfattiCircles(v: Int) = malfattiCache.getOrPut(v % 3) {
     malfatti to greedy
 }
 
-/** Gain d'aire des cercles gloutons sur ceux de Malfatti, en pourcentage. */
-private fun malfattiGain(v: Int): Double {
-    val (m, g) = malfattiCircles(v)
-    return (g.sumOf { it.second.toDouble() * it.second } / m.sumOf { it.second.toDouble() * it.second } - 1) * 100
-}
-
 /**
  * Cercles de Malfatti (à gauche) et cercles gloutons (à droite, dans le même triangle retourné d'un
  * demi-tour, le long de son côté droit).
@@ -1106,33 +770,3 @@ private fun Pencil.inversion(v: Int) {
     dot(o, 2.4f, Graphite)
 }
 
-/** Division des côtés du triangle de Routh, selon la variante. */
-private fun routhDivision(v: Int) = intArrayOf(3, 4, 3, 5)[v % 4]
-
-/** Triangles de Routh, selon la variante (y vers le bas). */
-private val ROUTH_TRIANGLES = listOf(
-    listOf(pt(-1f, 0.6f), pt(1.1f, 0.6f), pt(0.1f, -0.85f)),
-    listOf(pt(-1.05f, 0.55f), pt(1f, 0.65f), pt(-0.3f, -0.8f)),
-)
-
-/**
- * Triangle de Routh : D, E, F au 1/n de BC, CA, AB ; les céviennes AD, BE, CF découpent sept pièces :
- * le triangle central, trois petits triangles et trois quadrilatères.
- */
-private fun Pencil.routh(v: Int) {
-    val n = routhDivision(v)
-    val (a, b, c) = ROUTH_TRIANGLES[v % 2]
-    val d = b + (c - b) / n.toFloat(); val e = c + (a - c) / n.toFloat(); val f = a + (b - a) / n.toFloat()
-    val r = meet(a, d - a, c, f - c)
-    val p = meet(a, d - a, b, e - b)
-    val q = meet(b, e - b, c, f - c)
-    val fit = Fit(listOf(listOf(a, b, c)), 12f)
-    val pal = listOf(Crayons.bleu, Crayons.turquoise, Crayons.violet, Crayons.vert, Crayons.rose, Crayons.marine).rot((v * 2) % 6)
-    val quads = listOf(listOf(f, b, p, r), listOf(d, c, q, p), listOf(e, a, r, q))
-    val smalls = listOf(listOf(a, f, r), listOf(b, d, p), listOf(c, e, q))
-    quads.forEachIndexed { i, s -> fill(fit(s), pal[i], gap = 3.8f, wash = 0.3f, angle = -58f + 60f * i, lw = 1.3f) }
-    smalls.forEachIndexed { i, s -> fill(fit(s), Crayons.jaune, gap = 3f, wash = 0.45f, angle = 30f + 60f * i, lw = 1.2f) }
-    fill(fit(listOf(r, p, q)), Crayons.rouge, gap = 2.8f, wash = 0.45f, angle = 10f, lw = 1.6f)
-    outline(fit(listOf(a, b, c)), true, 1.7f)
-    for (x in listOf(d, e, f)) mark(fit(x), Graphite, 3f)
-}

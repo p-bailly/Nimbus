@@ -12,7 +12,6 @@ import androidx.compose.ui.graphics.lerp
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.cosh
 import kotlin.math.exp
@@ -26,7 +25,7 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 // Figures du thème « Courbes », deuxième série : courbes de la physique (pendules, ondes, champs,
-// vagues), courbes de dessinateurs (guilloché, kolam, Bézier) et belles familles de courbes.
+// vagues), courbes de dessinateurs (guilloché, kolam) et belles familles de courbes.
 
 private const val TURN = 2 * PI.toFloat()
 private const val HALF_TURN = PI.toFloat()
@@ -352,7 +351,6 @@ private object MoreCurves {
     /** Développée : le rapport b/a de l'ellipse. */
     fun evolute(v: Int): Float = floatArrayOf(0.72f, 0.78f)[v % 2]
 
-
     /** Vagues de Gerstner : la cambrure b/a de la surface. */
     fun steepness(v: Int): Float = floatArrayOf(0.8f, 0.95f, 0.6f)[v % 3]
 
@@ -433,12 +431,6 @@ internal val moreCurveFigures: List<FigureSpec> = listOf(
             "niveaux sont coloriées. Là où les courbes se serrent, la pente est forte ; entre deux sommets (les triangles), elles " +
             "dessinent un col, un point selle."
     }) { contourMap(it) },
-    FigureSpec("wankel", "Moteur Wankel", "Courbes", { _ ->
-        "Dans le moteur de Felix Wankel (1957), un rotor triangulaire tourne dans un carter dont la paroi est une épitrochoïde " +
-            "à deux lobes : x = R cos t + e cos 3t, y = R sin t + e sin 3t. Ses trois sommets glissent toujours sur la paroi, " +
-            "pendant que son centre décrit un cercle de rayon e, trois fois plus vite que lui. Les trois chambres colorées " +
-            "grandissent et rapetissent tour à tour : admission, compression, détente, échappement."
-    }) { wankel(it) },
     FigureSpec("pursuit", "Courbe de poursuite", "Courbes", { v ->
         val k = MoreCurves.pursuit(v)
         "Un lièvre court sur un cercle de rayon R ; un chien part du centre et court toujours droit vers lui, à ${fr(k)} fois " +
@@ -446,19 +438,6 @@ internal val moreCurveFigures: List<FigureSpec> = listOf(
             "où il finit par tourner au même rythme que le lièvre. Les lignes de visée, en couleur, sont tangentes à sa course. " +
             "Arthur Hathaway a posé ce problème en 1920."
     }) { pursuit(it) },
-    FigureSpec("catenary", "Chaînettes", "Courbes", { _ ->
-        "Cinq chaînes de longueurs différentes pendent des deux mêmes clous : chacune prend la forme d’une chaînette, " +
-            "y = a ch(x/a), et non d’une parabole comme le croyait Galilée. Pour la plus longue, la parabole de mêmes extrémités " +
-            "et même point bas est en pointillé, plus pointue. Huygens, Leibniz et Jean Bernoulli trouvent l’équation en 1691 ; " +
-            "retournée, la chaînette donne l’arche la plus solide."
-    }) { catenary(it) },
-    FigureSpec("casteljau", "Courbe de Bézier", "Courbes", { v ->
-        val t = fr(MoreCurves.casteljau(v))
-        "Quatre points de contrôle fixent une courbe de Bézier. L’algorithme de De Casteljau coupe chaque côté à la même " +
-            "fraction t, puis recommence sur les trois points obtenus, puis sur les deux derniers : le segment final touche la " +
-            "courbe en son point B(t). Tracés pour t de 0 à 1, ces segments l’enveloppent ; la construction pour t = $t est " +
-            "mise en valeur. Inventées chez Citroën et Renault vers 1960, elles dessinent nos polices."
-    }) { casteljau(it) },
     FigureSpec("involute", "Développante du cercle", "Courbes", { _ ->
         "Une ficelle enroulée sur une bobine de rayon r se déroule en restant tendue : son bout trace la développante du cercle, " +
             "x = r(cos t + t sin t), y = r(sin t − t cos t). La ficelle est toujours tangente à la bobine et perpendiculaire à la " +
@@ -948,79 +927,6 @@ private fun Pencil.contourMap(v: Int) {
     }
 }
 
-/** Le rotor du moteur Wankel, dans son repère : l'enveloppe intérieure de la paroi, par secteurs de 2°. */
-private val wankelRotor: List<List<Offset>> by lazy {
-    val e = 0.14f
-    val bins = 180
-    val best = FloatArray(bins) { Float.MAX_VALUE }
-    val nt = 720
-    val hx = FloatArray(nt) { val t = TURN * it / nt; cos(t) + e * cos(3 * t) }
-    val hy = FloatArray(nt) { val t = TURN * it / nt; sin(t) + e * sin(3 * t) }
-    for (i in 0 until 240) {
-        val phi = TURN * i / 240
-        val cx = e * cos(3 * phi)
-        val cy = e * sin(3 * phi)
-        val cs = cos(-phi)
-        val sn = sin(-phi)
-        for (j in 0 until nt) {
-            val dx = hx[j] - cx
-            val dy = hy[j] - cy
-            val qx = dx * cs - dy * sn
-            val qy = dx * sn + dy * cs
-            var a = atan2(qy, qx)
-            if (a < 0) a += TURN
-            val b = (a / TURN * bins).toInt() % bins
-            best[b] = min(best[b], hypot(qx, qy))
-        }
-    }
-    // Trois flancs, d'un sommet au suivant, un peu en retrait de la paroi.
-    (0 until 3).map { f ->
-        val from = f * bins / 3
-        listOf(dir(TURN * f / 3)) +
-            (from until from + bins / 3).map { b -> dir(TURN * (b + 0.5f) / bins) * (best[b] * 0.985f) } +
-            listOf(dir(TURN * (f + 1) / 3))
-    }
-}
-
-/** Moteur Wankel : le carter épitrochoïde, les trois chambres coloriées, le rotor et ses engrenages. */
-private fun Pencil.wankel(v: Int) {
-    val e = 0.14f
-    fun wall(t: Float) = dir(t) + dir(3 * t) * e
-    fun normal(t: Float): Offset {
-        val d = pt(-sin(t) - 3 * e * sin(3 * t), cos(t) + 3 * e * cos(3 * t))
-        return pt(d.y, -d.x) / d.getDistance()
-    }
-    val housing = sweep(0f, TURN, 360) { wall(it) }
-    val casing = sweep(0f, TURN, 360) { wall(it) + normal(it) * 0.16f }
-    val flip = { o: Offset -> pt(o.x, -o.y) }
-    val fit = Fit(listOf(casing.map(flip)), 12f)
-    fun at(o: Offset) = fit(flip(o))
-    val phi = rad(14f + 47f * v)
-    val c = dir(3 * phi) * e
-    fun world(q: Offset) = c + pt(q.x * cos(phi) - q.y * sin(phi), q.x * sin(phi) + q.y * cos(phi))
-    val pal = Crayons.rainbow.rot((v * 3) % 8)
-    fillRegion(listOf(casing.map { at(it) }, housing.map { at(it) }), Graphite, wash = 0.12f, gap = 3.4f, strokeAlpha = 0.35f, lw = 1.2f)
-    val flanks = wankelRotor.map { f -> f.map { at(world(it)) } }
-    val chamberColors = listOf(pal[0], pal[3], pal[5])
-    for (f in 0 until 3) {
-        val t0 = phi + TURN * f / 3
-        val arc = sweep(t0, t0 + TURN / 3, 80) { at(wall(it)) }
-        fill(arc + flanks[f].reversed(), chamberColors[f], wash = 0.34f, gap = 3.6f, angle = -58f + 50f * f, outline = false)
-    }
-    val rotor = flanks[0] + flanks[1].drop(1) + flanks[2].drop(1)
-    fill(rotor, pal[6], wash = 0.3f, gap = 4.2f, angle = 30f, lw = 1.3f)
-    // L'engrenage du rotor (rayon 3e) roule sur le pignon fixe (rayon 2e) : ils se touchent toujours.
-    val gc = at(c)
-    val unit = fit.s
-    outline(circle(gc.x, gc.y, 3 * e * unit, 40), lw = 1f, color = Graphite.copy(alpha = 0.8f))
-    val o = at(Offset.Zero)
-    fill(circle(o.x, o.y, 2 * e * unit, 30), pal[1], gap = 2.6f, wash = 0.5f, lw = 1f)
-    dot(o, 2.4f, Graphite)
-    dot(gc, 2f, Graphite)
-    for (f in 0 until 3) dot(at(world(dir(TURN * f / 3))), 2.6f, Graphite)
-    line(housing.map { at(it) }, Graphite, 1.5f)
-}
-
 /** Courbe de poursuite : le chien parti du centre, le lièvre sur son cercle, et les lignes de visée. */
 private fun Pencil.pursuit(v: Int) {
     val k = MoreCurves.pursuit(v)
@@ -1058,50 +964,6 @@ private fun Pencil.pursuit(v: Int) {
     dot(dogs.last(), 3.2f, deep(pal[0]))
     dot(hares.last(), 3.2f, Graphite)
     dot(o, 2f, Graphite)
-}
-
-/** Chaînettes : cinq chaînes de perles pendues aux mêmes clous, et la parabole de la plus longue. */
-private fun Pencil.catenary(v: Int) {
-    val half = 150f
-    val top = 30f
-    val sags = floatArrayOf(0.18f, 0.42f, 0.7f, 1f, 1.32f)
-    val pal = Crayons.rainbow.rot((v * 3 + 3) % 8)
-    val inks = pal.filter { it != Crayons.jaune }
-    // La poutre et les deux clous.
-    fill(listOf(pt(18f, top - 14f), pt(FW - 18f, top - 14f), pt(FW - 18f, top - 4f), pt(18f, top - 4f)), Crayons.brun, gap = 3f, wash = 0.4f, lw = 1.1f)
-    // Pour chaque flèche σ, le paramètre a (demi-portée 1) tel que a(ch(1/a) − 1) = σ, par dichotomie sur c = 1/a.
-    val params = sags.map { sigma ->
-        var lo = 1e-3f
-        var hi = 10f
-        repeat(40) { val m = (lo + hi) / 2; if ((cosh(m) - 1) / m < sigma) lo = m else hi = m }
-        2f / (lo + hi)
-    }
-    fun at(i: Int, x: Float): Offset {
-        val a = params[i]
-        return pt(FW / 2 + x * half, top + (sags[i] - a * (cosh(x / a) - 1)) * half)
-    }
-    for (i in sags.indices) {
-        val pts = sweep(-1f, 1f, 120) { at(i, it) }
-        val band = if (i == 0) pts else pts + sweep(1f, -1f, 120) { at(i - 1, it) }
-        fill(band, pal[(i * 2) % 8], hatch = i % 2 == 1, wash = 0.2f, gap = 4f, angle = -58f + 30f * i, strokeAlpha = 0.45f, outline = false)
-    }
-    // La parabole de la plus longue chaîne, de mêmes bouts et même point bas.
-    val sigma = sags.last()
-    val para = sweep(-1f, 1f, 60) { x -> pt(FW / 2 + x * half, top + (sigma - sigma * x * x) * half) }
-    for (q in 0 until para.size - 1 step 2) stroke(para[q], para[q + 1], Crayons.rouge, 1.5f, 0.9f)
-    for (i in sags.indices) {
-        val a = params[i]
-        val c = inks[i % inks.size]
-        val total = 2 * a * sinh(1 / a)
-        val n = (total * half / 6.4f).toInt()
-        val pts = (0..n).map { b -> at(i, a * kotlin.math.asinh((-total / 2 + total * b / n) / a)) }
-        fine(pts, Graphite, 0.7f, 0.6f)
-        for (p in pts) {
-            dot(p, 2.4f, deep(c), 0.95f)
-            dot(p - pt(0.6f, 0.6f), 0.8f, Color.White, 0.7f)
-        }
-    }
-    for (x in floatArrayOf(-half, half)) dot(pt(FW / 2 + x, top), 3f, Graphite)
 }
 
 /** Courbe de Bézier : les segments de De Casteljau pour t de 0 à 1, qui l'enveloppent, et une construction. */
