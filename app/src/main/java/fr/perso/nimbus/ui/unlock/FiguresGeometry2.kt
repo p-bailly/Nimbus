@@ -120,7 +120,7 @@ internal val moreGeometryFigures: List<FigureSpec> = listOf(
             "intérieurs (en bleu) et B les points du bord (en rouge). Ici I = $i et B = $b : A = $i + $b/2 − 1 = $area carreaux. " +
             "Georg Pick l’a publié en 1899 ; en dimension 3, aucune formule de ce genre ne marche."
     }) { pick(it) },
-    FigureSpec("sangaku", "Sangaku", "Géométrie", { v ->
+    FigureSpec("sangaku_tablet", "Tablette de sangaku", "Géométrie", { v ->
         val corners = if (v % 2 == 0) "du bas" else "du haut"
         "À l’époque d’Edo, au Japon, on accrochait dans les temples des tablettes de bois peintes de problèmes de géométrie, les " +
             "sangaku. Celui-ci : dans un carré de côté a, deux quarts de cercle centrés aux coins $corners. Le grand cercle a pour rayon " +
