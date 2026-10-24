@@ -13,9 +13,7 @@ enum class PaperFamily(val label: String, val argb: Long) {
 
 /**
  * Les 28 places des accueils « papier », dans l'ordre des figures (6 échanges, 6 écran,
- * 3 trajets, 9 outils, 4 jeux) : les mathématiques des pages reposent sur ces effectifs. La page
- * Sierpiński, faite de 3³ = 27 triangles, garde les 27 premières : LoL Live, ajoutée après les autres,
- * n'y figure pas.
+ * 3 trajets, 9 outils, 4 jeux) : les mathématiques des pages reposent sur ces effectifs.
  * Chaque place reçoit l'app choisie par l'utilisateur, sinon la première installée parmi
  * [packages], sinon une app dont le nom contient l'un des [keywords]. [glyph] : motif de l'app
  * de la place quand l'utilisateur n'en a pas choisi (sinon sa silhouette).

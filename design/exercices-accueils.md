@@ -9,7 +9,7 @@ laisser la place à des logos d'applis plus grands. Les voici, avec leurs répon
 Notations de la page :
 
 - D₃ = {*e*, *r*, *r*², *s*, *sr*, *sr*²} = {[YouTube], [Twitch], [Stremio], [Spotify], [Appareil photo], [Photos]} ;
-- Jeux & perso ≅ ℤ/3ℤ : 0 = [Lichess], 1 = [Basket], 2 = [πr] ;
+- Jeux & perso ≅ ℤ/3ℤ : 0 = [Lichess], 1 = [Basket], 2 = [πr] (depuis, LoL Live s'y ajoute : ℤ/2ℤ × ℤ/2ℤ) ;
 - Outils ≅ ℤ/3ℤ × ℤ/3ℤ : (*i*, *j*) en colonne *i*, ligne *j*, soit (0, 0) = [Claude], (1, 0) = [GitHub],
   (2, 0) = [Drive], (0, 1) = [Fichiers], (1, 1) = [Authenticator], (2, 1) = [Banque Populaire],
   (0, 2) = [Play Store], (1, 2) = [Amazon], (2, 2) = [PRONOTE].
@@ -43,13 +43,7 @@ Sur la page, |*S*| = 7, |*M*| = 9, |*U*| = 15, |*S* ∩ *M*| = 3, |*S* ∩ *U*| 
 Réponse : 18. Seulement dans *S* : 7 − (3 + 2 − 1) = 3 ; seulement dans *M* : 9 − (3 + 3 − 1) = 4 ;
 seulement dans *U* : 15 − (2 + 3 − 1) = 11 ; 3 + 4 + 11 = 18.
 
-## Accueil 4 : Sierpiński
-
-**Exercice.** Déterminer le nombre de triangles de *T*₅ et le rapport aire(*T*₅) / aire(*T*₀).
-
-Réponse : *T*₅ est formé de 3⁵ = 243 triangles, et aire(*T*₅) / aire(*T*₀) = (3/4)⁵ = 243/1024 ≈ 0,237.
-
-## Accueil 5 : Fourier
+## Accueil 4 : Fourier
 
 Sur la page : (1) *z*(*t*) = 20 e^{*it*} − 6 e^{−*it*} − 3 e^{3*it*} − 2 e^{−3*it*} et
 (2) *c*ₖ = 1/(2π) ∫₀^{2π} *z*(*t*) e^{−*ikt*} d*t*.

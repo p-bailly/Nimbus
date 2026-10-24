@@ -94,8 +94,7 @@ enum class HomeStyle(val label: String, val paper: Boolean = true) {
     GROUPES("1 · Groupes"),
     VORONOI("2 · Voronoï"),
     ENSEMBLES("3 · Ensembles"),
-    SIERPINSKI("4 · Sierpiński"),
-    FOURIER("5 · Fourier"),
+    FOURIER("4 · Fourier"),
 }
 
 /** Couleurs du tiroir d'apps : celles du lanceur, ou sombres quel que soit le thème. */

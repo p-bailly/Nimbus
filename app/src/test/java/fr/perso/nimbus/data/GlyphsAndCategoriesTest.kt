@@ -85,7 +85,7 @@ class GlyphsAndCategoriesTest {
         assertEquals(lol, PaperSlot.resolve(listOf(lol), emptyMap(), emptyMap())[PaperSlot.LOL])
         assertEquals(renamed, PaperSlot.resolve(listOf(renamed), emptyMap(), emptyMap())[PaperSlot.LOL])
         assertEquals(PaperFamily.JEUX, PaperSlot.LOL.family)
-        // Quatre jeux, et 28 places : Sierpiński en garde 27, sans LoL Live.
+        // Quatre jeux, et 28 places.
         assertEquals(4, PaperSlot.of(PaperFamily.JEUX).size)
         assertEquals(28, PaperSlot.entries.size)
     }

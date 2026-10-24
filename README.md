@@ -39,10 +39,9 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 
 **Accueils « papier » (style LaTeX)**
 - Appui long sur le fond › « Style de l'accueil » (ou Paramètres › Page d'accueil) : la grille
-  d'icônes, ou l'une des cinq pages d'article : Groupes, Voronoï, Ensembles, Sierpiński, Fourier
+  d'icônes, ou l'une des quatre pages d'article : Groupes, Voronoï, Ensembles, Fourier
   (les applis tournent sur des épicycles).
-- Chaque page place 28 applis sur une figure mathématique (27 sur Sierpiński, faite de 3³ triangles : LoL Live,
-  la 28ᵉ place, y manque) : leurs places (WhatsApp, Messages… πr, LoL Live) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
+- Chaque page place 28 applis sur une figure mathématique : leurs places (WhatsApp, Messages… πr, LoL Live) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
   long sur une appli › « Changer », ou Paramètres › Page d'accueil › « Applis de la page ». Une place
   vide est en pointillés : un appui permet de choisir son appli.
 - Échanger deux applis d'un même groupe : appui long sur une appli › « Échanger », puis l'autre appli
@@ -60,7 +59,7 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   `design/exercices-accueils.md`.
 - Les autres applis sont dessinées avec leur silhouette monochrome (calque des icônes à thème du Pixel,
   sinon premier plan de l'icône, sinon l'initiale), à la couleur propre de l'appli comme dans le
-  sommaire, dans une pastille qui garde la couleur de sa famille (cercle, triangle de Sierpiński) ;
+  sommaire, dans une pastille qui garde la couleur de sa famille (cercle) ;
   réglable : Paramètres › Page d'accueil › « Couleurs des applis » (sinon motif blanc ou de la famille). La
   silhouette est redessinée à sa taille finale (nette même quand le motif est petit dans l'icône).
 - Motif au choix (appui long › Plus › « Motif ») : silhouette de l'app, logo YouTube, lettres
