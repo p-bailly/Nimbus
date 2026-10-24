@@ -41,8 +41,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Appui long sur le fond › « Style de l'accueil » (ou Paramètres › Page d'accueil) : la grille
   d'icônes, ou l'une des cinq pages d'article : Groupes, Voronoï, Ensembles, Sierpiński, Fourier
   (les applis tournent sur des épicycles).
-- Chaque page place 27 applis sur une figure mathématique : leurs places (WhatsApp, Messages…
-  πr) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
+- Chaque page place 28 applis sur une figure mathématique (27 sur Sierpiński, faite de 3³ triangles : LoL Live,
+  la 28ᵉ place, y manque) : leurs places (WhatsApp, Messages… πr, LoL Live) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
   long sur une appli › « Changer », ou Paramètres › Page d'accueil › « Applis de la page ». Une place
   vide est en pointillés : un appui permet de choisir son appli.
 - Échanger deux applis d'un même groupe : appui long sur une appli › « Échanger », puis l'autre appli
@@ -52,7 +52,7 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Voronoï : appui long sur une cellule puis glisser pour déplacer le site de son appli dans le
   carré Ω ; les cellules suivent le doigt, et les pastilles ne sortent pas du carré, ne se touchent
   pas et laissent le « Ω » libre. Appui long sur le fond › « Sites d'origine » pour tout remettre.
-- Les 50 applis qui ont un logo au crayon (`design/logos-crayon/`, voir `CrayonLogos.kt`) le montrent
+- Les 51 applis qui ont un logo au crayon (`design/logos-crayon/`, voir `CrayonLogos.kt`) le montrent
   sur un disque blanc cerclé de leur famille, sur toutes les pages d'accueil papier, dans la figure de
   la table des matières et dans les pastilles du tiroir ; il passe devant le motif choisi. Sur les
   accueils, le logo remplit son disque, et les disques ont grandi (de 35 à 50 % environ) à la place
@@ -101,7 +101,9 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   logo de Basket Live, les matchs en direct des équipes favorites (trois au plus, mi-temps et fin de
   période comprises) et leurs résultats de la nuit (gagnante en gras, perdante en gris, « victoire »
   ou « défaite » de la favorite surlignée au crayon ; quatre lignes en tout ; un résultat disparaît
-  12 h après la fin du match), puis la figure du jour, dessinée au crayon (contour au crayon de
+  12 h après la fin du match), puis, dans un bandeau violet avec le logo de LoL Live, les séries de LoL en direct
+  des équipes favorites de LoL Live et leurs résultats récents (mêmes règles ; « game 2 · BO3 » pendant
+  une série, « victoire » ou « défaite » ensuite ; le score est le nombre de games gagnées), puis la figure du jour, dessinée au crayon (contour au crayon de
   papier, coloriage aux crayons de couleur), avec sa légende « Figure 2 – Nom » : 164 figures par
   thème (classiques, fractales, cercles, courbes, pavages, géométrie, espace, nombres, graphes, hasard et
   fonctions),
@@ -113,7 +115,7 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   sans données (appli absente, rien en direct) disparaît.
 - Glisser vers le haut, toucher le bas de la page ou Retour : le système demande l'empreinte, le
   visage ou le code, puis la page s'efface. Toucher la météo ouvre Météo, toucher les matchs ouvre
-  Basket Live (après le déverrouillage). Un appel, une alarme ou l'appareil photo passent devant.
+  Basket Live ou LoL Live (après le déverrouillage). Un appel, une alarme ou l'appareil photo passent devant.
 - Écran rallumé aussitôt après l'extinction, avant que le verrouillage n'arrive, ou réveil sans page
   (fermée par le système) : la page est posée au réveil, par-dessus l'écran verrouillé (sauf double
   appui sur Marche/Arrêt, pour l'appareil photo).
@@ -127,12 +129,15 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   autorisations, « Afficher sur l'écran de verrouillage » et « Ouvrir de nouvelles fenêtres en
   arrière-plan » (refusées par défaut : l'écran verrouillé du système reste seul) ; les réglages de
   Nimbus le signalent et y mènent.
-- Données : Météo et Basket Live (applis personnelles) les partagent avec Nimbus seul, en lecture
+- Données : Météo, Basket Live et LoL Live (applis personnelles) les partagent avec Nimbus seul, en lecture
   (`content://io.github.pbailly.meteo.nimbus` : `now` et le coloriage `sketch`, avec la place du
   texte qui sera posé dessus ;
-  `content://com.pbailly.superfanbasket.nimbus/favorites`), et préviennent à chaque changement. Les
-  scores viennent de l'API publique d'ESPN (`site.api.espn.com`, comme Basket Live) : relus à
-  chaque affichage, puis toutes les 15 s tant qu'un match de favori est en cours et la page visible,
+  `content://com.pbailly.superfanbasket.nimbus/favorites`, `content://com.pbailly.riftlive.nimbus/favorites`),
+  et préviennent à chaque changement. Les
+  scores viennent de l'API publique d'ESPN (`site.api.espn.com`, comme Basket Live) et, pour LoL, du
+  calendrier de lolesports.com (`esports-api.lolesports.com`, avec la clé publique du site : l'équipe d'une
+  série se reconnaît à son nom, sinon à son sigle) : relus à
+  chaque affichage, puis toutes les 15 s tant qu'un match ou une série de favori est en cours et la page visible,
   toutes les 5 min sinon. Rien n'est lu écran éteint, sauf une fois à l'extinction pour être à jour
   au réveil.
 
@@ -175,7 +180,7 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   numérotée, chaque app une sous-section avec points de conduite et numéro de page ; sous le titre,
   une figure des cinq applis les plus utilisées qui ne sont pas déjà sur l'accueil (places de la
   page papier, ou grille et dock) ; l'espace privé en annexe A, et les notifications d'une
-  app sont un appel de note. Devant chaque nom, le logo au crayon de l'app (50 logos dessinés pour
+  app sont un appel de note. Devant chaque nom, le logo au crayon de l'app (51 logos dessinés pour
   Nimbus, tous à la même taille de dessin : sources dans `design/logos-crayon/`, reconnus d'après le
   nom affiché ou le paquet dans `CrayonLogos.kt`), sinon son motif (le même que sur les pages
   papier) à sa propre couleur, la teinte dominante de son icône. Appui : ouvrir ; appui long :

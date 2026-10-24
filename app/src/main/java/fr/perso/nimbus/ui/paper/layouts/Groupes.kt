@@ -44,7 +44,7 @@ import fr.perso.nimbus.ui.paper.tex
 import kotlin.math.hypot
 
 // Page « Groupes » : les Échanges (ℤ/6ℤ) se projettent sur les Trajets (ℤ/3ℤ) par φ, en diagramme
-// sagittal ; puis l'Écran forme D₃, les Jeux ℤ/3ℤ et les Outils ℤ/3ℤ × ℤ/3ℤ. Les exercices qui
+// sagittal ; puis l'Écran forme D₃, les Jeux ℤ/2ℤ × ℤ/2ℤ (le groupe de Klein) et les Outils ℤ/3ℤ × ℤ/3ℤ. Les exercices qui
 // finissaient la page sont dans design/exercices-accueils.md : la place a servi à agrandir les logos.
 // Sans la définition de φ ni la ligne « D₃ = {…} » à part, la place gagnée sert à agrandir le texte.
 
@@ -78,7 +78,7 @@ fun GroupesPage() {
         Morphism()
         Proposition()
         Dihedral()
-        Cyclic()
+        Klein()
         Product()
     }
 }
@@ -324,14 +324,17 @@ private fun Dihedral() {
 private const val SECTION_Y = 628f
 private val GridY = floatArrayOf(SECTION_Y + 104f, SECTION_Y + 160f, SECTION_Y + 216f)
 
-/** Jeux & perso ≅ ℤ/3ℤ. */
+/** Jeux & perso ≅ ℤ/2ℤ × ℤ/2ℤ, comme les Outils : (i, j) en colonne i, ligne j. */
 @Composable
-private fun Cyclic() {
-    Heading("3.  Jeux & perso", "≅ ℤ/3ℤ", Amber, 22f, SECTION_Y, stacked = true)
-    listOf(PaperSlot.LICHESS, PaperSlot.BASKET, PaperSlot.PIR).forEachIndexed { i, slot ->
-        val cx = 46f + 56f * i
-        Element(slot, cx, GridY[0], Amber)
-        Tag(i, cx, GridY[0] + ELEMENT / 2f + 12f, Amber)
+private fun Klein() {
+    Heading("3.  Jeux & perso", "≅ ℤ/2ℤ × ℤ/2ℤ", Amber, 22f, SECTION_Y, stacked = true)
+    // Colonnes espacées de 56 comme celles des Outils, et leur marque de rangée 34 avant la première.
+    val gx = floatArrayOf(78f, 134f)
+    val games = listOf(PaperSlot.LICHESS, PaperSlot.BASKET, PaperSlot.PIR, PaperSlot.LOL)
+    games.forEachIndexed { n, slot -> Element(slot, gx[n % 2], GridY[n / 2], Amber) }
+    for (v in 0..1) {
+        Tag(v, gx[v], SECTION_Y + 66f, Amber, 16f)
+        Tag(v, gx[0] - 34f, GridY[v], Amber, 16f)
     }
 }
 

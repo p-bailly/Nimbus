@@ -9,6 +9,7 @@ import androidx.compose.ui.geometry.Rect
 import fr.perso.nimbus.data.BasketShare
 import fr.perso.nimbus.data.FavoriteTeam
 import fr.perso.nimbus.data.Game
+import fr.perso.nimbus.data.LolShare
 import fr.perso.nimbus.data.MeteoShare
 import fr.perso.nimbus.ui.paper.PAPER_WIDTH
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +48,7 @@ class UnlockFeed private constructor(context: Context) {
 
     private val meteoLock = Mutex()
     private val basketLock = Mutex()
+    private val lolLock = Mutex()
 
     /** Ce qui décide du coloriage (lieu, temps, prévision, taille, texte posé dessus) et le moment où il a été lu. */
     @Volatile private var sketchKey: List<Any>? = null
@@ -59,8 +61,12 @@ class UnlockFeed private constructor(context: Context) {
     @Volatile private var games: List<Game> = emptyList()
     @Volatile private var scoresAt = 0L
 
+    @Volatile private var lolFavorites: List<FavoriteTeam> = emptyList()
+    @Volatile private var lolGames: List<Game> = emptyList()
+    @Volatile private var lolAt = 0L
+
     /**
-     * Tant que la page est visible : tout relire tout de suite, suivre Météo et Basket Live (leurs
+     * Tant que la page est visible : tout relire tout de suite, suivre Météo, Basket Live et LoL Live (leurs
      * fournisseurs préviennent à chaque changement), puis les scores (direct et résultats de la nuit)
      * toutes les 15 s si un match de favori est en cours, toutes les 5 min sinon.
      */
@@ -75,10 +81,22 @@ class UnlockFeed private constructor(context: Context) {
                 refreshScores()
             }
         }
+        launch {
+            changes(LolShare.URI).collect {
+                refreshLolFavorites()
+                refreshLolScores()
+            }
+        }
         refreshFavorites()
+        refreshLolFavorites()
         while (true) {
-            refreshScores()
-            delay(if (_state.value.lines.isNotEmpty()) LIVE_POLL else IDLE_POLL)
+            // Les deux sources en même temps : une réponse lente de l'une ne retarde pas l'autre.
+            coroutineScope {
+                launch { refreshScores() }
+                launch { refreshLolScores() }
+            }
+            val live = _state.value.let { it.lines.isNotEmpty() || it.lol.isNotEmpty() }
+            delay(if (live) LIVE_POLL else IDLE_POLL)
         }
     }
 
@@ -99,6 +117,10 @@ class UnlockFeed private constructor(context: Context) {
         scope.launch {
             refreshFavorites()
             refreshScores()
+        }
+        scope.launch {
+            refreshLolFavorites()
+            refreshLolScores()
         }
     }
 
@@ -165,6 +187,38 @@ class UnlockFeed private constructor(context: Context) {
         val lines = BasketShare.liveLines(favorites, games)
         val results = BasketShare.resultLines(favorites, games, lines, Instant.now())
         _state.update { it.copy(lines = lines, results = results) }
+    }
+
+    suspend fun refreshLolFavorites() = withContext(Dispatchers.IO) {
+        try {
+            lolFavorites = LolShare.readFavorites(resolver).orEmpty()
+        } catch (e: Exception) {
+            // On garde les favoris connus.
+        }
+        publishLol()
+    }
+
+    suspend fun refreshLolScores() = lolLock.withLock {
+        withContext(Dispatchers.IO) {
+            if (lolFavorites.isEmpty()) {
+                lolGames = emptyList()
+            } else {
+                try {
+                    lolGames = LolShare.fetchGames(Instant.now())
+                    lolAt = SystemClock.elapsedRealtime()
+                } catch (e: Exception) {
+                    // Hors réseau : comme pour le basket, le direct s'éteint au bout d'un moment, pas les résultats.
+                    if (SystemClock.elapsedRealtime() - lolAt > MAX_SCORES_AGE) lolGames = lolGames.filter { it.finished }
+                }
+            }
+            publishLol()
+        }
+    }
+
+    private fun publishLol() {
+        val lines = LolShare.liveLines(lolFavorites, lolGames)
+        val results = LolShare.resultLines(lolFavorites, lolGames, lines, Instant.now())
+        _state.update { it.copy(lol = lines, lolResults = results) }
     }
 
     /**

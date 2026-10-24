@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import fr.perso.nimbus.data.BasketShare
+import fr.perso.nimbus.data.LolShare
 import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoShare
 import fr.perso.nimbus.data.UnlockNote
@@ -108,6 +109,7 @@ class UnlockActivity : ComponentActivity() {
                         state.copy(notes = notes, music = playing.music),
                         onMeteo = { openApp(MeteoShare.PACKAGE) },
                         onBasket = { openApp(BasketShare.PACKAGE) },
+                        onLol = { openApp(LolShare.PACKAGE) },
                         onUnlock = { unlock() },
                         onNote = { openNote(it) },
                         onSketchText = feed::sketchText,

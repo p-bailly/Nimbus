@@ -120,6 +120,7 @@ private val Discs: List<Triple<PaperSlot, Float, Float>> = listOf(
     Triple(PaperSlot.LICHESS, 365f, 629f),
     Triple(PaperSlot.BASKET, 269f, 698f),
     Triple(PaperSlot.PIR, 109f, 707f),
+    Triple(PaperSlot.LOL, 189f, 712f),
 )
 
 @Composable
@@ -128,7 +129,7 @@ fun EnsemblesPage() {
         Text(
             tex {
                 bf("Notations.")
-                +" "; it("S"); +", "; it("M"); +", "; it("U"); +" ⊂ "; it("A"); +" = {applis}, |"; it("A"); +"| = 27."
+                +" "; it("S"); +", "; it("M"); +", "; it("U"); +" ⊂ "; it("A"); +" = {applis}, |"; it("A"); +"| = 28."
             },
             style = Paper.text(15.5f, 21f),
             modifier = Modifier.at(22, 142).width(368.dp),
@@ -155,7 +156,7 @@ fun EnsemblesPage() {
             +"|"; it("S"); +" ∪ "; it("M"); +" ∪ "; it("U"); +"| = 7 + 9 + 15 − 3 − 2 − 3 + 1 = 24"
         }
         Equation(2, 854f) {
-            +"|"; it("A"); +" ∖ ("; it("S"); +" ∪ "; it("M"); +" ∪ "; it("U"); +")| = 27 − 24 = 3"
+            +"|"; it("A"); +" ∖ ("; it("S"); +" ∪ "; it("M"); +" ∪ "; it("U"); +")| = 28 − 24 = 4"
         }
     }
 }
@@ -180,7 +181,7 @@ private fun Equation(number: Int, top: Float, content: MathBuilder.() -> Unit) {
     )
 }
 
-/** Cadre, trois cercles teintés, leurs noms et les 27 pastilles, réduits à 0,95. */
+/** Cadre, trois cercles teintés, leurs noms et les 28 pastilles, réduits à 0,95. */
 @Composable
 private fun VennFigure() {
     Canvas(Modifier.size(PAPER_WIDTH.dp, PAPER_HEIGHT.dp)) {
