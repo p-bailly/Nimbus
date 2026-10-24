@@ -24,11 +24,10 @@ import fr.perso.nimbus.ui.home.multiTouchGestures
 import fr.perso.nimbus.ui.paper.layouts.EnsemblesPage
 import fr.perso.nimbus.ui.paper.layouts.FourierPage
 import fr.perso.nimbus.ui.paper.layouts.GroupesPage
-import fr.perso.nimbus.ui.paper.layouts.SierpinskiPage
 import fr.perso.nimbus.ui.paper.layouts.VoronoiPage
 
 /**
- * Accueil « papier » : une page d'article où les 27 applis des places sont posées sur une figure.
+ * Accueil « papier » : une page d'article où les 28 applis des places sont posées sur une figure.
  * Appui sur une appli : l'ouvrir (place vide : choisir l'appli) ; appui long : ses actions, dont
  * « Changer ». Les gestes de l'accueil (glisser, double tap, deux doigts, appui long sur le fond)
  * restent ceux de la grille.
@@ -110,7 +109,6 @@ fun PaperLayout(style: HomeStyle) {
         HomeStyle.GROUPES -> GroupesPage()
         HomeStyle.VORONOI -> VoronoiPage()
         HomeStyle.ENSEMBLES -> EnsemblesPage()
-        HomeStyle.SIERPINSKI -> SierpinskiPage()
         HomeStyle.FOURIER -> FourierPage()
     }
 }

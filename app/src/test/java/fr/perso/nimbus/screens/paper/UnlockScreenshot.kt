@@ -9,6 +9,7 @@ import fr.perso.nimbus.data.GameTeam
 import fr.perso.nimbus.data.LiveLine
 import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoNow
+import fr.perso.nimbus.data.Seg
 import fr.perso.nimbus.ui.paper.LocalPaper
 import fr.perso.nimbus.ui.paper.PaperEnv
 import fr.perso.nimbus.ui.unlock.ALL_FIGURES
@@ -91,6 +92,32 @@ class UnlockScreenshot {
 
     @Test
     fun page() = shoot("h8_deverrouillage", UnlockState(meteo, sketch, listOf(spurs)))
+
+    /** Le basket, puis LoL : une série en trois manches à 1-0 en direct, et la victoire en une manche d'une autre favorite. */
+    @Test
+    fun lol() {
+        val live = LiveLine(
+            Game(
+                "115660540726095031", "in", "inProgress", 0, "",
+                home = GameTeam("losratones", "LOS", "Los Ratones", 0),
+                away = GameTeam("g2esports", "G2", "G2 Esports", 1),
+                label = listOf(Seg("game 2 · BO3")),
+            ),
+            awayFavorite = true,
+            homeFavorite = false,
+        )
+        val won = LiveLine(
+            Game(
+                "115660540726095027", "post", "completed", 0, "",
+                home = GameTeam("dpluskia", "DK", "Dplus KIA", 0),
+                away = GameTeam("t1", "T1", "T1", 1),
+                label = emptyList(),
+            ),
+            awayFavorite = true,
+            homeFavorite = false,
+        )
+        shoot("h8_lol", UnlockState(meteo, sketch, listOf(spurs), lol = listOf(live), lolResults = listOf(won)))
+    }
 
     /** Au réveil : plus de direct, les résultats de la nuit des favorites (dont une prolongation). */
     @Test

@@ -249,7 +249,7 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
                 vm.setHomeStyle(style)
             },
             onDismiss = { pickingStyle = false },
-            footer = "Les styles « papier » placent 27 applis sur une page d'article ; appui long sur une appli pour en changer. " +
+            footer = "Les styles « papier » placent 28 applis sur une page d'article ; appui long sur une appli pour en changer. " +
                 "Voronoï : appui long puis glisser pour déplacer une appli dans le carré.",
         )
     }

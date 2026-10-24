@@ -54,7 +54,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 // Page 5 : la courbe z(t) = 20 e^{it} − 6 e^{−it} − 3 e^{3it} − 2 e^{−3it}, tracée par une chaîne
-// d'épicycles (un cercle par terme). Les 27 applis la parcourent, l'appli j avec 2jπ/27 d'avance
+// d'épicycles (un cercle par terme). Les 28 applis la parcourent, l'appli j avec 2jπ/28 d'avance
 // sur l'appli 0 ; une période (t de 0 à 2π) dure 8 minutes.
 
 /** Un terme c·e^{ikt} de z. */
@@ -70,6 +70,9 @@ private const val CENTER_Y = 506f
 private const val UNIT = 9.6f
 
 private const val TAU = (2 * PI).toFloat()
+
+/** Nombre d'applis sur la courbe : une par place. */
+private val APPS = PaperSlot.entries.size
 private const val PERIOD_MS = 480_000L
 
 // Pastilles : disque blanc de 36,3, anneau de 1,35 à l'extérieur (deux applis voisines sur la courbe
@@ -133,15 +136,15 @@ fun FourierPage() {
                 it("j")
                 +" "
                 element()
-                +" {0, …, 26} est en "
+                +" {0, …, ${APPS - 1}} est en "
                 it("z")
                 +"("
-                // Espaces insécables et gluon après la barre : la ligne se coupe avant z(t + 2jπ/27),
+                // Espaces insécables et gluon après la barre : la ligne se coupe avant z(t + 2jπ/28),
                 // jamais dedans.
                 it("t")
                 +"\u00A0+\u00A02"
                 it("jπ")
-                +"/\u206027), où"
+                +"/\u2060$APPS), où"
             },
             style = Body,
             modifier = Modifier.at(22, 142).width(368.dp),
@@ -187,7 +190,7 @@ fun FourierPage() {
             modifier = Modifier.baselineAt(22f, 804f).width(368.dp),
         )
         Text(
-            tex { +"qui fait "; it("k"); +" tours ; les 27 applis suivent la courbe." },
+            tex { +"qui fait "; it("k"); +" tours ; les $APPS applis suivent la courbe." },
             style = Caption,
             modifier = Modifier.baselineAt(22f, 823f).width(368.dp),
         )
@@ -270,13 +273,13 @@ private fun Epicycles(time: State<Float>) {
     )
 }
 
-/** L'appli j, en z(t + 2jπ/27) : sa position est calculée au dessin, sans recomposer la page. */
+/** L'appli j, en z(t + 2jπ/28) : sa position est calculée au dessin, sans recomposer la page. */
 @Composable
 private fun MovingApp(slot: PaperSlot, j: Int, time: State<Float>) {
     val first = j == 0
     val ring = if (first) RING_FIRST else RING
     val size = DISC + 2 * ring
-    val lead = TAU * j / PaperSlot.entries.size
+    val lead = TAU * j / APPS
     val halo = slot.family.color.copy(alpha = 0.18f)
     Box(
         Modifier

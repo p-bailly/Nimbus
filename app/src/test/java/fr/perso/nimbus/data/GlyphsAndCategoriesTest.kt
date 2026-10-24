@@ -79,6 +79,18 @@ class GlyphsAndCategoriesTest {
     }
 
     @Test
+    fun lolLiveHasItsPlaceAmongTheGames() {
+        val lol = app("LoL Live", "com.pbailly.riftlive")
+        val renamed = app("Ligues", "com.pbailly.riftlive")
+        assertEquals(lol, PaperSlot.resolve(listOf(lol), emptyMap(), emptyMap())[PaperSlot.LOL])
+        assertEquals(renamed, PaperSlot.resolve(listOf(renamed), emptyMap(), emptyMap())[PaperSlot.LOL])
+        assertEquals(PaperFamily.JEUX, PaperSlot.LOL.family)
+        // Quatre jeux, et 28 places.
+        assertEquals(4, PaperSlot.of(PaperFamily.JEUX).size)
+        assertEquals(28, PaperSlot.entries.size)
+    }
+
+    @Test
     fun brandDefaults() {
         assertEquals(GlyphChoice.Colored, AppBrands.glyph(app("Drive", "com.google.android.apps.docs")))
         assertEquals(GlyphChoice.Colored, AppBrands.glyph(app("Play Store", "com.android.vending")))

@@ -1,5 +1,6 @@
 package fr.perso.nimbus.ui.unlock
 
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -116,7 +117,8 @@ import kotlin.math.roundToInt
 // Page de déverrouillage (maquette H8a, sans en-tête et en plus gros) : sous l'heure, la météo comme l'écran Aujourd'hui de l'appli
 // Météo (et son coloriage, agrandi et ravivé), les messages reçus (WhatsApp, Discord, Messages, Claude…) dans
 // des bandeaux coloriés à la couleur de leur appli, les matchs en direct et les résultats de la nuit des
-// équipes favorites de Basket Live dans un bandeau colorié orange, puis une figure, dessinée au crayon,
+// équipes favorites de Basket Live dans un bandeau colorié orange, les séries de LoL des équipes favorites de LoL
+// Live dans un bandeau violet, puis une figure, dessinée au crayon,
 // différente à chaque affichage. Une section sans données disparaît, la suite remonte.
 //
 // En fond de l'écran verrouillé ([UnlockWallpaper]), le haut de l'écran est au Pixel : son heure à gauche,
@@ -138,6 +140,9 @@ data class UnlockState(
     val lines: List<LiveLine> = emptyList(),
     /** Résultats de la nuit des équipes favorites (matchs terminés), sous le direct. */
     val results: List<LiveLine> = emptyList(),
+    /** Séries de LoL en cours des équipes favorites de LoL Live, et leurs résultats récents. */
+    val lol: List<LiveLine> = emptyList(),
+    val lolResults: List<LiveLine> = emptyList(),
     /** Notifications des applis de messages, les plus récentes d'abord. */
     val notes: List<UnlockNote> = emptyList(),
     /** La musique en cours (ou en pause depuis peu). */
@@ -240,6 +245,8 @@ internal fun UnlockPage(
     onMeteo: () -> Unit,
     onBasket: () -> Unit,
     onUnlock: () -> Unit,
+    /** Ouvrir LoL Live (après le déverrouillage). */
+    onLol: () -> Unit = {},
     /** Ouvrir une notification (après le déverrouillage). */
     onNote: (UnlockNote) -> Unit = {},
     /** La figure à montrer (une nouvelle à chaque affichage) ; sans elle, celle du jour. */
@@ -301,7 +308,10 @@ internal fun UnlockPage(
             y = NotesSection(y, state.notes, today, onNote) + AFTER_BANNER
         }
         if (state.lines.isNotEmpty() || state.results.isNotEmpty()) {
-            y = BasketSection(y, state.lines + state.results, onBasket) + AFTER_BANNER
+            y = GameSection(y, BASKET_LOOK, state.lines + state.results, onBasket) + AFTER_BANNER
+        }
+        if (state.lol.isNotEmpty() || state.lolResults.isNotEmpty()) {
+            y = GameSection(y, LOL_LOOK, state.lol + state.lolResults, onLol) + AFTER_BANNER
         }
         // En fond d'écran, la figure passe sous l'empreinte du Pixel, qui ne la cache plus.
         if (wallpaper) y = maxOf(y, FINGERPRINT_BOTTOM + 6)
@@ -564,28 +574,41 @@ private fun spoken(t: Double): String = "${t.roundToInt()}"
 
 // ---------------------------------------------------------------- Basket
 
+/** Ce qui distingue le bandeau d'un sport : titre, logo au crayon de l'appli, couleur, graine du coloriage, appli à ouvrir. */
+private class GameLook(
+    val title: String,
+    @DrawableRes val logo: Int,
+    val color: Color,
+    val seed: Int,
+    val app: String,
+)
+
+private val BASKET_LOOK = GameLook("Basket", R.drawable.crayon_basket, Color(0xFFE0702A), 7, "Basket Live")
+private val LOL_LOOK = GameLook("LoL", R.drawable.crayon_lol, Color(0xFF7A5BC4), 11, "LoL Live")
+
 /**
- * Les matchs en direct, puis les résultats de la nuit (matchs terminés), dans un bandeau colorié orange
- * comme un ballon, le logo au crayon de Basket Live devant le titre ; rend le bas du bandeau.
+ * Les matchs en direct, puis les résultats de la nuit (matchs terminés), dans un bandeau colorié (orange
+ * comme un ballon pour Basket Live, violet pour LoL Live), le logo au crayon de l'appli devant le titre ;
+ * rend le bas du bandeau.
  */
 @Composable
-private fun BasketSection(y0: Float, lines: List<LiveLine>, onOpen: () -> Unit): Float {
+private fun GameSection(y0: Float, look: GameLook, lines: List<LiveLine>, onOpen: () -> Unit): Float {
     val y = y0 + BANNER_PAD
     val b = y + 17
     val end = y + 45 + ROW_PITCH * (lines.size - 1) + 7 + BANNER_PAD
-    Box(Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp).crayonBanner(BasketOrange, seed = 7))
+    Box(Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp).crayonBanner(look.color, seed = look.seed))
     Image(
-        painterResource(R.drawable.crayon_basket),
+        painterResource(look.logo),
         contentDescription = null,
         modifier = Modifier.at(24, b - 21).size(28.dp),
     )
-    Text("Basket", style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(56, top(b, TITLE, face = Face.BOLD)))
+    Text(look.title, style = style(TITLE, face = Face.BOLD), modifier = Modifier.at(56, top(b, TITLE, face = Face.BOLD)))
     if (lines.any { it.game.live }) RightText("en direct", style(LABEL, color = Live), top(b, LABEL))
 
     val rows = rememberRows(lines)
     rows.forEachIndexed { i, row -> GameRow(y + 45 + ROW_PITCH * i, row) }
     TapZone(
-        "Ouvrir Basket Live : " + lines.joinToString(" ; ") { l ->
+        "Ouvrir ${look.app} : " + lines.joinToString(" ; ") { l ->
             val winner = BasketShare.winner(l.game)?.let { ", victoire des ${it.name}" }.orEmpty()
             "${l.game.away.name} ${l.game.away.score ?: 0}, ${l.game.home.name} ${l.game.home.score ?: 0}, " +
                 BasketShare.spokenStatus(l.game) + winner
@@ -600,9 +623,6 @@ private fun BasketSection(y0: Float, lines: List<LiveLine>, onOpen: () -> Unit):
 private const val BANNER_X = 12f
 private const val BANNER_W = 388f
 private const val BANNER_PAD = 9f
-
-/** Orange d'un ballon de basket. */
-private val BasketOrange = Color(0xFFE0702A)
 
 /** Une équipe d'une ligne : nom affiché (le sigle si le nom ne tient pas), face et couleur. */
 private class TeamLook(val name: String, val face: Face, val color: Color)

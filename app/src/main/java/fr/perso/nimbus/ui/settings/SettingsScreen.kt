@@ -1076,7 +1076,7 @@ private fun SettingsDialogs(
             label = { it.label },
             onSelect = { style -> vm.setHomeStyle(style); close() },
             onDismiss = close,
-            footer = "Les styles « papier » placent 27 applis sur une page d'article ; appui long sur une appli pour en changer.",
+            footer = "Les styles « papier » placent 28 applis sur une page d'article ; appui long sur une appli pour en changer.",
         )
         SettingsDialog.HomeColumns -> ChoiceDialog(
             title = "Colonnes de la grille d'accueil",

@@ -14,7 +14,8 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-// Matchs en direct, et résultats de la nuit, des équipes favorites de l'appli Basket Live : les favoris viennent de son
+// Matchs en direct, et résultats de la nuit, des équipes favorites de l'appli Basket Live (les types servent aussi
+// aux séries de LoL Live, voir LolShare) : les favoris viennent de son
 // fournisseur (content://com.pbailly.superfanbasket.nimbus), les scores de l'API publique d'ESPN,
 // la même que l'appli.
 
@@ -40,6 +41,12 @@ data class Game(
     val away: GameTeam,
     /** Coup d'envoi (null s'il manque au tableau). */
     val start: Instant? = null,
+    /** État déjà composé (LoL : « game 2 · BO3 ») ; null : il se déduit de la période, comme au basket. */
+    val label: List<Seg>? = null,
+    /** Idem pour l'accessibilité. */
+    val spoken: String? = null,
+    /** Durée du match, quand elle n'est pas celle d'un match de NBA (une série de LoL dure de 1 à 5 h). */
+    val length: Duration? = null,
 ) {
     val live: Boolean get() = state == "in"
     val finished: Boolean get() = state == "post"
@@ -69,14 +76,14 @@ object BasketShare {
     private val GAME_LENGTH: Duration = Duration.ofMinutes(150)
 
     /** Fin estimée de [game] plus 12 h : passé ce moment, son résultat n'est plus montré. */
-    fun resultUntil(game: Game): Instant? = game.start?.plus(GAME_LENGTH)?.plus(RESULT_KEPT)
+    fun resultUntil(game: Game): Instant? = game.start?.plus(game.length ?: GAME_LENGTH)?.plus(RESULT_KEPT)
 
     /**
      * Les équipes favorites, dans l'ordre de l'appli ; null si Basket Live n'est pas installée (ou trop
      * ancienne). Lève une exception si le fournisseur répond mal.
      */
-    fun readFavorites(resolver: ContentResolver): List<FavoriteTeam>? =
-        resolver.query(FAVORITES, arrayOf("team_id", "abbr", "name"), null, null, null)?.use { c ->
+    fun readFavorites(resolver: ContentResolver, favorites: Uri = FAVORITES): List<FavoriteTeam>? =
+        resolver.query(favorites, arrayOf("team_id", "abbr", "name"), null, null, null)?.use { c ->
             val id = c.getColumnIndexOrThrow("team_id")
             val abbr = c.getColumnIndexOrThrow("abbr")
             val name = c.getColumnIndexOrThrow("name")
@@ -108,15 +115,21 @@ object BasketShare {
     }
 
     /** Le tableau des matchs d'une journée d'ESPN (réseau : hors du fil principal). */
-    fun fetchScoreboard(day: LocalDate): List<Game> {
-        val connection = URL(SCOREBOARD + day.format(YMD)).openConnection() as HttpURLConnection
+    fun fetchScoreboard(day: LocalDate): List<Game> = parseScoreboard(fetchText(SCOREBOARD + day.format(YMD)))
+
+    private const val MAX_BYTES = 8 * 1024 * 1024
+
+    /** Corps d'une réponse JSON (réseau : hors du fil principal) ; lève une exception si le serveur refuse ou répond trop gros. */
+    internal fun fetchText(url: String, headers: Map<String, String> = emptyMap()): String {
+        val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
             connection.setRequestProperty("Accept", "application/json")
+            headers.forEach { (name, value) -> connection.setRequestProperty(name, value) }
             val code = connection.responseCode
-            check(code == HttpURLConnection.HTTP_OK) { "ESPN $code" }
-            val body = connection.inputStream.use { input ->
+            check(code == HttpURLConnection.HTTP_OK) { "HTTP $code" }
+            return connection.inputStream.use { input ->
                 val out = ByteArrayOutputStream()
                 val buffer = ByteArray(16 * 1024)
                 while (true) {
@@ -127,13 +140,10 @@ object BasketShare {
                 }
                 out.toString("UTF-8")
             }
-            return parseScoreboard(body)
         } finally {
             connection.disconnect()
         }
     }
-
-    private const val MAX_BYTES = 8 * 1024 * 1024
 
     /** Les matchs d'un tableau d'ESPN (comme `parseEvent` de Basket Live) ; un match mal formé est ignoré. */
     fun parseScoreboard(json: String): List<Game> {
@@ -242,6 +252,7 @@ object BasketShare {
      * (« prol. », « 2 prol. »), rien sinon : la page dit plutôt qui a gagné.
      */
     fun status(game: Game): List<Seg> {
+        game.label?.let { return it }
         val p = game.period
         val clock = game.displayClock.trim().takeIf { it.isNotEmpty() }?.let { " · $it" }.orEmpty()
         fun ordinal(n: Int) = Seg("$n", if (n == 1) "er" else "e")
@@ -266,6 +277,7 @@ object BasketShare {
 
     /** Pour l'accessibilité : « 3e quart-temps, 4:12 à jouer ». */
     fun spokenStatus(game: Game): String {
+        game.spoken?.let { return it }
         val p = game.period
         val clock = game.displayClock.trim().takeIf { it.isNotEmpty() }?.let { ", $it à jouer" }.orEmpty()
         fun nth(n: Int) = if (n == 1) "1er" else "${n}e"
