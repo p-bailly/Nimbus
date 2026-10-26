@@ -777,12 +777,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         resetOnStop = true
     }
 
-    /** Touche « Rechercher » du clavier : première app trouvée, sinon recherche web. */
-    fun submitSearch() {
-        val results = searchResults.value
-        val first = results.apps.firstOrNull()
-        if (first != null && results.query == ui.value.query) launch(first) else webSearch(ui.value.query)
-    }
+    /** Touche « Rechercher » (Entrée) du clavier : toujours la recherche web, avec le moteur choisi (Google par défaut). */
+    fun submitSearch() = webSearch(ui.value.query)
 
     fun startShortcut(shortcut: ShortcutInfo) {
         SystemActions.startShortcut(context, shortcut)

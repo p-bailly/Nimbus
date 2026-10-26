@@ -120,10 +120,24 @@ import fr.perso.nimbus.ui.theme.PaperRule
 import fr.perso.nimbus.ui.theme.PaperSheetHandle
 import fr.perso.nimbus.ui.theme.PaperStyle
 import fr.perso.nimbus.ui.theme.PaperTextButton
-import fr.perso.nimbus.ui.theme.PaperTextField
 import fr.perso.nimbus.ui.theme.inkClickable
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontStyle
+import fr.perso.nimbus.ui.settings.SettingsColors
+import fr.perso.nimbus.ui.theme.PaperSelectionColors
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LocalTextStyle
@@ -314,22 +328,7 @@ private fun SearchField(
         }
     }
     if (LocalPaperUi.current) {
-        // Papier : « Rechercher : » et un champ souligné ; à droite, un lien en petites capitales.
-        PaperTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            label = "Rechercher",
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
-            fieldModifier = Modifier.focusRequester(focusRequester),
-            trailing = {
-                if (query.isNotEmpty()) PaperTextButton("Effacer", onClick = { onQueryChange("") }, horizontalPadding = 0.dp, modifier = Modifier.padding(start = 14.dp))
-                else PaperTextButton("Paramètres", onClick = onOpenSettings, horizontalPadding = 0.dp, modifier = Modifier.padding(start = 14.dp))
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = PaperMargin),
-        )
+        PaperSearchBar(query, onQueryChange, onSearch, onOpenSettings, focusRequester)
         return
     }
     TextField(
@@ -363,6 +362,208 @@ private fun SearchField(
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .focusRequester(focusRequester),
     )
+}
+
+/** Couleurs d'accent de la recherche papier : une par type de résultat. */
+private object SearchAccent {
+    val Apps = PaperColors.Link
+    val Contacts = SettingsColors.Orange
+    val Files = SettingsColors.Teal
+    val PlayStore = SettingsColors.Green
+
+    /** Pastilles d'initiales des contacts : une couleur par nom, toujours la même. */
+    val Avatars = listOf(
+        SettingsColors.Blue, SettingsColors.Orange, SettingsColors.Green,
+        SettingsColors.Purple, SettingsColors.Teal, SettingsColors.Red,
+    )
+
+    /** Teinte d'un accent assez foncée pour du texte ou une icône sur le papier crème. */
+    fun ink(accent: Color): Color = lerp(accent, PaperColors.Ink, 0.35f)
+}
+
+/**
+ * Barre de recherche papier : une capsule teintée, loupe bleue à gauche ; à droite une croix ronde
+ * (ou la roue des réglages quand elle est vide). Le contour passe au bleu avec le focus.
+ */
+@Composable
+private fun PaperSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    onOpenSettings: () -> Unit,
+    focusRequester: FocusRequester,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val border by animateColorAsState(if (focused) PaperColors.Link else PaperColors.Line, label = "searchBorder")
+    val shape = RoundedCornerShape(28.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = PaperMargin, vertical = 6.dp)
+            .background(if (focused) Color.White else PaperColors.Shade, shape)
+            .border(if (focused) 1.6.dp else 1.dp, border, shape)
+            .padding(start = 16.dp, end = 7.dp),
+    ) {
+        Icon(Icons.Default.Search, contentDescription = null, tint = PaperColors.Link, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(10.dp))
+        // Sélection en bleu pâle, curseur bleu : la touche de couleur du champ.
+        CompositionLocalProvider(LocalTextSelectionColors provides PaperSelectionColors) {
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = PaperStyle.item,
+                cursorBrush = SolidColor(PaperColors.Link),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { focused = it.isFocused },
+                decorationBox = { inner ->
+                    // Toute la hauteur de la capsule répond au toucher, le texte y est centré.
+                    Box(Modifier.heightIn(min = 52.dp), contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) {
+                            Text(
+                                "Rechercher une app, un contact…",
+                                style = PaperStyle.item.copy(color = PaperColors.Soft.copy(alpha = 0.8f), fontStyle = FontStyle.Italic),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        inner()
+                    }
+                },
+            )
+        }
+        if (query.isNotEmpty()) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(44.dp)
+                    .inkClickable(onClickLabel = "Effacer", onClick = { onQueryChange("") }),
+            ) {
+                Box(Modifier.size(26.dp).background(PaperColors.ShadeStrong, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Clear, contentDescription = null, tint = PaperColors.Soft, modifier = Modifier.size(16.dp))
+                }
+            }
+        } else {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(44.dp)
+                    .inkClickable(onClickLabel = "Paramètres Nimbus", onClick = onOpenSettings),
+            ) {
+                Icon(Icons.Default.Settings, contentDescription = null, tint = PaperColors.Soft, modifier = Modifier.size(22.dp))
+            }
+        }
+    }
+}
+
+/**
+ * Pastilles sous la barre : le moteur web (ce que fait la touche Entrée) en plein bleu, puis le
+ * Play Store en vert. Le texte cherché reste celui de la barre.
+ */
+@Composable
+private fun WebActions(query: String, settings: LauncherSettings, vm: LauncherViewModel) {
+    val engine = settings.webSearchEngine
+    val engineName = if (engine.urlTemplate == null) "Web" else engine.label
+    val shownQuery = query.trim()
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        ActionPill(
+            text = engineName,
+            description = "Rechercher « $shownQuery » sur $engineName",
+            accent = PaperColors.Link,
+            filled = true,
+            onClick = { vm.webSearch(query) },
+            modifier = Modifier.weight(1f),
+            leading = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.White, modifier = Modifier.size(19.dp)) },
+            trailing = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) },
+        )
+        if (settings.searchPlayStore) {
+            ActionPill(
+                text = "Play Store",
+                description = "Rechercher « $shownQuery » sur le Play Store",
+                accent = SearchAccent.PlayStore,
+                filled = false,
+                onClick = { vm.playStoreSearch(query) },
+                modifier = Modifier.weight(1f),
+                leading = {
+                    Icon(painterResource(R.drawable.ms_shop), contentDescription = null, tint = SearchAccent.ink(SearchAccent.PlayStore), modifier = Modifier.size(19.dp))
+                },
+            )
+        }
+    }
+}
+
+/** Pastille d'action : pleine ([filled]) ou teintée avec un contour fin. */
+@Composable
+private fun ActionPill(
+    text: String,
+    description: String,
+    accent: Color,
+    filled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    leading: @Composable () -> Unit,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val shape = RoundedCornerShape(24.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        modifier = modifier
+            .heightIn(min = 46.dp)
+            .inkClickable(onClick = onClick)
+            .semantics(mergeDescendants = true) { contentDescription = description }
+            .background(if (filled) accent else accent.copy(alpha = 0.12f), shape)
+            .border(1.dp, if (filled) accent else accent.copy(alpha = 0.45f), shape)
+            .padding(horizontal = 14.dp),
+    ) {
+        leading()
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text,
+            style = PaperStyle.serif(16f, 20f, if (filled) Color.White else SearchAccent.ink(accent), bold = true),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (trailing != null) {
+            Spacer(Modifier.width(8.dp))
+            trailing()
+        }
+    }
+}
+
+/** Pastille teintée d'un résultat (contact, fichier) : fond pâle, contour de la couleur d'accent. */
+@Composable
+private fun AccentBadge(accent: Color, shape: Shape, content: @Composable () -> Unit) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(36.dp)
+            .background(accent.copy(alpha = 0.14f), shape)
+            .border(1.dp, accent.copy(alpha = 0.55f), shape),
+    ) { content() }
+}
+
+/** Icône d'un résultat : sur papier dans une pastille teintée, sinon l'icône nue. */
+@Composable
+private fun ResultGlyph(painter: Painter, accent: Color) {
+    if (LocalPaperUi.current) {
+        AccentBadge(accent, RoundedCornerShape(10.dp)) {
+            Icon(painter, contentDescription = null, tint = SearchAccent.ink(accent), modifier = Modifier.size(20.dp))
+        }
+    } else {
+        Icon(painter, contentDescription = null)
+    }
 }
 
 /** Onglets « Toutes » + catégories, avec balayage horizontal entre les onglets. */
@@ -754,6 +955,9 @@ private fun SearchResultsGrid(
         else tableOfContents(apps.visible, apps.categories).filterIsInstance<TocLine.Entry>().associateBy { it.app.key }
     }
     AppGrid(columns = settings.drawerColumns) {
+        // Papier : les actions web sont en tête, à portée de pouce au-dessus du clavier.
+        if (paper) item(span = fullSpan, key = "web-actions") { WebActions(query, settings, vm) }
+
         if (results.apps.isEmpty()) {
             item(span = fullSpan) {
                 Text(
@@ -764,6 +968,7 @@ private fun SearchResultsGrid(
                 )
             }
         } else if (toc) {
+            item(span = fullSpan, key = "apps-header") { SectionHeader("Applications", SearchAccent.Apps) }
             items(results.apps, key = { it.key }, span = { fullSpan() }) { app ->
                 TocEntry(
                     tocEntries[app.key] ?: TocLine.Entry(null, app, "", app.key),
@@ -775,6 +980,7 @@ private fun SearchResultsGrid(
                 )
             }
         } else {
+            if (paper) item(span = fullSpan, key = "apps-header") { SectionHeader("Applications", SearchAccent.Apps) }
             appItems(results.apps, settings, badges, vm)
         }
 
@@ -790,7 +996,7 @@ private fun SearchResultsGrid(
         }
 
         if (results.contacts.isNotEmpty()) {
-            item(span = fullSpan) { SectionHeader("Contacts") }
+            item(span = fullSpan) { SectionHeader("Contacts", SearchAccent.Contacts) }
             items(results.contacts, key = { "contact:" + it.id }, span = { fullSpan() }) { contact ->
                 ContactRow(contact, onClick = { vm.openContact(contact) })
             }
@@ -799,19 +1005,19 @@ private fun SearchResultsGrid(
                 ResultRow(
                     text = "Autoriser l'accès aux contacts pour les rechercher ici",
                     onClick = onRequestContacts,
-                    leading = { Icon(Icons.Default.Person, contentDescription = null) },
+                    leading = { ResultGlyph(rememberVectorPainter(Icons.Default.Person), SearchAccent.Contacts) },
                 )
             }
         }
 
         if (results.files.isNotEmpty()) {
-            item(span = fullSpan) { SectionHeader("Fichiers") }
+            item(span = fullSpan) { SectionHeader("Fichiers", SearchAccent.Files) }
             items(results.files, key = { "file:" + it.id }, span = { fullSpan() }) { file ->
                 ResultRow(
                     text = file.name,
                     subtitle = file.folder,
                     onClick = { vm.openFile(file) },
-                    leading = { Icon(painterResource(fileIcon(file.mimeType)), contentDescription = null) },
+                    leading = { ResultGlyph(painterResource(fileIcon(file.mimeType)), SearchAccent.Files) },
                 )
             }
         } else if (filesBlocked) {
@@ -819,15 +1025,15 @@ private fun SearchResultsGrid(
                 ResultRow(
                     text = "Autoriser l'accès aux fichiers pour les rechercher ici",
                     onClick = onRequestFiles,
-                    leading = { Icon(painterResource(R.drawable.ms_file_open), contentDescription = null) },
+                    leading = { ResultGlyph(painterResource(R.drawable.ms_file_open), SearchAccent.Files) },
                 )
             }
         }
 
-        item(span = fullSpan) {
+        // Thème Material : le Play Store et le web restent en bas de liste ; sur papier, ce sont les pastilles du haut.
+        if (!paper) item(span = fullSpan) {
             Column {
-                if (paper) PaperRule(Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
-                else HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 if (settings.searchPlayStore) {
                     ResultRow(
                         text = "Rechercher « ${query.trim()} » sur le Play Store",
@@ -845,14 +1051,23 @@ private fun SearchResultsGrid(
     }
 }
 
+/** Intertitre d'une famille de résultats ; sur papier, précédé d'une pastille de la couleur [accent]. */
 @Composable
-private fun SectionHeader(text: String) {
+private fun SectionHeader(text: String, accent: Color? = null) {
     if (LocalPaperUi.current) {
-        Text(
-            text,
-            style = PaperStyle.smallCaps(13.5f, PaperColors.Soft, spacing = 0.08f),
-            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 16.dp, bottom = 4.dp),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 4.dp),
+        ) {
+            if (accent != null) {
+                Box(Modifier.size(9.dp).background(accent, CircleShape))
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                text,
+                style = PaperStyle.smallCaps(13.5f, accent?.let(SearchAccent::ink) ?: PaperColors.Soft, spacing = 0.08f, bold = accent != null),
+            )
+        }
         return
     }
     Text(
@@ -866,19 +1081,17 @@ private fun SectionHeader(text: String) {
 @Composable
 private fun ContactRow(contact: ContactResult, onClick: () -> Unit) {
     if (LocalPaperUi.current) {
-        // Papier : l'initiale en italique dans un cercle d'encre.
+        // Papier : l'initiale en italique dans un cercle teinté, d'une couleur propre à chaque nom.
+        val accent = SearchAccent.Avatars[contact.name.hashCode().mod(SearchAccent.Avatars.size)]
         ResultRow(
             text = contact.name,
             onClick = onClick,
-            paperLeading = true,
             leading = {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .border(1.dp, PaperColors.Ink, CircleShape),
-                ) {
-                    Text(contact.name.firstOrNull()?.uppercase() ?: "?", style = PaperStyle.serif(16f, 18f, italic = true))
+                AccentBadge(accent, CircleShape) {
+                    Text(
+                        contact.name.firstOrNull()?.uppercase() ?: "?",
+                        style = PaperStyle.serif(17f, 19f, SearchAccent.ink(accent), italic = true),
+                    )
                 }
             },
         )
@@ -918,23 +1131,20 @@ private fun ResultRow(
     text: String,
     onClick: () -> Unit,
     subtitle: String? = null,
-    paperLeading: Boolean = false,
     leading: @Composable () -> Unit,
 ) {
     if (LocalPaperUi.current) {
-        // Papier : du texte seul ; seuls les contacts gardent leur initiale cerclée ([paperLeading]).
+        // Papier : la pastille teintée à gauche, puis l'intitulé en romain et la précision en italique.
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = 52.dp)
                 .inkClickable(onClick = onClick)
                 .padding(horizontal = 14.dp, vertical = 8.dp),
         ) {
-            if (paperLeading) {
-                Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) { leading() }
-                Spacer(Modifier.width(16.dp))
-            }
+            Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { leading() }
+            Spacer(Modifier.width(14.dp))
             Column {
                 Text(text, style = PaperStyle.item, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (!subtitle.isNullOrEmpty()) {

@@ -194,7 +194,10 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Recherche insensible aux accents (« eco » trouve « École »), par initiales
   (« gm » → « Google Maps »), par ancien nom d'une app renommée, dans les
   contacts, et sur le web avec le moteur choisi (Google, DuckDuckGo, Qwant,
-  Ecosia, Brave, Startpage ou l'appli du téléphone).
+  Ecosia, Brave, Startpage ou l'appli du téléphone). La touche Entrée du clavier lance toujours
+  la recherche web (Google par défaut). Thème papier : barre en capsule, pastilles Google / Play
+  Store en tête de liste, résultats classés par section colorée (Applications, Contacts, Fichiers)
+  avec des initiales de contacts teintées.
 - Fermeture par glissé vers le bas ou par Retour.
 
 **Icônes**

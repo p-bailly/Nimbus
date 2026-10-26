@@ -238,7 +238,7 @@ fun PaperRadio(selected: Boolean, modifier: Modifier = Modifier, size: Dp = 15.d
     }
 }
 
-private val PaperSelectionColors = TextSelectionColors(handleColor = PaperColors.Link, backgroundColor = PaperColors.Link.copy(alpha = 0.22f))
+internal val PaperSelectionColors =TextSelectionColors(handleColor = PaperColors.Link, backgroundColor = PaperColors.Link.copy(alpha = 0.22f))
 
 /**
  * Champ de saisie souligné, précédé de son intitulé en petites capitales (« Rechercher : ___ »).

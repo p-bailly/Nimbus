@@ -228,7 +228,7 @@ data class LauncherSettings(
     val paperAppColors: Boolean = true,
     /** Thème papier : tiroir en table des matières plutôt qu'en grille d'icônes. */
     val drawerToc: Boolean = true,
-    val webSearchEngine: SearchEngine = SearchEngine.SYSTEM,
+    val webSearchEngine: SearchEngine = SearchEngine.GOOGLE,
     /** Ne pas afficher l'espace privé verrouillé dans le tiroir (accès par la recherche). */
     val hidePrivateSpaceWhenLocked: Boolean = false,
     /** Page de déverrouillage (météo, matchs en direct, exercice du jour) par-dessus l'écran verrouillé. */
