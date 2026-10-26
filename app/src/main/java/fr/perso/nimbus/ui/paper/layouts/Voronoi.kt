@@ -80,10 +80,12 @@ private val SITES = listOf(
     Site(PaperSlot.WAZE, 127.3, 448.3), Site(PaperSlot.MAPS, 57.3, 499.4), Site(PaperSlot.METEO, 56.6, 591.6),
     Site(PaperSlot.CLAUDE, 157.9, 535.2), Site(PaperSlot.GITHUB, 264.3, 532.5), Site(PaperSlot.DRIVE, 233.9, 612.0),
     Site(PaperSlot.FICHIERS, 344.4, 599.8), Site(PaperSlot.AUTHENTICATOR, 136.6, 620.8), Site(PaperSlot.BANQUE, 63.3, 690.8),
-    Site(PaperSlot.PLAY, 167.8, 697.8), Site(PaperSlot.AMAZON, 266.8, 691.8), Site(PaperSlot.PRONOTE, 356.1, 689.9),
+    Site(PaperSlot.PLAY, 167.8, 697.8), Site(PaperSlot.MES_APPLIS, 266.8, 691.8), Site(PaperSlot.PRONOTE, 356.1, 689.9),
     Site(PaperSlot.LICHESS, 210.7, 447.4), Site(PaperSlot.BASKET, 294.4, 447.6), Site(PaperSlot.PIR, 358.8, 504.3),
     // LoL Live, ajoutée après coup : au plus grand vide laissé près des autres jeux (à 56 de tout autre site).
     Site(PaperSlot.LOL, 212.0, 504.0),
+    // Scrabble, de même : au plus grand vide à côté de πr (à 57 de tout autre site, du « Ω » à 400).
+    Site(PaperSlot.SCRABBLE, 320.4, 547.3),
 )
 
 /** Ω = [14, 398] × [160, 736], dans le repère de la figure. */

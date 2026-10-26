@@ -41,10 +41,13 @@ import fr.perso.nimbus.ui.paper.SlotDisc
 import fr.perso.nimbus.ui.paper.at
 import fr.perso.nimbus.ui.paper.color
 import fr.perso.nimbus.ui.paper.tex
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.sin
 
 // Page « Groupes » : les Échanges (ℤ/6ℤ) se projettent sur les Trajets (ℤ/3ℤ) par φ, en diagramme
-// sagittal ; puis l'Écran forme D₃, les Jeux ℤ/2ℤ × ℤ/2ℤ (le groupe de Klein) et les Outils ℤ/3ℤ × ℤ/3ℤ. Les exercices qui
+// sagittal ; puis l'Écran forme D₃, les Jeux ℤ/5ℤ (cinq jeux sur un pentagone) et les Outils ℤ/3ℤ × ℤ/3ℤ. Les exercices qui
 // finissaient la page sont dans design/exercices-accueils.md : la place a servi à agrandir les logos.
 // Sans la définition de φ ni la ligne « D₃ = {…} » à part, la place gagnée sert à agrandir le texte.
 
@@ -78,7 +81,7 @@ fun GroupesPage() {
         Morphism()
         Proposition()
         Dihedral()
-        Klein()
+        Cyclic()
         Product()
     }
 }
@@ -320,21 +323,42 @@ private fun Dihedral() {
     Brace("}", 376f, cy - 5f, Pink)
 }
 
-/** Titres des sections 3 et 4 (sur deux lignes), et rangées des pastilles (les Jeux sur la première). */
+/** Titres des sections 3 et 4 (sur deux lignes), et rangées des pastilles des Outils. */
 private const val SECTION_Y = 628f
 private val GridY = floatArrayOf(SECTION_Y + 104f, SECTION_Y + 160f, SECTION_Y + 216f)
 
-/** Jeux & perso ≅ ℤ/2ℤ × ℤ/2ℤ, comme les Outils : (i, j) en colonne i, ligne j. */
+/** Centre et rayon du pentagone des Jeux (les pastilles de 48 y sont à 13 l'une de l'autre), et écart des numéros. */
+private const val CYCLE_X = 112f
+private const val CYCLE_Y = 792f
+private const val CYCLE_R = 52f
+private const val CYCLE_TAG = 34f
+
+/**
+ * Jeux & perso ≅ ℤ/5ℤ : la classe k est au sommet d'angle 2kπ/5 d'un pentagone (0 en haut, dans le sens
+ * des aiguilles d'une montre), sur le cercle en pointillés qu'on parcourt en ajoutant 1.
+ */
 @Composable
-private fun Klein() {
-    Heading("3.  Jeux & perso", "≅ ℤ/2ℤ × ℤ/2ℤ", Amber, 22f, SECTION_Y, stacked = true)
-    // Colonnes espacées de 56 comme celles des Outils, et leur marque de rangée 34 avant la première.
-    val gx = floatArrayOf(78f, 134f)
-    val games = listOf(PaperSlot.LICHESS, PaperSlot.BASKET, PaperSlot.PIR, PaperSlot.LOL)
-    games.forEachIndexed { n, slot -> Element(slot, gx[n % 2], GridY[n / 2], Amber) }
-    for (v in 0..1) {
-        Tag(v, gx[v], SECTION_Y + 66f, Amber, 16f)
-        Tag(v, gx[0] - 34f, GridY[v], Amber, 16f)
+private fun Cyclic() {
+    Heading("3.  Jeux & perso", "≅ ℤ/5ℤ", Amber, 22f, SECTION_Y, stacked = true)
+    Canvas(Modifier.size(PAPER_WIDTH.dp, PAPER_HEIGHT.dp)) {
+        val u = 1.dp.toPx()
+        drawCircle(
+            Amber.copy(alpha = 0.55f),
+            radius = CYCLE_R * u,
+            center = Offset(CYCLE_X * u, CYCLE_Y * u),
+            style = Stroke(u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f * u, 3f * u))),
+        )
+    }
+    val games = listOf(PaperSlot.LICHESS, PaperSlot.BASKET, PaperSlot.PIR, PaperSlot.LOL, PaperSlot.SCRABBLE)
+    games.forEachIndexed { k, slot ->
+        val angle = 2.0 * PI * k / games.size
+        val dx = sin(angle).toFloat()
+        val dy = -cos(angle).toFloat()
+        val x = CYCLE_X + CYCLE_R * dx
+        val y = CYCLE_Y + CYCLE_R * dy
+        Element(slot, x, y, Amber)
+        // Le numéro, au-delà de la pastille, sur le rayon qui y mène.
+        Tag(k, x + CYCLE_TAG * dx, y + CYCLE_TAG * dy, Amber, 16f)
     }
 }
 
@@ -348,7 +372,7 @@ private fun Product() {
     val tools = listOf(
         PaperSlot.CLAUDE, PaperSlot.GITHUB, PaperSlot.DRIVE,
         PaperSlot.FICHIERS, PaperSlot.AUTHENTICATOR, PaperSlot.BANQUE,
-        PaperSlot.PLAY, PaperSlot.AMAZON, PaperSlot.PRONOTE,
+        PaperSlot.PLAY, PaperSlot.MES_APPLIS, PaperSlot.PRONOTE,
     )
     tools.forEachIndexed { n, slot -> Element(slot, gx[n % 3], gy[n / 3], Violet) }
     for (v in 0..2) {

@@ -54,7 +54,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 // Page 5 : la courbe z(t) = 20 e^{it} − 6 e^{−it} − 3 e^{3it} − 2 e^{−3it}, tracée par une chaîne
-// d'épicycles (un cercle par terme). Les 28 applis la parcourent, l'appli j avec 2jπ/28 d'avance
+// d'épicycles (un cercle par terme). Les 29 applis la parcourent, l'appli j avec 2jπ/29 d'avance
 // sur l'appli 0 ; une période (t de 0 à 2π) dure 8 minutes.
 
 /** Un terme c·e^{ikt} de z. */
@@ -75,14 +75,14 @@ private const val TAU = (2 * PI).toFloat()
 private val APPS = PaperSlot.entries.size
 private const val PERIOD_MS = 480_000L
 
-// Pastilles : disque blanc de 36,3, anneau de 1,35 à l'extérieur (deux applis voisines sur la courbe
-// restent à 4,48 unités de z, soit 43 : 4 de blanc au plus près), motif de 16,2. L'appli 0, celle des
-// épicycles, a un anneau de 2,25 et un halo jusqu'à 5,4 du disque.
-private const val DISC = 36.3f
+// Pastilles : disque blanc de 35,3, anneau de 1,35 à l'extérieur (deux applis voisines sur la courbe
+// restent à 40,1 au plus près : 2 de blanc entre deux anneaux, 1 avec l'appli 0), motif de 15,8.
+// L'appli 0, celle des épicycles, a un anneau de 2,25 et un halo jusqu'à 5,4 du disque.
+private const val DISC = 35.3f
 private const val RING = 1.35f
 private const val RING_FIRST = 2.25f
 private const val HALO_FIRST = 5.4f
-private const val GLYPH = 16.2f
+private const val GLYPH = 15.8f
 
 // Épicycles : cercles de 0,9 à 22 % d'encre, centres de 4,5 de diamètre. Les rayons font 1,2 × 0,9
 // dans la maquette, mais le navigateur les rend nettement plus gras : on suit son rendu.
@@ -139,7 +139,7 @@ fun FourierPage() {
                 +" {0, …, ${APPS - 1}} est en "
                 it("z")
                 +"("
-                // Espaces insécables et gluon après la barre : la ligne se coupe avant z(t + 2jπ/28),
+                // Espaces insécables et gluon après la barre : la ligne se coupe avant z(t + 2jπ/29),
                 // jamais dedans.
                 it("t")
                 +"\u00A0+\u00A02"
@@ -273,7 +273,7 @@ private fun Epicycles(time: State<Float>) {
     )
 }
 
-/** L'appli j, en z(t + 2jπ/28) : sa position est calculée au dessin, sans recomposer la page. */
+/** L'appli j, en z(t + 2jπ/29) : sa position est calculée au dessin, sans recomposer la page. */
 @Composable
 private fun MovingApp(slot: PaperSlot, j: Int, time: State<Float>) {
     val first = j == 0

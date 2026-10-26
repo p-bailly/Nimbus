@@ -95,8 +95,9 @@ import fr.perso.nimbus.ui.theme.inkClickable
 // Recherche du tiroir sous le thème papier : une démonstration. Le champ se lit « soit q = … » ; une
 // Proposition, fixe sous le champ, dit ce que fait la touche Entrée (la recherche web, ou la première
 // app) ; puis chaque famille de résultats est un ensemble { … } dans une bande teintée, avec son
-// cardinal |A| = n : Apps (bleu), Contacts (orange), Fichiers (turquoise), Réglages (gris). Un
-// ensemble vide s'écrit ∅ ; une famille dont l'accès manque s'écrit « ? ».
+// cardinal |A| = n : Apps (bleu), Contacts (orange), Fichiers (turquoise), Réglages (gris). Une
+// famille sans résultat n'a pas de bande ; l'ensemble vide ∅ ne s'écrit que s'il n'y a de résultat
+// nulle part. Une famille dont l'accès manque s'écrit « ? ».
 
 /** Couleurs d'accent des familles de résultats. */
 private object Accent {
@@ -173,7 +174,7 @@ internal fun PaperSearchField(
                         Box {
                             if (query.isEmpty()) {
                                 Text(
-                                    "une app, un contact…",
+                                    "app, contact…",
                                     style = PaperStyle.item.copy(color = PaperColors.Soft.copy(alpha = 0.8f), fontStyle = FontStyle.Italic),
                                     maxLines = 1,
                                 )
@@ -211,6 +212,16 @@ internal fun PaperSearchPage(
         PRIVATE_SPACE_WORDS.any { it.startsWith(normalized) }
     val navBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
+    // Les bandes montrées, dans l'ordre : la première porte le filet du haut. Une famille sans résultat n'en
+    // a pas (sauf l'accès qui manque) ; ∅ ne s'écrit que s'il n'y a de résultat dans aucune famille.
+    val empty = noResultAnywhere(results, showPrivateEntry)
+    val bands = buildList {
+        if (results.apps.isNotEmpty() || empty) add(Band.APPS)
+        if (results.contacts.isNotEmpty() || contactsBlocked) add(Band.CONTACTS)
+        if (results.files.isNotEmpty() || filesBlocked) add(Band.FILES)
+        if (results.settings.isNotEmpty()) add(Band.SETTINGS)
+    }
+
     Column(Modifier.fillMaxSize()) {
         Proposition(query, results, settings, vm)
         LazyColumn(
@@ -228,54 +239,56 @@ internal fun PaperSearchPage(
                 }
             }
 
-            item(key = "band-apps") {
-                if (results.apps.isEmpty()) {
-                    EmptyBand(name = "Apps", letter = "A", note = "aucune application", first = true)
-                } else {
-                    ResultBand(
-                        name = "Apps", letter = "A", accent = Accent.Apps, items = results.apps,
-                        query = query, first = true,
-                    ) { app, comma ->
-                        AppRow(app, query, badges[app.packageName] ?: 0, settings, comma, vm)
+            if (Band.APPS in bands) {
+                item(key = "band-apps") {
+                    if (results.apps.isEmpty()) {
+                        EmptyBand(name = "Apps", letter = "A", note = "aucun résultat", first = bands.first() == Band.APPS)
+                    } else {
+                        ResultBand(
+                            name = "Apps", letter = "A", accent = Accent.Apps, items = results.apps,
+                            query = query, first = bands.first() == Band.APPS,
+                        ) { app, comma ->
+                            AppRow(app, query, badges[app.packageName] ?: 0, settings, comma, vm)
+                        }
                     }
                 }
             }
 
-            if (results.contacts.isNotEmpty()) {
+            if (Band.CONTACTS in bands) {
                 item(key = "band-contacts") {
-                    ResultBand(
-                        name = "Contacts", letter = "C", accent = Accent.Contacts, items = results.contacts,
-                        query = query, tint = 0.10f,
-                    ) { contact, comma ->
-                        ContactRow(contact, query, comma) { vm.openContact(contact) }
+                    if (results.contacts.isNotEmpty()) {
+                        ResultBand(
+                            name = "Contacts", letter = "C", accent = Accent.Contacts, items = results.contacts,
+                            query = query, first = bands.first() == Band.CONTACTS, tint = 0.10f,
+                        ) { contact, comma ->
+                            ContactRow(contact, query, comma) { vm.openContact(contact) }
+                        }
+                    } else {
+                        BlockedBand("Contacts", "autoriser l'accès", onRequestContacts, first = bands.first() == Band.CONTACTS)
                     }
-                }
-            } else if (contactsBlocked) {
-                item(key = "band-contacts") {
-                    BlockedBand("Contacts", "autoriser l'accès", onRequestContacts)
                 }
             }
 
-            if (results.files.isNotEmpty()) {
+            if (Band.FILES in bands) {
                 item(key = "band-files") {
-                    ResultBand(
-                        name = "Fichiers", letter = "F", accent = Accent.Files, items = results.files,
-                        query = query,
-                    ) { file, comma ->
-                        FileRow(file, query, comma) { vm.openFile(file) }
+                    if (results.files.isNotEmpty()) {
+                        ResultBand(
+                            name = "Fichiers", letter = "F", accent = Accent.Files, items = results.files,
+                            query = query, first = bands.first() == Band.FILES,
+                        ) { file, comma ->
+                            FileRow(file, query, comma) { vm.openFile(file) }
+                        }
+                    } else {
+                        BlockedBand("Fichiers", "autoriser l'accès", onRequestFiles, first = bands.first() == Band.FILES)
                     }
-                }
-            } else if (filesBlocked) {
-                item(key = "band-files") {
-                    BlockedBand("Fichiers", "autoriser l'accès", onRequestFiles)
                 }
             }
 
-            if (results.settings.isNotEmpty()) {
+            if (Band.SETTINGS in bands) {
                 item(key = "band-settings") {
                     ResultBand(
                         name = "Réglages", letter = "R", accent = Accent.Settings, items = results.settings,
-                        query = query, tint = 0.07f,
+                        query = query, first = bands.first() == Band.SETTINGS, tint = 0.07f,
                     ) { hit, comma ->
                         SettingsRow(hit, query, comma) { vm.openSettings(hit.section) }
                     }
@@ -284,6 +297,16 @@ internal fun PaperSearchPage(
         }
     }
 }
+
+/** Les familles de résultats, dans l'ordre des bandes. */
+private enum class Band { APPS, CONTACTS, FILES, SETTINGS }
+
+/**
+ * Vrai s'il n'y a de résultat nulle part (ni app, ni contact, ni fichier, ni réglage, ni espace privé
+ * proposé en [privateEntry]) : le seul cas où l'ensemble vide ∅ s'écrit.
+ */
+internal fun noResultAnywhere(results: SearchResults, privateEntry: Boolean = false): Boolean =
+    !privateEntry && results.apps.isEmpty() && results.contacts.isEmpty() && results.files.isEmpty() && results.settings.isEmpty()
 
 // ---------------------------------------------------------------- Proposition
 
@@ -297,32 +320,33 @@ private fun Proposition(query: String, results: SearchResults, settings: Launche
     val engineName = if (settings.webSearchEngine.urlTemplate == null) "Web" else settings.webSearchEngine.label
     // Entrée ouvre la première app (si le réglage le veut et que les résultats sont ceux de la saisie).
     val first = results.apps.firstOrNull()?.takeIf { settings.enterOpensFirstApp && results.query == query }
-    Row(
-        verticalAlignment = Alignment.Bottom,
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = PaperMargin, end = PaperMargin, top = 10.dp, bottom = 12.dp)
             .drawBehind { drawRect(PaperColors.Link, size = Size(2.5.dp.toPx(), size.height)) }
             .padding(start = 14.dp),
     ) {
-        Column(Modifier.weight(1f)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Prose("Proposition 1.", bold = true)
-                Prose("La touche", italic = true)
-                Box(Modifier.height(ProseHeight), contentAlignment = Alignment.Center) { ReturnArrow() }
-                Prose(if (first != null) "ouvre" else "envoie", italic = true)
-                if (first == null) {
-                    Prose("q", italic = true)
-                    Prose("à", italic = true)
-                    FramedLink(engineName, PaperColors.Link, bold = true, description = "Rechercher « ${query.trim()} » sur $engineName") {
-                        vm.webSearch(query)
-                    }
-                } else {
-                    FramedLink(first.label, PaperColors.Link, bold = true, description = "Ouvrir ${first.label}") { vm.launch(first) }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Prose("Proposition 1.", bold = true)
+            Prose("La touche", italic = true)
+            Box(Modifier.height(ProseHeight), contentAlignment = Alignment.Center) { ReturnArrow() }
+            Prose(if (first != null) "ouvre" else "envoie", italic = true)
+            if (first == null) {
+                Prose("q", italic = true)
+                Prose("à", italic = true)
+                FramedLink(engineName, PaperColors.Link, bold = true, description = "Rechercher « ${query.trim()} » sur $engineName") {
+                    vm.webSearch(query)
                 }
-                Prose(".", italic = true)
+            } else {
+                FramedLink(first.label, PaperColors.Link, bold = true, description = "Ouvrir ${first.label}") { vm.launch(first) }
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Prose(".", italic = true)
+        }
+        // Le carré de fin de démonstration ferme la dernière ligne, à droite, sans point avant lui : un
+        // point de plus passerait à la ligne et la Démonstration en prendrait une de plus.
+        Row(verticalAlignment = Alignment.Bottom) {
+            FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 Prose("Démonstration.", bold = true)
                 Prose("Voir aussi", italic = true)
                 if (first != null) {
@@ -333,15 +357,20 @@ private fun Proposition(query: String, results: SearchResults, settings: Launche
                         vm.playStoreSearch(query)
                     }
                 }
-                Prose(".", italic = true)
             }
+            EndOfProof(Modifier.padding(start = 5.dp))
         }
-        // Fin de la démonstration.
+    }
+}
+
+/** Fin de la démonstration : un carré noir vide (□), centré sur la hauteur d'une ligne de la Proposition. */
+@Composable
+private fun EndOfProof(modifier: Modifier = Modifier) {
+    Box(modifier.height(ProseHeight), contentAlignment = Alignment.Center) {
         Box(
             Modifier
-                .padding(start = 10.dp, bottom = 12.dp)
-                .size(11.dp)
-                .background(PaperColors.Link)
+                .size(12.dp)
+                .border(1.3.dp, PaperColors.Ink)
                 .semantics { contentDescription = "Fin de la démonstration" },
         )
     }
@@ -507,7 +536,7 @@ private fun <T> ResultBand(
     }
 }
 
-/** Ensemble vide : « Apps = ∅ aucune application |A| = 0 », en gris. */
+/** Ensemble vide, seulement quand rien ne correspond nulle part : « Apps = ∅ aucun résultat |A| = 0 », en gris. */
 @Composable
 private fun EmptyBand(name: String, letter: String, note: String, first: Boolean = false) {
     val ink = Accent.ink(Accent.Settings)
@@ -528,13 +557,13 @@ private fun EmptyBand(name: String, letter: String, note: String, first: Boolean
 
 /** Famille dont l'accès manque : « Contacts = ? autorisation requise [autoriser l'accès] », filet en pointillés. */
 @Composable
-private fun BlockedBand(name: String, action: String, onClick: () -> Unit) {
+private fun BlockedBand(name: String, action: String, onClick: () -> Unit, first: Boolean = false) {
     val ink = Accent.ink(Accent.Settings)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .bandBackground(Accent.Settings, 0f, first = false, dashed = true)
+            .bandBackground(Accent.Settings, 0f, first = first, dashed = true)
             .padding(horizontal = PaperMargin, vertical = 10.dp),
     ) {
         Text("$name =", style = PaperStyle.serif(16.5f, 21f, ink, italic = true), softWrap = false, modifier = Modifier.width(NameWidth))
