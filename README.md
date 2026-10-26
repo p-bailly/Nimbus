@@ -1,389 +1,43 @@
 # Nimbus
 
-Launcher Android personnel inspiré de Smart Launcher Pro et de Nova Launcher Prime,
-écrit en Kotlin avec Jetpack Compose (Material 3). Paquet : `fr.perso.nimbus`.
-Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
+Launcher Android personnel inspiré de Smart Launcher Pro et de Nova Launcher, écrit en Kotlin avec
+Jetpack Compose (Material 3). Paquet `fr.perso.nimbus`. Pensé pour un Pixel récent (Android 15 à 17),
+utilisable dès Android 9.
 
-## Fonctionnalités
+- Accueil à plusieurs pages (icônes, widgets, dock) ou accueils « papier » au style LaTeX
+  (Groupes, Voronoï, Ensembles, Fourier).
+- Page de déverrouillage « papier » (météo, messages, musique, matchs, figure du jour) et écran verrouillé
+  en fond d'écran animé.
+- Tiroir d'applications : catégories, recherche (apps, contacts, fichiers, réglages, web), espace privé.
+- Gestes à la Nova, icônes à thème et packs d'icônes, dictée vers Claude.
+- Sauvegarde JSON et import d'une configuration Smart Launcher (`.slbk`).
 
-**Écran d'accueil (plusieurs pages)**
-- Pages d'icônes et de widgets : balayer à gauche ou à droite, des points sous la grille
-  indiquent la page. Horloge, dock et barre de recherche restent fixes.
-- Grille d'icônes à placement libre (3 à 8 colonnes, 3 à 14 lignes, noms optionnels) :
-  appui long puis glisser pour déplacer une icône, l'icône de la case d'arrivée
-  prend la place libérée.
-- Pendant un glisser-déposer (icône, widget, ou app du tiroir), l'élément suit le doigt ;
-  tenu contre le bord gauche ou droit, il passe à la page voisine, et au bord gauche de la
-  première page ou au bord droit de la dernière une nouvelle page vide se crée. Il se pose
-  au lâcher, sur la page affichée. Une page vidée disparaît (sauf la page principale).
-- Page principale (maison dans les points) : celle du bouton Accueil et de l'ouverture.
-  Appui long sur le fond d'une autre page › « Page principale » pour la changer.
-- Dock (favoris) de 4 à 6 icônes par rangée.
-- Horloge (appui : alarmes), date (appui : agenda), batterie, barre de recherche :
-  chacun peut être masqué.
-- Boutons de navigation cachés sur l'accueil (réglable : Paramètres › Page d'accueil) : dessinés de la
-  couleur du fond, ils restent à leur place et répondent au premier appui ; le tiroir et les
-  paramètres les gardent lisibles.
-- Glisser-déposer depuis le tiroir : appui long sur une app puis glisser, le tiroir
-  s'efface et l'app se pose sur la case où on la lâche.
-- Widgets dans la grille (appui long sur l'accueil › Ajouter un widget) : posés sur la
-  page affichée s'il y a la place, sinon sur la suivante qui en a, sinon sur une nouvelle.
-  Appui long sur un widget : menu (Redimensionner, Supprimer) ; appui long puis glisser :
-  déplacer ce widget. Les icônes qu'il recouvre se décalent vers les cases libres.
-  Paramètres › Page d'accueil › Widgets : liste des widgets (avec leur page), « Supprimer ».
-- Ajouter une app à l'accueil : première case libre de la page affichée, sinon des autres
-  pages, sinon une nouvelle page.
-- Les widgets de l'ancienne page widgets passent automatiquement sur la grille ; les
-  widgets alloués mais affichés nulle part sont libérés au démarrage.
-- Bouton Accueil : referme tout et revient à la page principale.
+## Installer
 
-**Accueils « papier » (style LaTeX)**
-- Appui long sur le fond › « Style de l'accueil » (ou Paramètres › Page d'accueil) : la grille
-  d'icônes, ou l'une des quatre pages d'article : Groupes, Voronoï, Ensembles, Fourier
-  (les applis tournent sur des épicycles).
-- Chaque page place 29 applis sur une figure mathématique : leurs places (WhatsApp, Messages… πr, LoL Live, Scrabble) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
-  long sur une appli › « Changer », ou Paramètres › Page d'accueil › « Applis de la page ». Une place
-  vide est en pointillés : un appui permet de choisir son appli.
-- Échanger deux applis d'un même groupe : appui long sur une appli › « Échanger », puis l'autre appli
-  de sa famille ; chacune prend la place de l'autre.
-- Ensembles : appui long sur une pastille puis glisser pour la déplacer dans le cadre (sans chevaucher
-  les autres) ; appui long sur le fond › « Places d'origine » pour tout remettre.
-- Voronoï : appui long sur une cellule puis glisser pour déplacer le site de son appli dans le
-  carré Ω ; les cellules suivent le doigt, et les pastilles ne sortent pas du carré, ne se touchent
-  pas et laissent le « Ω » libre. Appui long sur le fond › « Sites d'origine » pour tout remettre.
-- Les 52 applis qui ont un logo au crayon (`design/logos-crayon/`, voir `CrayonLogos.kt`) le montrent
-  sur un disque blanc cerclé de leur famille, sur toutes les pages d'accueil papier, dans la figure de
-  la table des matières et dans les pastilles du tiroir ; il passe devant le motif choisi. Sur les
-  accueils, le logo remplit son disque, et les disques ont grandi (de 35 à 50 % environ) à la place
-  des exercices qui finissaient chaque page, gardés avec leurs réponses dans
-  `design/exercices-accueils.md`.
-- Les autres applis sont dessinées avec leur silhouette monochrome (calque des icônes à thème du Pixel,
-  sinon premier plan de l'icône, sinon l'initiale), à la couleur propre de l'appli comme dans le
-  sommaire, dans une pastille qui garde la couleur de sa famille (cercle) ;
-  réglable : Paramètres › Page d'accueil › « Couleurs des applis » (sinon motif blanc ou de la famille). La
-  silhouette est redessinée à sa taille finale (nette même quand le motif est petit dans l'icône).
-- Motif au choix (appui long › Plus › « Motif ») : silhouette de l'app, logo YouTube, lettres
-  (« +x », « πr »…) ou silhouette d'une autre app. Par défaut, la place YouTube prend YouTube ReVanced
-  avec le logo de YouTube, Banque Populaire a son logo « +x » et la place πr (Prof de maths) « πr » ;
-  Mes applis, Cartes IGN et SNCF ont aussi un logo dessiné, les applis Google et Chrome sont dans leurs
-  couleurs.
-- Le thème « Papier (LaTeX) » (choisi avec un accueil papier) met toute l'interface en Computer
-  Modern sur fond crème. La page est dessinée sur un repère de 412 × 916 mis à l'échelle de l'écran.
-- Pas d'en-tête (ni titre courant, ni numéro, ni heure : elle est dans la barre d'état) : la page
-  grandit de la place gagnée, et ses marges latérales sont rognées (8 unités au lieu de 22).
+APK signé de la dernière version, mis à jour à chaque envoi sur la branche par défaut :
+<https://github.com/p-bailly/Nimbus/releases/latest/download/Nimbus.apk>
 
-**Bandeau papier**
-- Sous le thème papier, glisser vers le bas sur l'accueil ouvre un bandeau composé comme une page
-  d'article : l'heure et la date, les réglages rapides en cases à cocher (Wi-Fi, données mobiles,
-  Bluetooth, mode avion, portefeuille, lampe torche, réveil, rotation automatique) et les notifications
-  (motif de l'appli à sa couleur, titre en gras ; appui : ouvrir ; « effacer » ou appui long : effacer ;
-  « Tout effacer »). Glisser vers le haut ou Retour : refermer.
-- Le Wi-Fi, les données, le Bluetooth et le mode avion ouvrent le panneau du système (une appli ne peut
-  plus les changer seule) ; la lampe se change directement, la rotation avec l'autorisation « Modifier
-  les paramètres système ». Deux liens mènent au bandeau du système, qu'une appli ne peut pas redessiner.
-- Réglable : Paramètres › Notifications › « Bandeau papier » (accès aux notifications requis).
+Chaque version s'installe par-dessus la précédente. Un APK signé avec une autre clé (version de debug)
+impose de désinstaller d'abord : exporter la configuration avant (Paramètres › Sauvegarde).
 
-**Page de déverrouillage (papier)**
-- Au réveil, par-dessus l'écran verrouillé : une page d'article sans en-tête ni barre d'état (un glissé
-  depuis le haut la montre un instant), en Computer Modern droit seul, romain ou gras (ni italique, ni
-  petites capitales) : l'heure en grand, la date, puis la météo comme l'écran Aujourd'hui de l'appli Météo (lieu, température,
-  ressenti, ciel, maximum en orange et minimum en bleu, en gras, et son coloriage en figure, agrandi,
-  ravivé, qui monte et se colore en 1,6 s à chaque réveil ; la page mesure ses écritures et Météo
-  dessine autour : le ciel colorié jusqu'aux bords passe sous les lettres, sans blanc autour, le
-  soleil, la lune et les nuages sont poussés à côté, rayons compris), les
-  messages reçus (WhatsApp, Discord, Messages, Claude, Signal, Telegram, Gmail, Scrabble…) dans des bandeaux coloriés au crayon à la couleur de
-  leur appli, avec son logo (trois au plus, les plus récents ; il faut l'accès aux notifications ;
-  toucher un bandeau déverrouille et ouvre le message ; au-dessus d'eux, la musique en cours, dans un
-  bandeau à la couleur du lecteur : pochette, titre, artiste, et les boutons précédent, lecture ou
-  pause, suivant, qui marchent sans déverrouiller ; le reste du bandeau déverrouille et ouvre le
-  lecteur ; une lecture en pause depuis plus de 30 min disparaît), puis, dans un bandeau colorié orange avec le
-  logo de Basket Live, les matchs en direct des équipes favorites (trois au plus, mi-temps et fin de
-  période comprises) et leurs résultats de la nuit (gagnante en gras, perdante en gris, « victoire »
-  ou « défaite » de la favorite surlignée au crayon ; quatre lignes en tout ; un résultat disparaît
-  12 h après la fin du match), puis, dans un bandeau violet avec le logo de LoL Live, les séries de LoL en direct
-  des équipes favorites de LoL Live et leurs résultats récents (mêmes règles ; « game 2 · BO3 » pendant
-  une série, « victoire » ou « défaite » ensuite ; le score est le nombre de games gagnées), puis la figure du jour, dessinée au crayon (contour au crayon de
-  papier, coloriage aux crayons de couleur), avec sa légende « Figure 2 – Nom » : 164 figures par
-  thème (classiques, fractales, cercles, courbes, pavages, géométrie, espace, nombres, graphes, hasard et
-  fonctions),
-  une nouvelle à chaque affichage de la page, dans un ordre mélangé ; ses couleurs ou ses paramètres
-  changent d'un tour à l'autre.
-  Un petit (i) après le nom, quand l'explication est rédigée, la montre sur une fiche posée sur la
-  figure. La figure prend la place qui reste : elle grandit jusqu'à toute la largeur de la page quand
-  il y a de la place (sans messages), et disparaît si la page est trop pleine. Une section
-  sans données (appli absente, rien en direct) disparaît.
-- Glisser vers le haut, toucher le bas de la page ou Retour : le système demande l'empreinte, le
-  visage ou le code, puis la page s'efface. Toucher la météo ouvre Météo, toucher les matchs ouvre
-  Basket Live ou LoL Live (après le déverrouillage). Un appel, une alarme ou l'appareil photo passent devant.
-- Écran rallumé aussitôt après l'extinction, avant que le verrouillage n'arrive, ou réveil sans page
-  (fermée par le système) : la page est posée au réveil, par-dessus l'écran verrouillé (sauf double
-  appui sur Marche/Arrêt, pour l'appareil photo).
-- L'écran verrouillé du système reste dessous : Android ne laisse aucune appli le remplacer quand un
-  code est réglé. Il se montre encore pendant un appel, une alarme, l'appareil photo, et au moment de
-  l'empreinte ou du code.
-- Activer : Paramètres › Sécurité et confidentialité › « Page de déverrouillage », avec le service
-  d'accessibilité « Gestes Nimbus » (il pose la page à l'extinction de l'écran) et un verrouillage
-  (code, schéma ou mot de passe). Désactivée par défaut ; le réglage est dans la sauvegarde.
-- Xiaomi (MIUI, HyperOS) : il faut aussi cocher, dans Paramètres › Applications › Nimbus › Autres
-  autorisations, « Afficher sur l'écran de verrouillage » et « Ouvrir de nouvelles fenêtres en
-  arrière-plan » (refusées par défaut : l'écran verrouillé du système reste seul) ; les réglages de
-  Nimbus le signalent et y mènent.
-- Données : Météo, Basket Live et LoL Live (applis personnelles) les partagent avec Nimbus seul, en lecture
-  (`content://io.github.pbailly.meteo.nimbus` : `now` et le coloriage `sketch`, avec la place du
-  texte qui sera posé dessus ;
-  `content://com.pbailly.superfanbasket.nimbus/favorites`, `content://com.pbailly.riftlive.nimbus/favorites`),
-  et préviennent à chaque changement. Les
-  scores viennent de l'API publique d'ESPN (`site.api.espn.com`, comme Basket Live) et, pour LoL, du
-  calendrier de lolesports.com (`esports-api.lolesports.com`, avec la clé publique du site : l'équipe d'une
-  série se reconnaît à son nom, sinon à son sigle) : relus à
-  chaque affichage, puis toutes les 15 s tant qu'un match ou une série de favori est en cours et la page visible,
-  toutes les 5 min sinon. Rien n'est lu écran éteint, sauf une fois à l'extinction pour être à jour
-  au réveil.
-
-**Écran verrouillé Nimbus (fond d'écran animé)**
-- La même page, mais en fond de l'écran verrouillé du système. Seule, rien ne passe devant : l'empreinte
-  et le visage déverrouillent directement. Avec la page de déverrouillage, c'est elle qu'on voit au réveil
-  (papier clair, tout est touchable) ; ce fond n'apparaît que sous l'écran du système, au moment de
-  l'empreinte ou du visage, avec la figure que la page montrait, sans rejouer le coloriage.
-- Le haut de l'écran est au téléphone : sur le Pixel, son heure (la plus petite proposée, sur une
-  ligne) et sa date, qu'il écrit toujours, même sans « Coup d'œil ». La page ne dessine ni heure, ni
-  date, ni lieu. Dessous, la météo sur une ligne : la température en gros, le ciel et le ressenti, en
-  Google Sans Flex, la police de l'horloge du Pixel (repères relevés sur un Pixel 11 Pro). Sur le
-  coloriage de Météo ne restent que le maximum et le minimum, coloriés au crayon (lavis, hachures dans
-  les lettres, contour repassé), sans blanc autour : le ciel passe dessous, le soleil, la lune et les
-  nuages s'en écartent. Puis la musique (sans boutons : « en lecture » ou « en pause »), les messages et
-  les matchs, comme sur la page, et la figure sous le rond de l'empreinte du Pixel (relevé sur un Pixel
-  11 Pro), qui ne la cache plus.
-- Une nouvelle figure et le coloriage qui monte à chaque réveil ; données suivies tant que le fond est
-  visible, relues à l'extinction. Le fond dit au système qu'il est clair.
-- Rien n'y est touchable (un fond d'écran ne reçoit pas les appuis sur l'écran verrouillé) : on glisse
-  vers le haut ou on pose le doigt pour déverrouiller. Le Pixel pose sur ce fond un voile sombre
-  d'environ 20 % (le papier y paraît gris), et son icône d'empreinte : aucun réglage ne les enlève.
-- Activer : Paramètres › Sécurité et confidentialité › « Écran verrouillé Nimbus », puis « Écran de
-  verrouillage » dans l'aperçu du système ; sur le Pixel, couper la grande horloge (Horloge › Taille ›
-  « Grande ») et le « Coup d'œil » (sa météo).
-
-**Gestes (à la Nova)**
-- Double tap, glisser vers le haut / le bas, glisser à deux doigts vers le haut /
-  le bas, pincer, écarter.
-- Actions : verrouiller, notifications, réglages rapides, applis récentes, capture
-  d'écran, menu Marche/Arrêt, assistant, recherche, tiroir, ajouter un widget,
-  paramètres, ou ouvrir l'app de son choix.
-- Glisser vers le haut sur une icône de l'accueil ou du dock : ouvre une seconde
-  app (réglable par icône).
-- Appui long sur le fond : panneau « Page d'accueil » (ajouter une icône, un widget, fond
-  d'écran, toutes les apps, réglages de la page, tous les paramètres).
-
-**Tiroir d'applications**
-- Sous le thème « Papier (LaTeX) », une table des matières : chaque catégorie est une section
-  numérotée, chaque app une sous-section avec points de conduite et numéro de page ; sous le titre,
-  une figure des cinq applis les plus utilisées qui ne sont pas déjà sur l'accueil (places de la
-  page papier, ou grille et dock) ; l'espace privé en annexe A, et les notifications d'une
-  app sont un appel de note. Devant chaque nom, le logo au crayon de l'app (52 logos dessinés pour
-  Nimbus, tous à la même taille de dessin : sources dans `design/logos-crayon/`, reconnus d'après le
-  nom affiché ou le paquet dans `CrayonLogos.kt`), sinon son motif (le même que sur les pages
-  papier) à sa propre couleur, la teinte dominante de son icône. Appui : ouvrir ; appui long :
-  actions ou glisser vers l'accueil.
-  Réglable (Paramètres › Page des applications › « Table des matières ») pour revenir à la grille.
-- Onglets de catégories automatiques, balayables (catégorie modifiable par app, ou nouvelle
-  catégorie créée depuis ce choix).
-- Catégories personnalisables (Paramètres › Page des applications › Catégories) : renommer,
-  réordonner, supprimer (sauf « Autres » : les apps reviennent au classement automatique), en
-  créer ; « Catégories d'origine » rétablit tout. Elles font partie de la sauvegarde.
-- Ligne « Fréquentes », défilement rapide A–Z, tri alphabétique ou par usage.
-- Recherche insensible aux accents (« eco » trouve « École »), par initiales
-  (« gm » → « Google Maps »), par ancien nom d'une app renommée, dans les
-  contacts, les fichiers, les réglages de Nimbus et sur le web avec le moteur choisi
-  (Google par défaut ; DuckDuckGo, Qwant, Ecosia, Brave, Startpage ou l'appli du téléphone).
-  Les lettres trouvées sont surlignées en jaune.
-- La touche Entrée lance la recherche web ; Paramètres › Page de recherche › « Entrée ouvre la
-  première app » la fait ouvrir la première app trouvée.
-- Thème papier : le champ se lit « soit q = app, contact… » ; une Proposition fixe dit ce que fait Entrée
-  (« La touche ↵ envoie q à Google », avec le Play Store en « Démonstration », qu'un carré noir vide □
-  ferme au bout de sa ligne) ; chaque famille de
-  résultats est un ensemble entre accolades dans une bande teintée, avec son cardinal :
-  Apps = { … } |A| = 14 (bleu, avec leurs logos au crayon), Contacts (orange), Fichiers (turquoise),
-  Réglages (gris : un appui ouvre la page de réglages). Au-delà de 4 lignes, « … et N autres »
-  déplie la bande ; une famille sans résultat n'a pas de bande, et l'ensemble vide (Apps = ∅) ne s'écrit que
-  s'il n'y a de résultat nulle part (et pas pendant que les contacts et les fichiers sont encore cherchés) ;
-  une autorisation manquante s'écrit Contacts = ?.
-- Fermeture par glissé vers le bas ou par Retour.
-
-**Icônes**
-- Formes : squircle, cercle, carré arrondi, goutte, carré, forme du système.
-- Icônes à thème façon Pixel (Android 13+), packs d'icônes ADW / Nova.
-- Par app : nom et icône personnalisés (image de la galerie, ou icône d'une autre app).
-- Pastilles de notification (nombre ou simple point).
-- Appui long sur une app : petit pop-up (raccourcis de l'app, Infos, Accueil,
-  Désinstaller) ; « Plus » ouvre le reste (dock, glissé, renommer, icône, catégorie, masquer).
-
-**Pixel / Android récent**
-- Espace privé (Android 15+) : section en bas du tiroir avec verrouillage /
-  déverrouillage (authentification du système), installation d'apps, réglages.
-  Verrouillé, il n'apparaît nulle part ailleurs ; il peut même être masqué et
-  retrouvé en tapant « espace privé » dans la recherche. Le réglage système
-  « masquer quand verrouillé » (Android 16+) est respecté.
-- Profil professionnel : mise en pause / reprise, apps en pause grisées.
-- Thème Material You (Android 12+) ou Ambiant (palette tirée du fond d'écran).
-- Bibliothèque native alignée sur 16 Ko (pages mémoire 16 Ko des Pixel récents).
-
-**Paramètres** à la manière de Smart Launcher : page principale avec bandeaux
-(launcher par défaut, accès aux notifications, gestes système), puis Apparence globale
-(avec aperçu), Gestes, Sauvegarde, et les pages Accueil, Applications, Recherche,
-Notifications, Sécurité, À propos. Une page ouverte depuis le menu de l'accueil
-(Apparence globale, Page d'accueil, Gestes) ramène à l'accueil avec Retour.
-Icônes Material Symbols (Google, licence Apache 2.0).
-
-**Confidentialité** : apps masquées dans un écran protégé par code PIN
-(4 à 8 chiffres, stocké haché en SHA-256).
-
-## Sauvegardes et import Smart Launcher
-
-Paramètres › Sauvegarde :
-- **Exporter la configuration** : fichier `.json` avec réglages, accueil, dock,
-  catégories, apps masquées, noms, icônes personnalisées, gestes et fréquence
-  d'utilisation. Ni le code PIN ni les autorisations n'y figurent.
-- **Importer une configuration** : sauvegarde Nimbus (`.json`) ou Smart Launcher
-  (`.slbk`). Depuis Smart Launcher sont repris la grille d'accueil (positions,
-  taille, noms masqués), les catégories du tiroir, les apps masquées, la
-  fréquence d'utilisation, les noms et icônes personnalisés, la forme des icônes,
-  les colonnes du tiroir. Chaque page Smart Launcher devient une page Nimbus ; les
-  widgets sont proposés à l'ajout un par un et reprennent leur page et leur place.
-  Une app absente du téléphone est ignorée ; une app dont l'activité a changé est
-  retrouvée par son paquet.
-- **Sauvegarde automatique** : une fois par jour dans le dossier choisi, les 7
-  dernières sont conservées.
+Puis, dans Nimbus (appui long sur l'accueil › Paramètres Nimbus) : « Définir » comme launcher par défaut,
+importer sa configuration Smart Launcher (Paramètres › Sauvegarde), autoriser « Pastilles de notification Nimbus »
+(accès aux notifications), activer le service d'accessibilité « Gestes Nimbus » et la permission Contacts.
 
 ## Compiler
 
 Prérequis : JDK 17 ou plus récent, SDK Android avec la plateforme 35.
 
 ```bash
-# Indiquer le SDK (ou créer local.properties avec sdk.dir=...)
-export ANDROID_HOME=/chemin/vers/android-sdk
-./gradlew assembleDebug
-```
-
-L'APK est produit dans `app/build/outputs/apk/debug/app-debug.apk`.
-En local, la version release (`./gradlew assembleRelease`) est signée avec la clé de
-debug ; les releases publiées sont signées avec la clé du dépôt (voir ci-dessous).
-
-Tests (Robolectric, sur la JVM) :
-
-```bash
-./gradlew testDebugUnitTest
-# Pour vérifier aussi une vraie sauvegarde Smart Launcher (affiche ce qui serait importé) :
-NIMBUS_SLBK=/chemin/Backup.slbk ./gradlew testDebugUnitTest -i
-```
-
-## Releases
-
-À chaque envoi sur la branche par défaut, GitHub Actions (`.github/workflows/android.yml`)
-lance les tests, compile l'APK signé et le publie dans la release **apk** (toujours la
-même, mise à jour). Lien permanent vers la dernière version :
-https://github.com/p-bailly/Nimbus/releases/latest/download/Nimbus.apk
-
-Les versions suivantes s'installent par-dessus (mêmes réglages). Numéro de version : le
-nombre de commits (`1.0.42`). Relancer à la main : onglet **Actions › APK Android › Run
-workflow**. Il faut deux secrets du dépôt (Settings › Secrets and variables › Actions) :
-
-| Secret | Contenu |
-|---|---|
-| `NIMBUS_KEYSTORE_BASE64` | keystore PKCS12 (alias `nimbus`) encodé en base64 |
-| `NIMBUS_KEYSTORE_PASSWORD` | son mot de passe |
-
-Toujours la même clé : Android refuse une mise à jour signée avec une autre clé. Une
-nouvelle clé se crée ainsi (à garder hors du dépôt) :
-
-```bash
-keytool -genkeypair -keystore nimbus.jks -storetype PKCS12 -alias nimbus \
-  -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Nimbus"
-base64 -w0 nimbus.jks   # valeur de NIMBUS_KEYSTORE_BASE64
-```
-
-## Installer et configurer
-
-Installer l'APK de la dernière release, ou depuis un ordinateur :
-
-```bash
+export ANDROID_HOME=/chemin/vers/android-sdk   # ou local.properties : sdk.dir=...
+./gradlew assembleDebug                        # → app/build/outputs/apk/debug/app-debug.apk
+./gradlew testDebugUnitTest                    # tests JVM (Robolectric)
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Un APK signé avec une autre clé (version de debug, ancienne copie) ne s'installe pas
-par-dessus une release : désinstaller d'abord, après une sauvegarde (Paramètres ›
-Sauvegarde › Exporter) à réimporter ensuite.
+## Pour aller plus loin
 
-Puis, dans Nimbus (appui long sur l'accueil › Paramètres Nimbus) :
+Architecture, release et signature, page de déverrouillage, accueils papier, sauvegarde : voir [CLAUDE.md](CLAUDE.md).
 
-1. **Launcher par défaut** : bouton « Définir » en haut des paramètres. Indispensable
-   pour le bouton Accueil, les raccourcis d'apps et l'espace privé.
-2. **Importer** ta configuration Smart Launcher (Paramètres › Sauvegarde).
-3. **Pastilles** : autoriser « Pastilles de notification Nimbus » dans l'accès
-   aux notifications.
-4. **Gestes système** : activer le service d'accessibilité « Gestes Nimbus ».
-   Il ne lit rien à l'écran ; il sert uniquement au verrouillage, aux réglages
-   rapides, aux applis récentes, à la capture d'écran, au menu Marche/Arrêt et à la
-   page de déverrouillage.
-5. **Contacts** : accepter la permission pour les voir dans la recherche.
-
-## Polices
-
-Les pages « papier » utilisent CMU Serif (Computer Modern Unicode, licence SIL OFL 1.1), complétée
-des symboles mathématiques de Latin Modern Math (licence GUST) : fichiers `app/src/main/res/font/papier_*.ttf`,
-renommés « Nimbus Papier » comme le demandent les licences. Licences et script de fusion : `design/polices/`.
-L'écran verrouillé en fond d'écran écrit à côté de l'heure du système en Google Sans Flex (licence SIL OFL 1.1,
-sans nom réservé), réduite au latin : `app/src/main/res/font/google_sans_flex.ttf`, script `design/polices/google_sans.py`.
-
-## Captures d'écran (JVM)
-
-```bash
-./gradlew recordRoborazziDebug --tests 'fr.perso.nimbus.screens.paper.*'
-# → app/build/outputs/roborazzi/paper/*.png (pages « papier » avec des applis fictives ;
-#   h8_*.png : page de déverrouillage à 20 h 35 avec les données de la maquette, et sans ses sections)
-```
-
-## Architecture
-
-```
-app/src/main/java/fr/perso/nimbus/
-├── MainActivity.kt          Activité unique : edge-to-edge, bouton Accueil, widgets
-│                            (liaison puis configuration, file après import), fichiers
-│                            (export, import, dossier de sauvegarde, image d'icône),
-│                            permissions, rôle HOME
-├── data/                    Modèles, réglages (Prefs), apps et profils (AppRepository),
-│                            icônes (IconFactory, CustomIcons, IconPack), catégories,
-│                            contacts, sauvegardes (BackupManager, SmartLauncherImport),
-│                            places des accueils papier (PaperSlots), silhouettes (GlyphFactory),
-│                            page de déverrouillage (MeteoShare, BasketShare, MessageApps)
-├── service/                 Pastilles (NotificationListener), gestes (accessibilité),
-│                            actions système
-├── widgets/                 Hôte des widgets (AppWidgetHost)
-└── ui/
-    ├── LauncherViewModel.kt État de l'interface, combinaison des flux Prefs et
-    │                        AppRepository, grille d'accueil, profils, gestes
-    ├── NimbusApp.kt         Racine Compose : accueil + couches au-dessus
-    ├── LauncherHost.kt      Actions qui passent par l'activité
-    ├── HomeDrag.kt          Glisser-déposer sur l'accueil (calque sous le doigt)
-    ├── theme/Theme.kt       Thèmes Ambiant, Material You, Sombre, Clair, Papier (PaperTheme.kt)
-    ├── home/                Accueil, pages, grille d'icônes et de widgets
-    ├── paper/               Accueils « papier » : repère, en-tête, pastilles, cinq pages (layouts/)
-    ├── drawer/              Tiroir, recherche sans accents, défilement A–Z, sommaire (DrawerToc)
-    ├── unlock/              Page de déverrouillage : activité par-dessus l'écran verrouillé,
-    │                        page, données (UnlockFeed), lancement à l'extinction (UnlockLauncher),
-    │                        fond d'écran animé de l'écran verrouillé (UnlockWallpaper)
-    ├── components/          Icône d'app, feuille d'actions, dialogues (choix, PIN,
-    │                        texte, choix d'app), sélecteur de widgets
-    └── settings/            Paramètres et écran des apps masquées
-```
-
-Le flux de données est à sens unique : `Prefs` et `AppRepository` exposent des
-`StateFlow`, que `LauncherViewModel` combine (noms et catégories personnalisés, apps
-masquées, tri par usage, dock, grille, profils) en un `AppsState` lu par l'interface.
-Les changements de forme, de pack, de taille ou de thème des icônes sont envoyés au
-dépôt sous forme d'`IconConfig`, qui recharge les icônes.
-
-## Versions
-
-AGP 8.7.3, Gradle 8.11.1, Kotlin 2.1.0, Compose BOM 2024.12.01,
-`minSdk` 28 (Android 9), `targetSdk` / `compileSdk` 35. Les API d'Android 16
-(réglages de l'espace privé) sont appelées par réflexion pour garder `compileSdk` 35.
+Icônes Material Symbols (Apache 2.0). Polices CMU Serif, Latin Modern Math et Google Sans Flex : licences
+dans `design/polices/`.
