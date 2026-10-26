@@ -54,6 +54,8 @@ import fr.perso.nimbus.service.DictationService
 import fr.perso.nimbus.service.GestureService
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.drawer.SearchMatcher
+import fr.perso.nimbus.ui.settings.SettingsHit
+import fr.perso.nimbus.ui.settings.SettingsIndex
 import fr.perso.nimbus.ui.unlock.UnlockWallpaper
 import fr.perso.nimbus.widgets.WidgetHostManager
 import kotlinx.coroutines.Dispatchers
@@ -188,6 +190,8 @@ data class SearchResults(
     val apps: List<AppEntry> = emptyList(),
     val contacts: List<ContactResult> = emptyList(),
     val files: List<FileResult> = emptyList(),
+    /** Réglages de Nimbus dont l'intitulé correspond (affichés en gris). */
+    val settings: List<SettingsHit> = emptyList(),
 )
 
 /** Réglages qui influencent la construction de [AppsState]. */
@@ -370,9 +374,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         ui.map { it.query }.distinctUntilChanged(),
         contacts,
         files,
-    ) { index, query, contacts, files ->
+        settings.map { it.searchSettings }.distinctUntilChanged(),
+    ) { index, query, contacts, files, searchSettings ->
         if (query.isBlank()) SearchResults()
-        else SearchResults(query, SearchMatcher.search(index, query), contacts, files)
+        else SearchResults(
+            query,
+            SearchMatcher.search(index, query),
+            contacts,
+            files,
+            if (searchSettings) SettingsIndex.search(query) else emptyList(),
+        )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SearchResults())
 
     init {
@@ -777,11 +788,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         resetOnStop = true
     }
 
-    /** Touche « Rechercher » du clavier : première app trouvée, sinon recherche web. */
+    /**
+     * Touche « Rechercher » (Entrée) du clavier : la recherche web, avec le moteur choisi (Google par
+     * défaut) ; ou la première app trouvée, si le réglage « Entrée ouvre la première app » est actif.
+     */
     fun submitSearch() {
         val results = searchResults.value
         val first = results.apps.firstOrNull()
-        if (first != null && results.query == ui.value.query) launch(first) else webSearch(ui.value.query)
+        if (settings.value.enterOpensFirstApp && first != null && results.query == ui.value.query) launch(first)
+        else webSearch(ui.value.query)
     }
 
     fun startShortcut(shortcut: ShortcutInfo) {

@@ -110,6 +110,8 @@ class Prefs private constructor(context: Context) {
         e.putBoolean("searchContacts", s.searchContacts)
         e.putBoolean("searchFiles", s.searchFiles)
         e.putBoolean("searchPlayStore", s.searchPlayStore)
+        e.putBoolean("searchSettings", s.searchSettings)
+        e.putBoolean("enterOpensFirstApp", s.enterOpensFirstApp)
         e.putString("drawerTheme", s.drawerTheme.name)
         e.putString("claudeSessionUrl", s.claudeSessionUrl)
         e.putString(
@@ -166,6 +168,8 @@ class Prefs private constructor(context: Context) {
             searchContacts = sp.getBoolean("searchContacts", d.searchContacts),
             searchFiles = sp.getBoolean("searchFiles", d.searchFiles),
             searchPlayStore = sp.getBoolean("searchPlayStore", d.searchPlayStore),
+            searchSettings = sp.getBoolean("searchSettings", d.searchSettings),
+            enterOpensFirstApp = sp.getBoolean("enterOpensFirstApp", d.enterOpensFirstApp),
             drawerTheme = enumPref("drawerTheme", d.drawerTheme),
             claudeSessionUrl = sp.getString("claudeSessionUrl", d.claudeSessionUrl),
             claudeSessions = readClaudeSessions(),

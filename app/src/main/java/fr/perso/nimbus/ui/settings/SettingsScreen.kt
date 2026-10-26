@@ -530,6 +530,20 @@ fun SettingsScreen(vm: LauncherViewModel, host: LauncherHost, section: SettingsS
                         checked = settings.searchPlayStore,
                     ) { update { it.copy(searchPlayStore = !it.searchPlayStore) } }
                 }
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_settings, SettingsColors.Blue, "Rechercher dans les réglages",
+                        "Les réglages de Nimbus, en gris dans les résultats",
+                        checked = settings.searchSettings,
+                    ) { update { it.copy(searchSettings = !it.searchSettings) } }
+                }
+                item {
+                    SettingsEntry(
+                        R.drawable.ms_apps, SettingsColors.Blue, "Entrée ouvre la première app",
+                        if (settings.enterOpensFirstApp) "La touche Entrée ouvre la première app trouvée" else "Sinon, la touche Entrée lance la recherche web",
+                        checked = settings.enterOpensFirstApp,
+                    ) { update { it.copy(enterOpensFirstApp = !it.enterOpensFirstApp) } }
+                }
             }
             SettingsSection.DICTATION -> SettingsPage("Dictée pour Claude", onBack = back, folio = folio(page)) {
                 item {

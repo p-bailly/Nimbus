@@ -120,7 +120,6 @@ import fr.perso.nimbus.ui.theme.PaperRule
 import fr.perso.nimbus.ui.theme.PaperSheetHandle
 import fr.perso.nimbus.ui.theme.PaperStyle
 import fr.perso.nimbus.ui.theme.PaperTextButton
-import fr.perso.nimbus.ui.theme.PaperTextField
 import fr.perso.nimbus.ui.theme.inkClickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -255,6 +254,19 @@ fun AppDrawer(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             } else if (ui.query.isBlank()) {
                 CategoryPager(apps = apps, settings = settings, badges = badges, vm = vm)
+            } else if (paper) {
+                PaperSearchPage(
+                    query = ui.query,
+                    results = results,
+                    apps = apps,
+                    settings = settings,
+                    badges = badges,
+                    contactsBlocked = settings.searchContacts && !status.contactsPermission,
+                    filesBlocked = settings.searchFiles && !status.filesPermission,
+                    vm = vm,
+                    onRequestContacts = host::requestContactsPermission,
+                    onRequestFiles = host::requestFilesPermission,
+                )
             } else {
                 SearchResultsGrid(
                     query = ui.query,
@@ -314,22 +326,8 @@ private fun SearchField(
         }
     }
     if (LocalPaperUi.current) {
-        // Papier : « Rechercher : » et un champ souligné ; à droite, un lien en petites capitales.
-        PaperTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            label = "Rechercher",
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
-            fieldModifier = Modifier.focusRequester(focusRequester),
-            trailing = {
-                if (query.isNotEmpty()) PaperTextButton("Effacer", onClick = { onQueryChange("") }, horizontalPadding = 0.dp, modifier = Modifier.padding(start = 14.dp))
-                else PaperTextButton("Paramètres", onClick = onOpenSettings, horizontalPadding = 0.dp, modifier = Modifier.padding(start = 14.dp))
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = PaperMargin),
-        )
+        // Papier : « soit q = » et un champ souligné de bleu ; à droite, un lien en petites capitales.
+        PaperSearchField(query, onQueryChange, onSearch, onOpenSettings, focusRequester)
         return
     }
     TextField(
@@ -638,7 +636,7 @@ private fun FastScroller(letters: List<Char>, onLetter: (Char) -> Unit) {
 
 /** En-tête de l'espace privé : verrouiller / déverrouiller, installer des apps, réglages. */
 @Composable
-private fun PrivateSpaceHeader(
+internal fun PrivateSpaceHeader(
     state: ProfileState,
     onToggleLock: () -> Unit,
     onInstall: () -> Unit,
@@ -725,7 +723,7 @@ private fun LazyGridScope.appItems(
 }
 
 /** Mots qui font apparaître l'espace privé dans la recherche (utile s'il est masqué quand verrouillé). */
-private val PRIVATE_SPACE_WORDS = listOf("espace prive", "prive", "private space", "private")
+internal val PRIVATE_SPACE_WORDS = listOf("espace prive", "prive", "private space", "private")
 
 /** Résultats : apps (insensible aux accents), espace privé, contacts, fichiers, puis Play Store et web. */
 @Composable

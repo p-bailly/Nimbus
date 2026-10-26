@@ -187,6 +187,10 @@ data class LauncherSettings(
     val searchFiles: Boolean = true,
     /** Ligne « Rechercher sur le Play Store » dans les résultats. */
     val searchPlayStore: Boolean = true,
+    /** Les réglages de Nimbus se trouvent aussi par la recherche du tiroir (en gris). */
+    val searchSettings: Boolean = true,
+    /** Entrée ouvre la première app trouvée ; sinon elle lance la recherche web. */
+    val enterOpensFirstApp: Boolean = false,
     val drawerTheme: DrawerTheme = DrawerTheme.FOLLOW,
     /** Conversations Claude (Claude Code…) où l'on peut envoyer la dictée. */
     val claudeSessions: List<ClaudeSession> = emptyList(),
@@ -228,7 +232,7 @@ data class LauncherSettings(
     val paperAppColors: Boolean = true,
     /** Thème papier : tiroir en table des matières plutôt qu'en grille d'icônes. */
     val drawerToc: Boolean = true,
-    val webSearchEngine: SearchEngine = SearchEngine.SYSTEM,
+    val webSearchEngine: SearchEngine = SearchEngine.GOOGLE,
     /** Ne pas afficher l'espace privé verrouillé dans le tiroir (accès par la recherche). */
     val hidePrivateSpaceWhenLocked: Boolean = false,
     /** Page de déverrouillage (météo, matchs en direct, exercice du jour) par-dessus l'écran verrouillé. */
