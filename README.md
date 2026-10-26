@@ -193,11 +193,17 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Ligne « Fréquentes », défilement rapide A–Z, tri alphabétique ou par usage.
 - Recherche insensible aux accents (« eco » trouve « École »), par initiales
   (« gm » → « Google Maps »), par ancien nom d'une app renommée, dans les
-  contacts, et sur le web avec le moteur choisi (Google, DuckDuckGo, Qwant,
-  Ecosia, Brave, Startpage ou l'appli du téléphone). La touche Entrée du clavier lance toujours
-  la recherche web (Google par défaut). Thème papier : barre en capsule, pastilles Google / Play
-  Store en tête de liste, résultats classés par section colorée (Applications, Contacts, Fichiers)
-  avec des initiales de contacts teintées.
+  contacts, les fichiers, les réglages de Nimbus et sur le web avec le moteur choisi
+  (Google par défaut ; DuckDuckGo, Qwant, Ecosia, Brave, Startpage ou l'appli du téléphone).
+  Les lettres trouvées sont surlignées en jaune.
+- La touche Entrée lance la recherche web ; Paramètres › Page de recherche › « Entrée ouvre la
+  première app » la fait ouvrir la première app trouvée.
+- Thème papier : le champ se lit « soit q = … » ; une Proposition fixe dit ce que fait Entrée
+  (« La touche ↵ envoie q à Google », avec le Play Store en « Démonstration ») ; chaque famille de
+  résultats est un ensemble entre accolades dans une bande teintée, avec son cardinal :
+  Apps = { … } |A| = 14 (bleu, avec leurs logos au crayon), Contacts (orange), Fichiers (turquoise),
+  Réglages (gris : un appui ouvre la page de réglages). Au-delà de 4 lignes, « … et N autres »
+  déplie la bande ; aucune app s'écrit Apps = ∅ ; une autorisation manquante s'écrit Contacts = ?.
 - Fermeture par glissé vers le bas ou par Retour.
 
 **Icônes**

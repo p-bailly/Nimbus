@@ -1,5 +1,9 @@
 package fr.perso.nimbus.ui.drawer
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import fr.perso.nimbus.data.AppEntry
 import java.text.Normalizer
 import java.util.Locale
@@ -65,5 +69,56 @@ object SearchMatcher {
             }
             score to e.app
         }.sortedBy { it.first }.map { it.second }
+    }
+
+    /** Jaune de surligneur (\hl de soul), pour les lettres qui ont fait trouver un résultat. */
+    val Highlighter = Color(0xFFFFEE99)
+
+    /** Une lettre sans casse ni accent, ligatures développées ; sans [normalize] : ni espaces ni rognage. */
+    private fun fold(c: Char): String =
+        Normalizer.normalize(c.toString().lowercase(Locale.ROOT), Normalizer.Form.NFD)
+            .replace(marks, "")
+            .replace("œ", "oe").replace("æ", "ae").replace("ß", "ss")
+
+    /**
+     * [text] dont les lettres qui correspondent à [query] sont surlignées : la saisie telle quelle (sans
+     * casse ni accent : « eco » dans « École »), sinon les initiales des mots (« gm » dans « Google Maps »).
+     * Rien n'est surligné si la correspondance vient d'ailleurs (ancien nom d'une app, mots séparés…).
+     */
+    fun highlight(text: String, query: String, color: Color = Highlighter): AnnotatedString {
+        val q = normalize(query)
+        if (q.isEmpty() || text.isEmpty()) return AnnotatedString(text)
+        // Le texte replié, et pour chacune de ses lettres l'indice de la lettre d'origine.
+        val folded = StringBuilder()
+        val origin = ArrayList<Int>(text.length)
+        text.forEachIndexed { i, c ->
+            for (f in fold(c)) {
+                folded.append(f)
+                origin += i
+            }
+        }
+        val ranges = ArrayList<IntRange>()
+        val at = folded.indexOf(q)
+        if (at >= 0) {
+            ranges += origin[at]..origin[at + q.length - 1]
+        } else if (q.length >= 2) {
+            // Initiales : la première lettre de chacun des mots, dans l'ordre.
+            val starts = ArrayList<Int>()
+            var wordStart = true
+            text.forEachIndexed { i, c ->
+                val separator = separators.matches(c.toString())
+                if (!separator && wordStart) starts += i
+                wordStart = separator
+            }
+            val initials = starts.joinToString("") { fold(text[it]).take(1) }
+            if (initials.startsWith(q)) {
+                for (k in q.indices) ranges += starts[k]..starts[k]
+            }
+        }
+        if (ranges.isEmpty()) return AnnotatedString(text)
+        return buildAnnotatedString {
+            append(text)
+            for (r in ranges) addStyle(SpanStyle(background = color), r.first, r.last + 1)
+        }
     }
 }
