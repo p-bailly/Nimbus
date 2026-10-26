@@ -222,7 +222,7 @@ internal fun TocPage(apps: AppsState, settings: LauncherSettings, badges: Map<St
 
 /**
  * Figure des apps les plus utilisées hors de l'accueil : une rangée de pastilles cerclées à la couleur
- * de chaque app, leur nom dessous, dans un cadre de filet, et sa légende. Appui : ouvrir ; appui long :
+ * de chaque app, sans leur nom, dans un cadre de filet, et sa légende. Appui : ouvrir ; appui long :
  * actions, ou glisser vers l'accueil.
  */
 @Composable
@@ -250,14 +250,8 @@ private fun UsageFigure(apps: List<AppEntry>, badges: Map<String, Int>, vm: Laun
                         .alpha(if (app.isPaused) 0.45f else 1f)
                         .padding(vertical = 2.dp),
                 ) {
+                    // Pas de nom dessous : la pastille le porte pour la lecture d'écran (contentDescription).
                     AppGlyphDisc(app, FigureDisc, color = color, ring = 1.3.dp, colored = true, dot = (badges[app.packageName] ?: 0) > 0)
-                    Text(
-                        app.label,
-                        style = PaperStyle.caption.copy(textAlign = TextAlign.Center),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 5.dp),
-                    )
                 }
             }
         }
