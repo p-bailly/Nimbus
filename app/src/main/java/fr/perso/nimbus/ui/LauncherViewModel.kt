@@ -60,21 +60,20 @@ import fr.perso.nimbus.ui.unlock.UnlockWallpaper
 import fr.perso.nimbus.widgets.WidgetHostManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -192,7 +191,12 @@ data class SearchResults(
     val files: List<FileResult> = emptyList(),
     /** Réglages de Nimbus dont l'intitulé correspond (affichés en gris). */
     val settings: List<SettingsHit> = emptyList(),
+    /** Contacts ou fichiers encore en cours de recherche pour cette saisie : leur liste vide n'est pas définitive. */
+    val pending: Boolean = false,
 )
+
+/** Contacts ou fichiers trouvés pour la saisie [query] (sans espaces autour) : dit à quelle saisie ils répondent. */
+private class Found<T>(val query: String, val items: List<T> = emptyList())
 
 /** Réglages qui influencent la construction de [AppsState]. */
 private data class AppsConfig(
@@ -342,32 +346,40 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         SearchMatcher.index(state.visible + state.privateApps, originals)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-    private val contacts: StateFlow<List<ContactResult>> = combine(
+    // La recherche attend un court délai (la saisie continue) : une recherche qui n'a pas lieu (réglage
+    // coupé, accès refusé) répond tout de suite, pour que `pending` ne la compte pas.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val contacts: StateFlow<Found<ContactResult>> = combine(
         ui.map { it.query.trim() }.distinctUntilChanged(),
         settings.map { it.searchContacts }.distinctUntilChanged(),
         status.map { it.contactsPermission }.distinctUntilChanged(),
     ) { query, enabled, granted -> Triple(query, enabled, granted) }
-        .debounce(150)
-        .mapLatest { (query, enabled, granted) ->
-            if (query.isEmpty() || !enabled || !granted) emptyList()
-            else withContext(Dispatchers.IO) { ContactsSearch.search(context, query) }
+        .transformLatest<Triple<String, Boolean, Boolean>, Found<ContactResult>> { (query, enabled, granted) ->
+            if (query.isEmpty() || !enabled || !granted) {
+                emit(Found(query))
+            } else {
+                delay(150)
+                emit(Found(query, withContext(Dispatchers.IO) { ContactsSearch.search(context, query) }))
+            }
         }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Found(""))
 
-    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-    private val files: StateFlow<List<FileResult>> = combine(
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val files: StateFlow<Found<FileResult>> = combine(
         ui.map { it.query.trim() }.distinctUntilChanged(),
         settings.map { it.searchFiles }.distinctUntilChanged(),
         status.map { it.filesPermission }.distinctUntilChanged(),
     ) { query, enabled, granted -> Triple(query, enabled, granted) }
-        .debounce(200)
-        .mapLatest { (query, enabled, granted) ->
+        .transformLatest<Triple<String, Boolean, Boolean>, Found<FileResult>> { (query, enabled, granted) ->
             // Une ou deux lettres donneraient des centaines de fichiers sans rapport.
-            if (query.length < 3 || !enabled || !granted) emptyList()
-            else withContext(Dispatchers.IO) { FilesSearch.search(context, query) }
+            if (query.length < 3 || !enabled || !granted) {
+                emit(Found(query))
+            } else {
+                delay(200)
+                emit(Found(query, withContext(Dispatchers.IO) { FilesSearch.search(context, query) }))
+            }
         }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Found(""))
 
     val searchResults: StateFlow<SearchResults> = combine(
         searchIndex,
@@ -380,9 +392,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         else SearchResults(
             query,
             SearchMatcher.search(index, query),
-            contacts,
-            files,
+            contacts.items,
+            files.items,
             if (searchSettings) SettingsIndex.search(query) else emptyList(),
+            pending = contacts.query != query.trim() || files.query != query.trim(),
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SearchResults())
 

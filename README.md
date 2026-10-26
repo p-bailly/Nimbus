@@ -205,7 +205,8 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   Apps = { … } |A| = 14 (bleu, avec leurs logos au crayon), Contacts (orange), Fichiers (turquoise),
   Réglages (gris : un appui ouvre la page de réglages). Au-delà de 4 lignes, « … et N autres »
   déplie la bande ; une famille sans résultat n'a pas de bande, et l'ensemble vide (Apps = ∅) ne s'écrit que
-  s'il n'y a de résultat nulle part ; une autorisation manquante s'écrit Contacts = ?.
+  s'il n'y a de résultat nulle part (et pas pendant que les contacts et les fichiers sont encore cherchés) ;
+  une autorisation manquante s'écrit Contacts = ?.
 - Fermeture par glissé vers le bas ou par Retour.
 
 **Icônes**

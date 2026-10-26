@@ -49,6 +49,13 @@ class PaperSearchTest {
     }
 
     @Test
+    fun noEmptySetWhileContactsAndFilesAreStillBeingSearched() {
+        // Contacts et fichiers répondent après un court délai : leur liste vide n'est pas encore définitive.
+        assertFalse(noResultAnywhere(SearchResults(query = "ada", pending = true)))
+        assertTrue(noResultAnywhere(SearchResults(query = "ada", pending = false)))
+    }
+
+    @Test
     fun theProposedPrivateSpaceIsAResult() {
         assertFalse(noResultAnywhere(SearchResults(query = "espace privé"), privateEntry = true))
     }

@@ -303,10 +303,12 @@ private enum class Band { APPS, CONTACTS, FILES, SETTINGS }
 
 /**
  * Vrai s'il n'y a de résultat nulle part (ni app, ni contact, ni fichier, ni réglage, ni espace privé
- * proposé en [privateEntry]) : le seul cas où l'ensemble vide ∅ s'écrit.
+ * proposé en [privateEntry]) : le seul cas où l'ensemble vide ∅ s'écrit. Tant que les contacts et les
+ * fichiers sont encore cherchés ([SearchResults.pending]), on ne sait pas : rien ne s'écrit.
  */
 internal fun noResultAnywhere(results: SearchResults, privateEntry: Boolean = false): Boolean =
-    !privateEntry && results.apps.isEmpty() && results.contacts.isEmpty() && results.files.isEmpty() && results.settings.isEmpty()
+    !privateEntry && !results.pending &&
+        results.apps.isEmpty() && results.contacts.isEmpty() && results.files.isEmpty() && results.settings.isEmpty()
 
 // ---------------------------------------------------------------- Proposition
 
