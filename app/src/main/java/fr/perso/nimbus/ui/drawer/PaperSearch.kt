@@ -96,8 +96,8 @@ import fr.perso.nimbus.ui.theme.inkClickable
 // Proposition, fixe sous le champ, dit ce que fait la touche Entrée (la recherche web, ou la première
 // app) ; puis chaque famille de résultats est un ensemble { … } dans une bande teintée, avec son
 // cardinal |A| = n : Apps (bleu), Contacts (orange), Fichiers (turquoise), Réglages (gris). Une
-// famille sans résultat n'a pas de bande ; l'ensemble vide ∅ ne s'écrit que s'il n'y a de résultat
-// nulle part. Une famille dont l'accès manque s'écrit « ? ».
+// famille sans résultat n'a pas de bande ; s'il n'y a de résultat nulle part, un Corollaire dit que
+// l'ensemble des résultats de q est vide. Une famille dont l'accès manque s'écrit « ? ».
 
 /** Couleurs d'accent des familles de résultats. */
 private object Accent {
@@ -213,10 +213,10 @@ internal fun PaperSearchPage(
     val navBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     // Les bandes montrées, dans l'ordre : la première porte le filet du haut. Une famille sans résultat n'en
-    // a pas (sauf l'accès qui manque) ; ∅ ne s'écrit que s'il n'y a de résultat dans aucune famille.
+    // a pas (sauf l'accès qui manque) ; s'il n'y a de résultat dans aucune famille, le Corollaire les remplace.
     val empty = noResultAnywhere(results, showPrivateEntry)
     val bands = buildList {
-        if (results.apps.isNotEmpty() || empty) add(Band.APPS)
+        if (results.apps.isNotEmpty()) add(Band.APPS)
         if (results.contacts.isNotEmpty() || contactsBlocked) add(Band.CONTACTS)
         if (results.files.isNotEmpty() || filesBlocked) add(Band.FILES)
         if (results.settings.isNotEmpty()) add(Band.SETTINGS)
@@ -239,17 +239,17 @@ internal fun PaperSearchPage(
                 }
             }
 
+            if (empty) {
+                item(key = "no-result") { NoResult(query) }
+            }
+
             if (Band.APPS in bands) {
                 item(key = "band-apps") {
-                    if (results.apps.isEmpty()) {
-                        EmptyBand(name = "Apps", letter = "A", note = "aucun résultat", first = bands.first() == Band.APPS)
-                    } else {
-                        ResultBand(
-                            name = "Apps", letter = "A", accent = Accent.Apps, items = results.apps,
-                            query = query, first = bands.first() == Band.APPS,
-                        ) { app, comma ->
-                            AppRow(app, query, badges[app.packageName] ?: 0, settings, comma, vm)
-                        }
+                    ResultBand(
+                        name = "Apps", letter = "A", accent = Accent.Apps, items = results.apps,
+                        query = query, first = bands.first() == Band.APPS,
+                    ) { app, comma ->
+                        AppRow(app, query, badges[app.packageName] ?: 0, settings, comma, vm)
                     }
                 }
             }
@@ -303,7 +303,7 @@ private enum class Band { APPS, CONTACTS, FILES, SETTINGS }
 
 /**
  * Vrai s'il n'y a de résultat nulle part (ni app, ni contact, ni fichier, ni réglage, ni espace privé
- * proposé en [privateEntry]) : le seul cas où l'ensemble vide ∅ s'écrit. Tant que les contacts et les
+ * proposé en [privateEntry]) : le seul cas où le Corollaire « l'ensemble est vide » s'écrit. Tant que les contacts et les
  * fichiers sont encore cherchés ([SearchResults.pending]), on ne sait pas : rien ne s'écrit.
  */
 internal fun noResultAnywhere(results: SearchResults, privateEntry: Boolean = false): Boolean =
@@ -367,13 +367,13 @@ private fun Proposition(query: String, results: SearchResults, settings: Launche
 
 /** Fin de la démonstration : un carré noir vide (□), centré sur la hauteur d'une ligne de la Proposition. */
 @Composable
-private fun EndOfProof(modifier: Modifier = Modifier) {
+private fun EndOfProof(modifier: Modifier = Modifier, description: String = "Fin de la démonstration") {
     Box(modifier.height(ProseHeight), contentAlignment = Alignment.Center) {
         Box(
             Modifier
                 .size(12.dp)
                 .border(1.3.dp, PaperColors.Ink)
-                .semantics { contentDescription = "Fin de la démonstration" },
+                .semantics { contentDescription = description },
         )
     }
 }
@@ -538,22 +538,29 @@ private fun <T> ResultBand(
     }
 }
 
-/** Ensemble vide, seulement quand rien ne correspond nulle part : « Apps = ∅ aucun résultat |A| = 0 », en gris. */
+/**
+ * Rien ne correspond nulle part : « Corollaire. L'ensemble des résultats de q est vide. □ », sous le
+ * même filet (gris) que la Proposition (bleu). Aucune bande : aucune famille n'est nommée à tort.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun EmptyBand(name: String, letter: String, note: String, first: Boolean = false) {
-    val ink = Accent.ink(Accent.Settings)
+private fun NoResult(query: String) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Bottom,
         modifier = Modifier
             .fillMaxWidth()
-            .bandBackground(Accent.Settings, 0.07f, first)
-            .padding(horizontal = PaperMargin, vertical = 12.dp)
-            .semantics(mergeDescendants = true) { contentDescription = "$name : $note" },
+            .padding(start = PaperMargin, end = PaperMargin, top = 6.dp, bottom = 12.dp)
+            .drawBehind { drawRect(Accent.Settings, size = Size(2.5.dp.toPx(), size.height)) }
+            .padding(start = 14.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "Aucun résultat pour « ${query.trim()} »" },
     ) {
-        Text("$name =", style = PaperStyle.serif(16.5f, 21f, ink, italic = true), softWrap = false, modifier = Modifier.width(NameWidth))
-        Text("∅", style = PaperStyle.serif(30f, 32f, ink, italic = true))
-        Text(note, style = PaperStyle.note, modifier = Modifier.weight(1f).padding(start = 12.dp))
-        Text("|$letter| = 0", style = PaperStyle.serif(14f, 18f, ink, italic = true), modifier = Modifier.clearAndSetSemantics { })
+        FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Prose("Corollaire.", bold = true)
+            Prose("L'ensemble des résultats de", italic = true)
+            Prose("q", italic = true)
+            Prose("est vide.", italic = true)
+        }
+        EndOfProof(Modifier.padding(start = 5.dp), description = "Fin du corollaire")
     }
 }
 
