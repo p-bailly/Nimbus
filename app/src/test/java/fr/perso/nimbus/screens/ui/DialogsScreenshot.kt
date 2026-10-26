@@ -44,7 +44,7 @@ class DialogsScreenshot {
             label = { it.label },
             onSelect = {},
             onDismiss = {},
-            footer = "Les styles « papier » placent 27 applis sur une page d'article ; appui long sur une appli pour en changer.",
+            footer = "Les styles « papier » placent 29 applis sur une page d'article ; appui long sur une appli pour en changer.",
         )
     }
 

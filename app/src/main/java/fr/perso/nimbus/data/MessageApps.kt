@@ -1,7 +1,7 @@
 package fr.perso.nimbus.data
 
 // Applis de messages dont la page de déverrouillage montre les notifications, chacune dans un bandeau
-// colorié à sa couleur : WhatsApp, Discord, Messages, Claude, Signal, Telegram…
+// colorié à sa couleur : WhatsApp, Discord, Messages, Claude, Signal, Telegram, Scrabble…
 
 /** Une appli de messages : son nom affiché et sa couleur (ARGB). */
 data class MessageApp(val name: String, val color: Long)
@@ -40,6 +40,8 @@ object MessageApps {
         "com.microsoft.teams" to MessageApp("Teams", 0xFF5B5FC7),
         "com.google.android.dialer" to MessageApp("Téléphone", 0xFF188038),
         "com.github.android" to MessageApp("GitHub", 0xFF24292F),
+        // Le violet de son crayon : une partie à deux, une invitation, c'est à son tour.
+        "fr.perso.scrabble" to MessageApp("Scrabble", 0xFF7A5BB8),
     )
 
     /** Au plus trois bandeaux : la page reste lisible. */

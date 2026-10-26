@@ -14,7 +14,7 @@ import fr.perso.nimbus.ui.paper.PaperEnv
 import java.time.LocalDateTime
 
 /**
- * Banc des captures des pages « papier » : 28 apps fictives (leur motif est l'initiale), heure figée
+ * Banc des captures des pages « papier » : 29 apps fictives (leur motif est l'initiale), heure figée
  * à 20 h 35 le mardi 20 octobre 2026, barres système de 30 et 24 dp (1 unité = 1 dp), animations
  * arrêtées. Comme sur l'accueil, ni en-tête ni heure ni date.
  *

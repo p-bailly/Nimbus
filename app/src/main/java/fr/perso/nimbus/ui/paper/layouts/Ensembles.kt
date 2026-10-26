@@ -111,7 +111,7 @@ private val Discs: List<Triple<PaperSlot, Float, Float>> = listOf(
     Triple(PaperSlot.AUTHENTICATOR, 267f, 567f),
     Triple(PaperSlot.BANQUE, 124f, 487f),
     Triple(PaperSlot.PLAY, 143f, 557f),
-    Triple(PaperSlot.AMAZON, 206f, 474f),
+    Triple(PaperSlot.MES_APPLIS, 206f, 474f),
     Triple(PaperSlot.PRONOTE, 337f, 492f),
     Triple(PaperSlot.MAPS, 88f, 532f),
     Triple(PaperSlot.WAZE, 320f, 546f),
@@ -121,6 +121,8 @@ private val Discs: List<Triple<PaperSlot, Float, Float>> = listOf(
     Triple(PaperSlot.BASKET, 269f, 698f),
     Triple(PaperSlot.PIR, 109f, 707f),
     Triple(PaperSlot.LOL, 189f, 712f),
+    // Scrabble, face à Lichess de l'autre côté du cercle U (à 9 du cercle, à 98 de πr).
+    Triple(PaperSlot.SCRABBLE, 46f, 632f),
 )
 
 @Composable
@@ -129,7 +131,7 @@ fun EnsemblesPage() {
         Text(
             tex {
                 bf("Notations.")
-                +" "; it("S"); +", "; it("M"); +", "; it("U"); +" ⊂ "; it("A"); +" = {applis}, |"; it("A"); +"| = 28."
+                +" "; it("S"); +", "; it("M"); +", "; it("U"); +" ⊂ "; it("A"); +" = {applis}, |"; it("A"); +"| = 29."
             },
             style = Paper.text(15.5f, 21f),
             modifier = Modifier.at(22, 142).width(368.dp),
@@ -156,7 +158,7 @@ fun EnsemblesPage() {
             +"|"; it("S"); +" ∪ "; it("M"); +" ∪ "; it("U"); +"| = 7 + 9 + 15 − 3 − 2 − 3 + 1 = 24"
         }
         Equation(2, 854f) {
-            +"|"; it("A"); +" ∖ ("; it("S"); +" ∪ "; it("M"); +" ∪ "; it("U"); +")| = 28 − 24 = 4"
+            +"|"; it("A"); +" ∖ ("; it("S"); +" ∪ "; it("M"); +" ∪ "; it("U"); +")| = 29 − 24 = 5"
         }
     }
 }
@@ -181,7 +183,7 @@ private fun Equation(number: Int, top: Float, content: MathBuilder.() -> Unit) {
     )
 }
 
-/** Cadre, trois cercles teintés, leurs noms et les 28 pastilles, réduits à 0,95. */
+/** Cadre, trois cercles teintés, leurs noms et les 29 pastilles, réduits à 0,95. */
 @Composable
 private fun VennFigure() {
     Canvas(Modifier.size(PAPER_WIDTH.dp, PAPER_HEIGHT.dp)) {

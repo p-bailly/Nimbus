@@ -9,10 +9,10 @@ laisser la place à des logos d'applis plus grands. Les voici, avec leurs répon
 Notations de la page :
 
 - D₃ = {*e*, *r*, *r*², *s*, *sr*, *sr*²} = {[YouTube], [Twitch], [Stremio], [Spotify], [Appareil photo], [Photos]} ;
-- Jeux & perso ≅ ℤ/3ℤ : 0 = [Lichess], 1 = [Basket], 2 = [πr] (depuis, LoL Live s'y ajoute : ℤ/2ℤ × ℤ/2ℤ) ;
+- Jeux & perso ≅ ℤ/3ℤ : 0 = [Lichess], 1 = [Basket], 2 = [πr] (depuis, LoL Live puis Scrabble s'y ajoutent : ℤ/5ℤ) ;
 - Outils ≅ ℤ/3ℤ × ℤ/3ℤ : (*i*, *j*) en colonne *i*, ligne *j*, soit (0, 0) = [Claude], (1, 0) = [GitHub],
   (2, 0) = [Drive], (0, 1) = [Fichiers], (1, 1) = [Authenticator], (2, 1) = [Banque Populaire],
-  (0, 2) = [Play Store], (1, 2) = [Amazon], (2, 2) = [PRONOTE].
+  (0, 2) = [Play Store], (1, 2) = [Amazon] (depuis, [Mes applis] a pris sa place), (2, 2) = [PRONOTE].
 
 **5 Exercices.**
 

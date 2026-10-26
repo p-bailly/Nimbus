@@ -41,7 +41,7 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Appui long sur le fond › « Style de l'accueil » (ou Paramètres › Page d'accueil) : la grille
   d'icônes, ou l'une des quatre pages d'article : Groupes, Voronoï, Ensembles, Fourier
   (les applis tournent sur des épicycles).
-- Chaque page place 28 applis sur une figure mathématique : leurs places (WhatsApp, Messages… πr, LoL Live) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
+- Chaque page place 29 applis sur une figure mathématique : leurs places (WhatsApp, Messages… πr, LoL Live, Scrabble) sont remplies automatiquement avec les applis installées (paquets connus, puis nom) ; appui
   long sur une appli › « Changer », ou Paramètres › Page d'accueil › « Applis de la page ». Une place
   vide est en pointillés : un appui permet de choisir son appli.
 - Échanger deux applis d'un même groupe : appui long sur une appli › « Échanger », puis l'autre appli
@@ -51,7 +51,7 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
 - Voronoï : appui long sur une cellule puis glisser pour déplacer le site de son appli dans le
   carré Ω ; les cellules suivent le doigt, et les pastilles ne sortent pas du carré, ne se touchent
   pas et laissent le « Ω » libre. Appui long sur le fond › « Sites d'origine » pour tout remettre.
-- Les 51 applis qui ont un logo au crayon (`design/logos-crayon/`, voir `CrayonLogos.kt`) le montrent
+- Les 52 applis qui ont un logo au crayon (`design/logos-crayon/`, voir `CrayonLogos.kt`) le montrent
   sur un disque blanc cerclé de leur famille, sur toutes les pages d'accueil papier, dans la figure de
   la table des matières et dans les pastilles du tiroir ; il passe devant le motif choisi. Sur les
   accueils, le logo remplit son disque, et les disques ont grandi (de 35 à 50 % environ) à la place
@@ -91,7 +91,7 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   ravivé, qui monte et se colore en 1,6 s à chaque réveil ; la page mesure ses écritures et Météo
   dessine autour : le ciel colorié jusqu'aux bords passe sous les lettres, sans blanc autour, le
   soleil, la lune et les nuages sont poussés à côté, rayons compris), les
-  messages reçus (WhatsApp, Discord, Messages, Claude, Signal, Telegram, Gmail…) dans des bandeaux coloriés au crayon à la couleur de
+  messages reçus (WhatsApp, Discord, Messages, Claude, Signal, Telegram, Gmail, Scrabble…) dans des bandeaux coloriés au crayon à la couleur de
   leur appli, avec son logo (trois au plus, les plus récents ; il faut l'accès aux notifications ;
   toucher un bandeau déverrouille et ouvre le message ; au-dessus d'eux, la musique en cours, dans un
   bandeau à la couleur du lecteur : pochette, titre, artiste, et les boutons précédent, lecture ou
@@ -179,7 +179,7 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   numérotée, chaque app une sous-section avec points de conduite et numéro de page ; sous le titre,
   une figure des cinq applis les plus utilisées qui ne sont pas déjà sur l'accueil (places de la
   page papier, ou grille et dock) ; l'espace privé en annexe A, et les notifications d'une
-  app sont un appel de note. Devant chaque nom, le logo au crayon de l'app (51 logos dessinés pour
+  app sont un appel de note. Devant chaque nom, le logo au crayon de l'app (52 logos dessinés pour
   Nimbus, tous à la même taille de dessin : sources dans `design/logos-crayon/`, reconnus d'après le
   nom affiché ou le paquet dans `CrayonLogos.kt`), sinon son motif (le même que sur les pages
   papier) à sa propre couleur, la teinte dominante de son icône. Appui : ouvrir ; appui long :
@@ -198,12 +198,14 @@ Pensé pour un Pixel récent (Android 15 à 17) et utilisable dès Android 9.
   Les lettres trouvées sont surlignées en jaune.
 - La touche Entrée lance la recherche web ; Paramètres › Page de recherche › « Entrée ouvre la
   première app » la fait ouvrir la première app trouvée.
-- Thème papier : le champ se lit « soit q = … » ; une Proposition fixe dit ce que fait Entrée
-  (« La touche ↵ envoie q à Google », avec le Play Store en « Démonstration ») ; chaque famille de
+- Thème papier : le champ se lit « soit q = app, contact… » ; une Proposition fixe dit ce que fait Entrée
+  (« La touche ↵ envoie q à Google », avec le Play Store en « Démonstration », qu'un carré noir vide □
+  ferme au bout de sa ligne) ; chaque famille de
   résultats est un ensemble entre accolades dans une bande teintée, avec son cardinal :
   Apps = { … } |A| = 14 (bleu, avec leurs logos au crayon), Contacts (orange), Fichiers (turquoise),
   Réglages (gris : un appui ouvre la page de réglages). Au-delà de 4 lignes, « … et N autres »
-  déplie la bande ; aucune app s'écrit Apps = ∅ ; une autorisation manquante s'écrit Contacts = ?.
+  déplie la bande ; une famille sans résultat n'a pas de bande, et l'ensemble vide (Apps = ∅) ne s'écrit que
+  s'il n'y a de résultat nulle part ; une autorisation manquante s'écrit Contacts = ?.
 - Fermeture par glissé vers le bas ou par Retour.
 
 **Icônes**

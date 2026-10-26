@@ -3,6 +3,7 @@ package fr.perso.nimbus.data
 import android.content.ComponentName
 import android.os.Process
 import androidx.compose.ui.graphics.ImageBitmap
+import fr.perso.nimbus.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -85,9 +86,30 @@ class GlyphsAndCategoriesTest {
         assertEquals(lol, PaperSlot.resolve(listOf(lol), emptyMap(), emptyMap())[PaperSlot.LOL])
         assertEquals(renamed, PaperSlot.resolve(listOf(renamed), emptyMap(), emptyMap())[PaperSlot.LOL])
         assertEquals(PaperFamily.JEUX, PaperSlot.LOL.family)
-        // Quatre jeux, et 28 places.
-        assertEquals(4, PaperSlot.of(PaperFamily.JEUX).size)
-        assertEquals(28, PaperSlot.entries.size)
+        // Cinq jeux, et 29 places.
+        assertEquals(5, PaperSlot.of(PaperFamily.JEUX).size)
+        assertEquals(29, PaperSlot.entries.size)
+    }
+
+    @Test
+    fun scrabbleIsAGameAndMesApplisTookAmazonsPlace() {
+        val scrabble = app("Scrabble", "fr.perso.scrabble")
+        val renamed = app("Mots", "fr.perso.scrabble")
+        val mesApplis = app("Mes applis", "fr.perso.managingapps")
+        val amazon = app("Amazon", "com.amazon.mShop.android.shopping")
+        val slots = PaperSlot.resolve(listOf(scrabble, mesApplis, amazon), emptyMap(), emptyMap())
+        assertEquals(scrabble, slots[PaperSlot.SCRABBLE])
+        assertEquals(renamed, PaperSlot.resolve(listOf(renamed), emptyMap(), emptyMap())[PaperSlot.SCRABBLE])
+        assertEquals(PaperFamily.JEUX, PaperSlot.SCRABBLE.family)
+        assertEquals(mesApplis, slots[PaperSlot.MES_APPLIS])
+        assertEquals(PaperFamily.OUTILS, PaperSlot.MES_APPLIS.family)
+        // Amazon n'a plus de place ; les Outils en gardent neuf.
+        assertEquals(setOf(scrabble, mesApplis), slots.values.filterNotNull().toSet())
+        assertEquals(9, PaperSlot.of(PaperFamily.OUTILS).size)
+        // Son logo au crayon, par le paquet comme par le nom.
+        assertEquals(R.drawable.crayon_scrabble, CrayonLogos.of(scrabble))
+        assertEquals(R.drawable.crayon_scrabble, CrayonLogos.of(app("Scrabble", "test.autre")))
+        assertEquals(R.drawable.crayon_scrabble, CrayonLogos.ofPackage("fr.perso.scrabble"))
     }
 
     @Test
