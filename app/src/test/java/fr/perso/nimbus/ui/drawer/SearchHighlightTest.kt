@@ -1,6 +1,7 @@
 package fr.perso.nimbus.ui.drawer
 
 import fr.perso.nimbus.ui.SettingsSection
+import fr.perso.nimbus.ui.settings.SettingId
 import fr.perso.nimbus.ui.settings.SettingsIndex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -41,8 +42,9 @@ class SearchHighlightTest {
     fun settingsAreFoundByTitleAndKeywords() {
         val byTitle = SettingsIndex.search("moteur")
         assertEquals("Moteur de recherche web", byTitle.first().title)
-        assertEquals(SettingsSection.SEARCH, byTitle.first().section)
-        assertEquals("Paramètres › Page de recherche", byTitle.first().path)
+        assertEquals(SettingsSection.DRAWER, byTitle.first().section)
+        assertEquals(SettingId.SEARCH_ENGINE, byTitle.first().id)
+        assertEquals("Paramètres › Tiroir et recherche › Recherche", byTitle.first().path)
 
         // Sans accent ni majuscule, et par un mot de description.
         assertEquals("Entrée ouvre la première app", SettingsIndex.search("entree").first().title)

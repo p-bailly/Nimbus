@@ -28,6 +28,7 @@ import fr.perso.nimbus.R
 import fr.perso.nimbus.data.LauncherSettings
 import fr.perso.nimbus.ui.AppsState
 import fr.perso.nimbus.ui.LauncherViewModel
+import fr.perso.nimbus.ui.SettingsSection
 import fr.perso.nimbus.ui.components.AppGlyphDisc
 import fr.perso.nimbus.ui.components.AppPickerDialog
 import fr.perso.nimbus.ui.theme.LocalPaperUi
@@ -47,7 +48,13 @@ fun HiddenAppsScreen(vm: LauncherViewModel, apps: AppsState, settings: LauncherS
 
     BackHandler { vm.closeScreen() }
 
-    SettingsPage("Apps masquées", onBack = vm::closeScreen, folio = HIDDEN_APPS_FOLIO) {
+    SettingsPage(
+        "Apps masquées",
+        onBack = vm::closeScreen,
+        folio = HIDDEN_APPS_FOLIO,
+        accent = SettingsSection.PRIVACY.accent(),
+        parentTitle = SettingsIndex.pageTitle(SettingsSection.PRIVACY),
+    ) {
         item {
             SettingsEntry(R.drawable.ms_visibility_off, SettingsColors.Teal, "Masquer une app", "Elle n'apparaîtra plus dans le tiroir ni dans la recherche") {
                 picking = true

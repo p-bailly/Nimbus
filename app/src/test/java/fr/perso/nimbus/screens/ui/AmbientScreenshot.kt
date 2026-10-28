@@ -27,8 +27,9 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Thème ambiant : ces captures doivent rester identiques, au pixel près, à celles d'avant
- * l'interface papier (n'utilise que des API qui existaient alors).
+ * Thème ambiant (Material) : captures des écrans, des dialogues et de la page de réglages sous ce thème.
+ * Les réglages ont changé de look à la refonte (couleur d'accent par page, pastilles pleines) ; les
+ * dialogues, le tiroir et les menus, eux, n'ont pas bougé.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)

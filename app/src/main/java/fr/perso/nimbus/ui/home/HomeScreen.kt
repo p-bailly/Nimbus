@@ -211,10 +211,10 @@ private fun HomeMenuSheet(menu: HomeMenu, vm: LauncherViewModel, apps: AppsState
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
             )
-            SettingsEntry(R.drawable.ms_palette, SettingsColors.Orange, "Apparence globale") {
+            SettingsEntry(R.drawable.ms_palette, SettingsColors.Orange, "Apparence") {
                 vm.openSettings(SettingsSection.APPEARANCE)
             }
-            SettingsEntry(R.drawable.ms_home, SettingsColors.Blue, "Page d'accueil", chevron = true) {
+            SettingsEntry(R.drawable.ms_home, SettingsColors.Blue, "Accueil", chevron = true) {
                 vm.openSettings(SettingsSection.HOME)
             }
             SettingsEntry(R.drawable.ms_swipe, SettingsColors.Red, "Gestes et raccourcis") {
@@ -326,8 +326,8 @@ internal fun PaperHomeMenu(
             }
             PaperRule(thickness = 0.8.dp)
         }
-        SettingsEntry(R.drawable.ms_palette, SettingsColors.Orange, "Apparence globale", onClick = onAppearance)
-        SettingsEntry(R.drawable.ms_home, SettingsColors.Blue, "Page d'accueil", chevron = true, onClick = onHomeSettings)
+        SettingsEntry(R.drawable.ms_palette, SettingsColors.Orange, "Apparence", onClick = onAppearance)
+        SettingsEntry(R.drawable.ms_home, SettingsColors.Blue, "Accueil", chevron = true, onClick = onHomeSettings)
         SettingsEntry(R.drawable.ms_swipe, SettingsColors.Red, "Gestes et raccourcis", onClick = onGestures)
         PaperTextButton(
             "Voir tous les paramètres ›",
