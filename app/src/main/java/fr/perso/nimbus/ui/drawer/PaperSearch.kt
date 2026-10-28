@@ -290,7 +290,7 @@ internal fun PaperSearchPage(
                         name = "Réglages", letter = "R", accent = Accent.Settings, items = results.settings,
                         query = query, first = bands.first() == Band.SETTINGS, tint = 0.07f,
                     ) { hit, comma ->
-                        SettingsRow(hit, query, comma) { vm.openSettings(hit.section) }
+                        SettingsRow(hit, query, comma) { vm.openSettings(hit.section, hit.id) }
                     }
                 }
             }

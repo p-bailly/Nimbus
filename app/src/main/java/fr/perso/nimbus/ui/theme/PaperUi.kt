@@ -155,7 +155,13 @@ fun PaperRule(modifier: Modifier = Modifier, thickness: Dp = 0.6.dp, color: Colo
  * donné), à droite le folio, sur un filet de 0,6.
  */
 @Composable
-fun PaperRunningHead(head: String, folio: String, modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
+fun PaperRunningHead(
+    head: String,
+    folio: String,
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+    folioColor: Color = PaperColors.Ink,
+) {
     Column(modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
             if (onBack != null) {
@@ -170,7 +176,7 @@ fun PaperRunningHead(head: String, folio: String, modifier: Modifier = Modifier,
                 Text(head, style = PaperStyle.runningHead, modifier = Modifier.padding(top = 14.dp, bottom = 5.dp))
             }
             Spacer(Modifier.weight(1f))
-            Text(folio, style = PaperStyle.runningHead.copy(fontFeatureSettings = null), modifier = Modifier.padding(bottom = 5.dp))
+            Text(folio, style = PaperStyle.runningHead.copy(fontFeatureSettings = null, color = folioColor), modifier = Modifier.padding(bottom = 5.dp))
         }
         PaperRule()
     }

@@ -822,6 +822,18 @@ private fun SearchResultsGrid(
             }
         }
 
+        if (results.settings.isNotEmpty()) {
+            item(span = fullSpan) { SectionHeader("Réglages") }
+            items(results.settings, key = { "setting:${it.id?.name ?: it.section.name}" }, span = { fullSpan() }) { hit ->
+                ResultRow(
+                    text = hit.title,
+                    subtitle = hit.path,
+                    onClick = { vm.openSettings(hit.section, hit.id) },
+                    leading = { Icon(painterResource(R.drawable.ms_settings), contentDescription = null) },
+                )
+            }
+        }
+
         item(span = fullSpan) {
             Column {
                 if (paper) PaperRule(Modifier.padding(horizontal = 14.dp, vertical = 8.dp))

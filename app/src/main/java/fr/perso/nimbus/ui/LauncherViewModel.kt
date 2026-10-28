@@ -54,6 +54,7 @@ import fr.perso.nimbus.service.DictationService
 import fr.perso.nimbus.service.GestureService
 import fr.perso.nimbus.service.SystemActions
 import fr.perso.nimbus.ui.drawer.SearchMatcher
+import fr.perso.nimbus.ui.settings.SettingId
 import fr.perso.nimbus.ui.settings.SettingsHit
 import fr.perso.nimbus.ui.settings.SettingsIndex
 import fr.perso.nimbus.ui.unlock.UnlockWallpaper
@@ -86,8 +87,33 @@ import kotlin.math.roundToInt
 /** Écran affiché au-dessus de l'accueil. */
 enum class Screen { HOME, SETTINGS, HIDDEN_APPS }
 
-/** Pages des paramètres (une page principale et ses sous-pages). */
-enum class SettingsSection { MAIN, APPEARANCE, GESTURES, BACKUP, HOME, DRAWER, SEARCH, DICTATION, NOTIFICATIONS, PRIVACY, ABOUT }
+/**
+ * Pages des paramètres : une page principale, dix pages et deux sous-pages ([parent]). L'ordre donne
+ * le folio de la page en thème papier (i, ii, iii…).
+ */
+enum class SettingsSection(val parent: SettingsSection? = null) {
+    MAIN,
+    APPEARANCE,
+    HOME,
+    DRAWER,
+    GESTURES,
+    LOCKSCREEN,
+    PRIVACY,
+    DICTATION,
+    NOTIFICATIONS,
+    BACKUP,
+    ABOUT,
+
+    /** Les 29 places d'un accueil papier. */
+    HOME_APPS(HOME),
+
+    /** Les onglets du tiroir. */
+    CATEGORIES(DRAWER),
+    ;
+
+    /** Page vers laquelle Retour ramène : la page parente, ou la page principale. */
+    val back: SettingsSection? get() = parent ?: if (this == MAIN) null else MAIN
+}
 
 /** Menu ouvert par appui long sur l'accueil, à la position du doigt, sur la page [page]. */
 data class HomeMenu(val position: Offset, val page: Int)
@@ -108,6 +134,8 @@ data class UiState(
     val settingsSection: SettingsSection = SettingsSection.MAIN,
     /** Page par laquelle les paramètres ont été ouverts : Retour depuis celle-ci referme les paramètres. */
     val settingsRoot: SettingsSection = SettingsSection.MAIN,
+    /** Réglage à faire défiler dans la vue et à surligner (résultat de recherche), une fois. */
+    val settingsFocus: SettingId? = null,
     /** App dont la feuille d'actions complète est ouverte (« Plus »). */
     val sheetApp: AppEntry? = null,
     /** Pop-up compact de l'appui long sur une app. */
@@ -605,11 +633,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun consumeSearchFocus() = _ui.update { it.copy(focusSearch = false) }
 
-    fun openSettings(section: SettingsSection = SettingsSection.MAIN) = _ui.update {
+    /** Ouvre les paramètres sur [section] ; [focus] : le réglage à montrer (défilement et surbrillance). */
+    fun openSettings(section: SettingsSection = SettingsSection.MAIN, focus: SettingId? = null) = _ui.update {
         it.copy(
             screen = Screen.SETTINGS,
             settingsSection = section,
             settingsRoot = section,
+            settingsFocus = focus,
             drawerOpen = false,
             query = "",
             homeMenu = null,
@@ -617,21 +647,25 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
-    fun openSettingsSection(section: SettingsSection) = _ui.update { it.copy(settingsSection = section) }
+    fun openSettingsSection(section: SettingsSection, focus: SettingId? = null) =
+        _ui.update { it.copy(settingsSection = section, settingsFocus = focus) }
+
+    /** Le réglage a été montré : plus de défilement ni de surbrillance à faire. */
+    fun consumeSettingsFocus() = _ui.update { it.copy(settingsFocus = null) }
 
     /** À n'appeler qu'après vérification du code PIN. */
     fun openHiddenApps() = _ui.update { it.copy(screen = Screen.HIDDEN_APPS) }
 
     /**
-     * Retour d'un cran : apps masquées -> sous-page -> page principale des réglages -> accueil.
-     * Une sous-page ouverte directement (menu de l'accueil) ramène à l'accueil.
+     * Retour d'un cran : apps masquées -> sous-page -> page -> page principale des réglages -> accueil.
+     * Une page ouverte directement (menu de l'accueil, recherche) ramène à l'accueil.
      */
     fun closeScreen() = _ui.update {
+        val back = if (it.settingsSection == it.settingsRoot) null else it.settingsSection.back
         when {
             it.screen == Screen.HIDDEN_APPS -> it.copy(screen = Screen.SETTINGS)
-            it.screen == Screen.SETTINGS && it.settingsSection != it.settingsRoot ->
-                it.copy(settingsSection = it.settingsRoot)
-            else -> it.copy(screen = Screen.HOME)
+            it.screen == Screen.SETTINGS && back != null -> it.copy(settingsSection = back, settingsFocus = null)
+            else -> it.copy(screen = Screen.HOME, settingsFocus = null)
         }
     }
 
