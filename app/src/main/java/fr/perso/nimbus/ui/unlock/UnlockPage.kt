@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -285,6 +286,8 @@ internal fun UnlockPage(
     val today = now.toLocalDate()
     val dayFigure = remember(today) { DailyFigures.of(today) }
     val unlock by rememberUpdatedState(onUnlock)
+    var basketHidden by remember { mutableStateOf(false) }
+    var lolHidden by remember { mutableStateOf(false) }
 
     PaperCanvas(
         // Glisser vers le haut, n'importe où : déverrouiller.
@@ -322,11 +325,12 @@ internal fun UnlockPage(
         if (state.notes.isNotEmpty()) {
             y = NotesSection(y, state.notes, today, onNote, onDismissNote) + AFTER_BANNER
         }
-        if (state.lines.isNotEmpty() || state.results.isNotEmpty()) {
-            y = GameSection(y, BASKET_LOOK, state.lines + state.results, onBasket) + AFTER_BANNER
+        // Un bandeau de matchs glissé de côté disparaît jusqu'au prochain affichage de la page.
+        if (!basketHidden && (state.lines.isNotEmpty() || state.results.isNotEmpty())) {
+            y = GameSection(y, BASKET_LOOK, state.lines + state.results, onBasket, onDismiss = { basketHidden = true }) + AFTER_BANNER
         }
-        if (state.lol.isNotEmpty() || state.lolResults.isNotEmpty()) {
-            y = GameSection(y, LOL_LOOK, state.lol + state.lolResults, onLol) + AFTER_BANNER
+        if (!lolHidden && (state.lol.isNotEmpty() || state.lolResults.isNotEmpty())) {
+            y = GameSection(y, LOL_LOOK, state.lol + state.lolResults, onLol, onDismiss = { lolHidden = true }) + AFTER_BANNER
         }
         state.kacky?.let { y = KackySection(y, it, it.live(Instant.now()), onKacky) + AFTER_BANNER }
         // En fond d'écran, la figure passe sous l'empreinte du Pixel, qui ne la cache plus.
@@ -608,7 +612,16 @@ private val LOL_LOOK = GameLook("LoL", R.drawable.crayon_lol, Color(0xFF7A5BC4),
  * rend le bas du bandeau.
  */
 @Composable
-private fun GameSection(y0: Float, look: GameLook, lines: List<LiveLine>, onOpen: () -> Unit): Float {
+private fun GameSection(y0: Float, look: GameLook, lines: List<LiveLine>, onOpen: () -> Unit, onDismiss: () -> Unit): Float {
+    val height = BANNER_PAD + 45 + ROW_PITCH * (lines.size - 1) + 7 + BANNER_PAD
+    SwipeAway(y0, height, onDismiss) { GameBanner(look, lines, onOpen) }
+    return y0 + height
+}
+
+/** Le bandeau d'une section de matchs, posé relativement à son conteneur ([SwipeAway]). */
+@Composable
+private fun GameBanner(look: GameLook, lines: List<LiveLine>, onOpen: () -> Unit) {
+    val y0 = 0f
     val y = y0 + BANNER_PAD
     val b = y + 17
     val end = y + 45 + ROW_PITCH * (lines.size - 1) + 7 + BANNER_PAD
@@ -632,7 +645,6 @@ private fun GameSection(y0: Float, look: GameLook, lines: List<LiveLine>, onOpen
         Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp),
         onOpen,
     )
-    return end
 }
 
 private val KACKY_COLOR = Color(0xFFB59A12)
@@ -955,18 +967,26 @@ private fun NoteBanner(
     onDismiss: (UnlockNote) -> Unit,
 ) {
     val color = Color(note.app.color)
-    val ink = inkOf(color)
-    // Glisser le bandeau de côté l'efface : au-delà de NOTE_SWIPE (ou lancé), il sort de l'écran puis la
-    // notification est supprimée ; sinon il revient. Le contenu est posé dans un conteneur à la hauteur du bandeau.
+    SwipeAway(top, NOTE_H, onDismiss = { onDismiss(note) }) {
+        NoteContent(0f, note, today, color, inkOf(color), onOpen)
+    }
+}
+
+/**
+ * Pose [content] dans un conteneur de la largeur de la page, à [top] et de [height] de haut (le contenu est
+ * posé relativement à lui) ; le glisser de côté l'écarte : au-delà de [NOTE_SWIPE] (ou lancé), il sort de
+ * l'écran puis [onDismiss] est appelé ; sinon il revient.
+ */
+@Composable
+private fun SwipeAway(top: Float, height: Float, onDismiss: () -> Unit, content: @Composable BoxScope.() -> Unit) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val shift = remember { Animatable(0f) }
     val onDismissNow by rememberUpdatedState(onDismiss)
-    val y = 0f
     Box(
         Modifier
             .at(0, top)
-            .size(PAPER_WIDTH.dp, NOTE_H.dp)
+            .size(PAPER_WIDTH.dp, height.dp)
             .graphicsLayer {
                 translationX = shift.value
                 alpha = (1f - abs(shift.value) / (PAPER_WIDTH.dp.toPx() * 0.6f)).coerceIn(0f, 1f)
@@ -979,15 +999,14 @@ private fun NoteBanner(
                     if (abs(shift.value) > limit || abs(velocity) > 1800f) {
                         val sign = if (shift.value != 0f) Math.signum(shift.value) else Math.signum(velocity)
                         shift.animateTo(sign * with(density) { PAPER_WIDTH.dp.toPx() }, tween(160))
-                        onDismissNow(note)
+                        onDismissNow()
                     } else {
                         shift.animateTo(0f, tween(180))
                     }
                 },
             ),
-    ) {
-        NoteContent(y, note, today, color, ink, onOpen)
-    }
+        content = content,
+    )
 }
 
 /** Distance de glissement (en unités de la page) au-delà de laquelle une notification s'efface. */
