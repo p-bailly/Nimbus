@@ -414,6 +414,7 @@ private fun MeteoSection(
         return sketchEnd(meteo, sketch, onOpen, t, extremes + 32 + 6)
     }
 
+    // Tout le texte est posé dans le ciel du coloriage, jamais à cheval sur son bord haut : [IN] le descend.
     // À gauche : le lieu, la température (« °C » plus petit, en haut), le ressenti.
     val placeStyle = style(17f, 20f, color = PaperColors.Soft)
     Text(
@@ -422,9 +423,9 @@ private fun MeteoSection(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         onTextLayout = text.layout("place"),
-        modifier = Modifier.at(22, top(t + 18, 17f, 20f)).widthIn(max = 200.dp).then(text.of("place")),
+        modifier = Modifier.at(22, top(t + 18 + IN, 17f, 20f)).widthIn(max = 200.dp).then(text.of("place")),
     )
-    val tempTop = top(t + 88, 72f)
+    val tempTop = top(t + 88 + IN, 72f)
     Row(Modifier.at(20, tempTop)) {
         Text(
             degrees(meteo.temperature),
@@ -439,7 +440,7 @@ private fun MeteoSection(
             style = style(26f),
             softWrap = false,
             onTextLayout = text.layout("unit"),
-            modifier = Modifier.padding(start = 3.dp, top = (top(t + 59, 26f) - tempTop).dp).then(text.of("unit")),
+            modifier = Modifier.padding(start = 3.dp, top = (top(t + 59 + IN, 26f) - tempTop).dp).then(text.of("unit")),
         )
     }
     Text(
@@ -447,18 +448,18 @@ private fun MeteoSection(
         style = style(18f, 22f, color = PaperColors.Soft),
         softWrap = false,
         onTextLayout = text.layout("feels"),
-        modifier = Modifier.at(22, top(t + 113, 18f, 22f)).then(text.of("feels")),
+        modifier = Modifier.at(22, top(t + 113 + IN, 18f, 22f)).then(text.of("feels")),
     )
 
     // À droite : le ciel en gras (sur deux lignes s'il est long, pour laisser le milieu au dessin),
     // puis les extrêmes du jour, en gras, en orange et en bleu.
     val skyStyle = style(21f, 26f, Face.BOLD).copy(textAlign = TextAlign.End, lineBreak = LineBreak.Heading)
     val skyLines = lineCount(AnnotatedString(meteo.sky), skyStyle, SKY_WIDTH)
-    RightText(meteo.sky, skyStyle, top(t + 23, 21f, 26f, Face.BOLD), Modifier.widthIn(max = SKY_WIDTH.dp), over = text, key = "sky")
-    val extremes = t + 55 + 26f * (skyLines - 1)
+    RightText(meteo.sky, skyStyle, top(t + 23 + IN, 21f, 26f, Face.BOLD), Modifier.widthIn(max = SKY_WIDTH.dp), over = text, key = "sky")
+    val extremes = t + 55 + IN + 26f * (skyLines - 1)
     RightText("max ${degrees(meteo.todayMax)}\u00A0°C", style(21f, 26f, Face.BOLD, Maxi), top(extremes, 21f, 26f, Face.BOLD), over = text, key = "max")
     RightText("min ${degrees(meteo.todayMin)}\u00A0°C", style(21f, 26f, Face.BOLD, Mini), top(extremes + 26, 21f, 26f, Face.BOLD), over = text, key = "min")
-    return sketchEnd(meteo, sketch, onOpen, t, maxOf(t + 119, extremes + 26 + 6))
+    return sketchEnd(meteo, sketch, onOpen, t, maxOf(t + 119 + IN, extremes + 26 + 6))
 }
 
 /** Sous le bloc météo qui commence en [t] : la légende du coloriage, la zone d'appui ; rend le bas du bloc. */
@@ -485,12 +486,15 @@ private fun sketchEnd(meteo: MeteoNow, sketch: ImageBitmap?, onOpen: () -> Unit,
     return end
 }
 
+/** Descente du texte de la météo, en unités : le lieu et le ciel quittent le bord haut du coloriage pour entrer dans son ciel. */
+private const val IN = 18f
+
 /** Largeur au plus du ciel, à droite : le milieu reste au dessin. */
 private const val SKY_WIDTH = 165f
 
 /**
  * Le coloriage : composé par Météo pour 411 × 287 dp, agrandi au-delà des marges et coupé en haut ; un
- * fondu de quelques unités adoucit la coupe. Ses couleurs sont ravivées (saturation, opacité des
+ * fondu de quelques unités adoucit la coupe en haut, un autre ([SIDE_FADE]) estompe les deux côtés. Ses couleurs sont ravivées (saturation, opacité des
  * hachures). À chaque réveil, il monte doucement et se colore, en [SKETCH_ANIMATION] ms, puis ne bouge
  * plus : seul le dessin est redessiné pendant ce temps, rien n'est recomposé.
  */
@@ -528,6 +532,16 @@ private fun Sketch(image: ImageBitmap, modifier: Modifier) {
                     Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, startY = 0f, endY = FADE.dp.toPx()),
                     blendMode = BlendMode.DstIn,
                 )
+                // Le ciel s'estompe de chaque côté, dans le papier.
+                val side = SIDE_FADE.dp.toPx()
+                drawRect(
+                    Brush.horizontalGradient(0f to Color.Transparent, 1f to Color.Black, startX = 0f, endX = side),
+                    blendMode = BlendMode.DstIn,
+                )
+                drawRect(
+                    Brush.horizontalGradient(0f to Color.Black, 1f to Color.Transparent, startX = size.width - side, endX = size.width),
+                    blendMode = BlendMode.DstIn,
+                )
             },
     ) {
         val p = progress.value
@@ -546,6 +560,9 @@ private fun Sketch(image: ImageBitmap, modifier: Modifier) {
 }
 
 private const val FADE = 10f
+
+/** Largeur du fondu de chaque côté du coloriage. */
+private const val SIDE_FADE = 44f
 
 /**
  * Les zones de texte [zones] (en pixels du cadre du coloriage) en fractions de l'image de Météo, telle
