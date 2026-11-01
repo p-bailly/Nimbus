@@ -40,7 +40,7 @@ class MeteoShareTest {
         assertEquals((412f + overflow) / (SKETCH_WIDTH * 2f), zones[1].right, 1e-4f)
         assertEquals(0.32f, zones[1].top, 1e-4f)
         assertEquals(0.66f, zones[1].bottom, 1e-4f)
-        // Hors de l'image : rien.
-        assertEquals(1, with(density) { imageZones(listOf(Rect(-100f, 10f, -60f, 20f))) }.size)
+        // Hors de l'image (qui déborde de la page de (SKETCH_WIDTH × 2 − 824) / 2 pixels à gauche) : rien.
+        assertEquals(1, with(density) { imageZones(listOf(Rect(-overflow - 60f, 10f, -overflow - 20f, 20f))) }.size)
     }
 }
