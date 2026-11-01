@@ -85,6 +85,8 @@ import fr.perso.nimbus.R
 import fr.perso.nimbus.data.BasketShare
 import fr.perso.nimbus.data.CrayonLogos
 import fr.perso.nimbus.data.GameTeam
+import fr.perso.nimbus.data.KackyEvent
+import fr.perso.nimbus.data.KackyStanding
 import fr.perso.nimbus.data.LiveLine
 import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoNow
@@ -143,6 +145,8 @@ data class UnlockState(
     /** Séries de LoL en cours des équipes favorites de LoL Live, et leurs résultats récents. */
     val lol: List<LiveLine> = emptyList(),
     val lolResults: List<LiveLine> = emptyList(),
+    /** Le Kacky Reloaded en cours : son podium. */
+    val kacky: KackyStanding? = null,
     /** Notifications des applis de messages, les plus récentes d'abord. */
     val notes: List<UnlockNote> = emptyList(),
     /** La musique en cours (ou en pause depuis peu). */
@@ -247,6 +251,8 @@ internal fun UnlockPage(
     onUnlock: () -> Unit,
     /** Ouvrir LoL Live (après le déverrouillage). */
     onLol: () -> Unit = {},
+    /** Ouvrir la page du Kacky Reloaded en cours (après le déverrouillage). */
+    onKacky: (KackyEvent) -> Unit = {},
     /** Ouvrir une notification (après le déverrouillage). */
     onNote: (UnlockNote) -> Unit = {},
     /** La figure à montrer (une nouvelle à chaque affichage) ; sans elle, celle du jour. */
@@ -313,6 +319,7 @@ internal fun UnlockPage(
         if (state.lol.isNotEmpty() || state.lolResults.isNotEmpty()) {
             y = GameSection(y, LOL_LOOK, state.lol + state.lolResults, onLol) + AFTER_BANNER
         }
+        state.kacky?.let { y = KackySection(y, it, it.live(Instant.now()), onKacky) + AFTER_BANNER }
         // En fond d'écran, la figure passe sous l'empreinte du Pixel, qui ne la cache plus.
         if (wallpaper) y = maxOf(y, FINGERPRINT_BOTTOM + 6)
         // La figure du jour, numérotée après le coloriage de Météo s'il est là ; sous elle, un appui déverrouille.
@@ -616,6 +623,58 @@ private fun GameSection(y0: Float, look: GameLook, lines: List<LiveLine>, onOpen
         Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp),
         onOpen,
     )
+    return end
+}
+
+private val KACKY_COLOR = Color(0xFFB59A12)
+
+/**
+ * Le podium du Kacky Reloaded en cours, dans un bandeau jaune olive (la couleur de « Kacky » dans son nom) :
+ * rang, joueur et cartes terminées, sur le modèle des lignes de matchs. Appui : déverrouiller et ouvrir la page de
+ * l'événement sur kacky.gg ; rend le bas du bandeau.
+ */
+@Composable
+private fun KackySection(y0: Float, standing: KackyStanding, live: Boolean, onOpen: (KackyEvent) -> Unit): Float {
+    val y = y0 + BANNER_PAD
+    val b = y + 17
+    val rows = standing.top
+    val end = y + 45 + ROW_PITCH * (rows.size - 1) + 7 + BANNER_PAD
+    Box(Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp).crayonBanner(KACKY_COLOR, seed = 5))
+    Text(
+        standing.event.name,
+        style = style(TITLE, face = Face.BOLD),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.at(24, top(b, TITLE, face = Face.BOLD)).width(220.dp),
+    )
+    RightText(if (live) "en direct" else "terminé", style(LABEL, color = if (live) Live else PaperColors.Soft), top(b, LABEL))
+    rows.forEachIndexed { i, entry ->
+        val baseline = y + 45 + ROW_PITCH * i
+        val face = if (entry.rank == 1) Face.BOLD else Face.ROMAN
+        Text(
+            "${entry.rank}",
+            style = style(BODY, face = face).copy(fontFeatureSettings = "tnum"),
+            softWrap = false,
+            modifier = Modifier.at(24, top(baseline, BODY, face = face)),
+        )
+        Text(
+            entry.name,
+            style = style(BODY, face = face),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.at(48, top(baseline, BODY, face = face)).width(270.dp),
+        )
+        RightText(
+            "${entry.finishes} carte${if (entry.finishes > 1) "s" else ""}",
+            style(STATUS, color = PaperColors.Soft).copy(fontFeatureSettings = "tnum"),
+            top(baseline, STATUS),
+        )
+    }
+    TapZone(
+        "Ouvrir la page du ${standing.event.name} : " +
+            rows.joinToString(", ") { "${it.rank}, ${it.name}, ${it.finishes} cartes" },
+        Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp),
+    ) { onOpen(standing.event) }
     return end
 }
 

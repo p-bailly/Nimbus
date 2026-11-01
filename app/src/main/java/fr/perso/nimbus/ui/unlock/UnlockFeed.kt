@@ -9,6 +9,8 @@ import androidx.compose.ui.geometry.Rect
 import fr.perso.nimbus.data.BasketShare
 import fr.perso.nimbus.data.FavoriteTeam
 import fr.perso.nimbus.data.Game
+import fr.perso.nimbus.data.KackyEvent
+import fr.perso.nimbus.data.KackyShare
 import fr.perso.nimbus.data.LolShare
 import fr.perso.nimbus.data.MeteoShare
 import fr.perso.nimbus.ui.paper.PAPER_WIDTH
@@ -49,6 +51,12 @@ class UnlockFeed private constructor(context: Context) {
     private val meteoLock = Mutex()
     private val basketLock = Mutex()
     private val lolLock = Mutex()
+    private val kackyLock = Mutex()
+
+    /** L'édition du Kacky Reloaded en cours, et le moment où on l'a cherchée (elle ne change qu'avec les dates). */
+    @Volatile private var kackyEvent: KackyEvent? = null
+    @Volatile private var kackyEventAt = 0L
+    @Volatile private var kackyAt = 0L
 
     /** Ce qui décide du coloriage (lieu, temps, prévision, taille, texte posé dessus) et le moment où il a été lu. */
     @Volatile private var sketchKey: List<Any>? = null
@@ -94,9 +102,12 @@ class UnlockFeed private constructor(context: Context) {
             coroutineScope {
                 launch { refreshScores() }
                 launch { refreshLolScores() }
+                launch { refreshKacky() }
             }
-            val live = _state.value.let { it.lines.isNotEmpty() || it.lol.isNotEmpty() }
-            delay(if (live) LIVE_POLL else IDLE_POLL)
+            val current = _state.value
+            val live = current.lines.isNotEmpty() || current.lol.isNotEmpty()
+            val kacky = current.kacky?.live(Instant.now()) == true
+            delay(if (live) LIVE_POLL else if (kacky) KACKY_POLL else IDLE_POLL)
         }
     }
 
@@ -121,6 +132,35 @@ class UnlockFeed private constructor(context: Context) {
         scope.launch {
             refreshLolFavorites()
             refreshLolScores()
+        }
+        scope.launch { refreshKacky() }
+    }
+
+    /**
+     * Le haut du classement du Kacky Reloaded en cours ; la section disparaît hors événement. Hors réseau, le
+     * dernier classement reste (il ne change que lentement), mais plus d'une heure après, il n'est plus montré.
+     */
+    suspend fun refreshKacky() = kackyLock.withLock {
+        withContext(Dispatchers.IO) {
+            val now = Instant.now()
+            try {
+                val tick = SystemClock.elapsedRealtime()
+                var event = kackyEvent
+                if (event == null || tick - kackyEventAt > KACKY_EVENT_AGE || now > event.end.plus(KACKY_AFTER)) {
+                    event = KackyShare.fetchEvent(now)
+                    kackyEvent = event
+                    kackyEventAt = tick
+                }
+                if (event == null) {
+                    _state.update { it.copy(kacky = null) }
+                } else {
+                    val standing = KackyShare.fetchStanding(event)
+                    kackyAt = tick
+                    _state.update { it.copy(kacky = standing.takeIf { s -> s.top.isNotEmpty() }) }
+                }
+            } catch (e: Exception) {
+                if (SystemClock.elapsedRealtime() - kackyAt > MAX_KACKY_AGE) _state.update { it.copy(kacky = null) }
+            }
         }
     }
 
@@ -256,6 +296,14 @@ class UnlockFeed private constructor(context: Context) {
 
         private const val LIVE_POLL = 15_000L
         private const val IDLE_POLL = 5 * 60_000L
+
+        /** Le classement du Kacky Reloaded est recalculé de temps en temps : une minute suffit. */
+        private const val KACKY_POLL = 60_000L
+
+        /** L'édition en cours est cherchée au plus toutes les 30 min. */
+        private const val KACKY_EVENT_AGE = 30 * 60_000L
+        private val KACKY_AFTER: java.time.Duration = java.time.Duration.ofHours(12)
+        private const val MAX_KACKY_AGE = 60 * 60_000L
 
         /** Coloriage relu au plus tard après 15 min (la lumière change avec l'heure). */
         private const val SKETCH_AGE = 15 * 60_000L

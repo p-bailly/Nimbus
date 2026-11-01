@@ -7,6 +7,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -32,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import fr.perso.nimbus.data.BasketShare
+import fr.perso.nimbus.data.KackyShare
 import fr.perso.nimbus.data.LolShare
 import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoShare
@@ -110,6 +112,7 @@ class UnlockActivity : ComponentActivity() {
                         onMeteo = { openApp(MeteoShare.PACKAGE) },
                         onBasket = { openApp(BasketShare.PACKAGE) },
                         onLol = { openApp(LolShare.PACKAGE) },
+                        onKacky = { startAfterUnlock(Intent(Intent.ACTION_VIEW, Uri.parse(KackyShare.eventUrl(it)))) },
                         onUnlock = { unlock() },
                         onNote = { openNote(it) },
                         onSketchText = feed::sketchText,

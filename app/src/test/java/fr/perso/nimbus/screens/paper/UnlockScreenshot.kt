@@ -6,6 +6,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import com.github.takahirom.roborazzi.captureRoboImage
 import fr.perso.nimbus.data.Game
 import fr.perso.nimbus.data.GameTeam
+import fr.perso.nimbus.data.KackyEntry
+import fr.perso.nimbus.data.KackyEvent
+import fr.perso.nimbus.data.KackyStanding
 import fr.perso.nimbus.data.LiveLine
 import fr.perso.nimbus.data.MessageApps
 import fr.perso.nimbus.data.MeteoNow
@@ -22,6 +25,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.time.Instant
 import java.time.LocalDateTime
 
 /**
@@ -117,6 +121,18 @@ class UnlockScreenshot {
             homeFavorite = false,
         )
         shoot("h8_lol", UnlockState(meteo, sketch, listOf(spurs), lol = listOf(live), lolResults = listOf(won)))
+    }
+
+    /** Le podium du Kacky Reloaded 7 (relevé le 1er novembre 2026), sans les matchs. */
+    @Test
+    fun kacky() {
+        val event = KackyEvent(26, 7, "Kacky Reloaded 7", Instant.parse("2026-10-30T19:00:00Z"), Instant.parse("2026-11-29T19:00:00Z"))
+        val top = listOf(
+            KackyEntry(1, "฿ŁĘѶ", 21),
+            KackyEntry(2, "»ғฟ๏« Ŀιиκ.* Law", 19),
+            KackyEntry(3, "SuperBacon53", 19),
+        )
+        shoot("h8_kacky", UnlockState(meteo, sketch, emptyList(), kacky = KackyStanding(event, top, 1489)))
     }
 
     /** Au réveil : plus de direct, les résultats de la nuit des favorites (dont une prolongation). */
