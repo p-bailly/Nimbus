@@ -8,6 +8,7 @@ import fr.perso.nimbus.data.Game
 import fr.perso.nimbus.data.GameTeam
 import fr.perso.nimbus.data.KackyEntry
 import fr.perso.nimbus.data.KackyEvent
+import fr.perso.nimbus.data.KackyShare
 import fr.perso.nimbus.data.KackyStanding
 import fr.perso.nimbus.data.LiveLine
 import fr.perso.nimbus.data.MessageApps
@@ -128,9 +129,9 @@ class UnlockScreenshot {
     fun kacky() {
         val event = KackyEvent(26, 7, "Kacky Reloaded 7", Instant.parse("2026-10-30T19:00:00Z"), Instant.parse("2026-11-29T19:00:00Z"))
         val top = listOf(
-            KackyEntry(1, "฿ŁĘѶ", 21),
-            KackyEntry(2, "»ғฟ๏« Ŀιиκ.* Law", 19),
-            KackyEntry(3, "SuperBacon53", 19),
+            KackyEntry(1, KackyShare.styled("${'$'}F00฿${'$'}F30Ł${'$'}F60Ę${'$'}F90Ѷ"), 21, delta = 1, flag = KackyShare.flagOf("World|Europe|Portugal|Lisboa"), seconds = 2, thirds = 2, avgRank = 69.82),
+            KackyEntry(2, KackyShare.styled("${'$'}S${'$'}F00Sa${'$'}FFno"), 20, flag = KackyShare.flagOf("World|Europe|Belgium|Antwerpen"), seconds = 2, thirds = 1, avgRank = 135.8),
+            KackyEntry(3, KackyShare.styled("${'$'}00d»ғฟ๏« ${'$'}fffĿιиκ.${'$'}f00* ${'$'}m${'$'}bbbLaw"), 19, delta = -3, flag = KackyShare.flagOf("World|Oceania|Australia|New South Wales"), firsts = 1, thirds = 1, avgRank = 110.7),
         )
         shoot("h8_kacky", UnlockState(meteo, sketch, emptyList(), kacky = KackyStanding(event, top, 1489)))
     }

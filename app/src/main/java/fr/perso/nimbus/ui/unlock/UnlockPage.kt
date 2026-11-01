@@ -85,6 +85,7 @@ import fr.perso.nimbus.R
 import fr.perso.nimbus.data.BasketShare
 import fr.perso.nimbus.data.CrayonLogos
 import fr.perso.nimbus.data.GameTeam
+import fr.perso.nimbus.data.KackyEntry
 import fr.perso.nimbus.data.KackyEvent
 import fr.perso.nimbus.data.KackyStanding
 import fr.perso.nimbus.data.LiveLine
@@ -627,18 +628,56 @@ private fun GameSection(y0: Float, look: GameLook, lines: List<LiveLine>, onOpen
 }
 
 private val KACKY_COLOR = Color(0xFFB59A12)
+private val KackyRank = Color(0xFFE8571C)
+
+/** Colonnes du podium (comme le tableau de kacky.gg) : bords gauches, et bords droits des chiffres. */
+private const val K_RANK = 24f
+private const val K_DELTA = 42f
+private const val K_FLAG = 70f
+private const val K_NAME = 96f
+private const val K_NAME_W = 108f
+private const val K_FINS = 252f
+private const val K_PODIUM = 318f
+private const val K_AVG = 390f
+
+/** Une couleur de pseudo Trackmania lisible sur le papier : les clairs (blanc, jaune vif) sont assombris. */
+private fun legible(rgb: Int): Color {
+    val r = (rgb shr 16 and 0xFF) / 255f
+    val g = (rgb shr 8 and 0xFF) / 255f
+    val b = (rgb and 0xFF) / 255f
+    val luma = 0.299f * r + 0.587f * g + 0.114f * b
+    val k = if (luma > 0.5f) 0.5f / luma else 1f
+    return Color(r * k, g * k, b * k)
+}
+
+private fun kackyName(entry: KackyEntry): AnnotatedString = buildAnnotatedString {
+    entry.name.forEach { span ->
+        if (span.rgb == null) append(span.text) else withStyle(SpanStyle(color = legible(span.rgb))) { append(span.text) }
+    }
+}
+
+/** Texte calé à droite sur [right], son haut en [top]. */
+@Composable
+private fun CellRight(text: AnnotatedString, style: TextStyle, top: Float, right: Float) {
+    Box(Modifier.at(right - 80, top).width(80.dp)) {
+        Text(text, style = style, softWrap = false, modifier = Modifier.align(Alignment.TopEnd))
+    }
+}
 
 /**
- * Le podium du Kacky Reloaded en cours, dans un bandeau jaune olive (la couleur de « Kacky » dans son nom) :
- * rang, joueur et cartes terminées, sur le modèle des lignes de matchs. Appui : déverrouiller et ouvrir la page de
- * l'événement sur kacky.gg ; rend le bas du bandeau.
+ * Le podium du Kacky Reloaded en cours, dans un bandeau jaune olive (la couleur de « Kacky » dans son nom), en
+ * tableau comme sur kacky.gg : rang (orange) et évolution, drapeau, pseudo en couleurs, cartes terminées,
+ * records du monde / 2e / 3e places, rang moyen. Appui : déverrouiller et ouvrir la page de l'événement ;
+ * rend le bas du bandeau.
  */
 @Composable
 private fun KackySection(y0: Float, standing: KackyStanding, live: Boolean, onOpen: (KackyEvent) -> Unit): Float {
     val y = y0 + BANNER_PAD
     val b = y + 17
     val rows = standing.top
-    val end = y + 45 + ROW_PITCH * (rows.size - 1) + 7 + BANNER_PAD
+    val header = y + 40
+    val first = y + 64
+    val end = first + ROW_PITCH * (rows.size - 1) + 7 + BANNER_PAD
     Box(Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp).crayonBanner(KACKY_COLOR, seed = 5))
     Text(
         standing.event.name,
@@ -648,31 +687,54 @@ private fun KackySection(y0: Float, standing: KackyStanding, live: Boolean, onOp
         modifier = Modifier.at(24, top(b, TITLE, face = Face.BOLD)).width(220.dp),
     )
     RightText(if (live) "en direct" else "terminé", style(LABEL, color = if (live) Live else PaperColors.Soft), top(b, LABEL))
+
+    // En-têtes des colonnes, en petit.
+    val head = style(11f, color = PaperColors.Soft)
+    Text("#", style = head, softWrap = false, modifier = Modifier.at(K_RANK, top(header, 11f)))
+    Text("JOUEUR", style = head, softWrap = false, modifier = Modifier.at(K_NAME, top(header, 11f)))
+    CellRight(AnnotatedString("CARTES"), head, top(header, 11f), K_FINS)
+    CellRight(AnnotatedString("1ER · 2E · 3E"), head, top(header, 11f), K_PODIUM)
+    CellRight(AnnotatedString("RANG MOY."), head, top(header, 11f), K_AVG)
+
+    val numbers = style(BODY - 2f).copy(fontFeatureSettings = "tnum")
     rows.forEachIndexed { i, entry ->
-        val baseline = y + 45 + ROW_PITCH * i
-        val face = if (entry.rank == 1) Face.BOLD else Face.ROMAN
+        val baseline = first + ROW_PITCH * i
+        val rowTop = top(baseline, BODY, face = Face.BOLD)
         Text(
             "${entry.rank}",
-            style = style(BODY, face = face).copy(fontFeatureSettings = "tnum"),
+            style = style(BODY, face = Face.BOLD, color = KackyRank).copy(fontFeatureSettings = "tnum"),
             softWrap = false,
-            modifier = Modifier.at(24, top(baseline, BODY, face = face)),
+            modifier = Modifier.at(K_RANK, rowTop),
         )
-        Text(
-            entry.name,
-            style = style(BODY, face = face),
+        entry.delta?.let { d ->
+            Text(
+                (if (d > 0) "↑" else "↓") + abs(d),
+                style = style(13.5f, face = Face.BOLD, color = if (d > 0) Win else Loss),
+                softWrap = false,
+                modifier = Modifier.at(K_DELTA, top(baseline, 13.5f, face = Face.BOLD)),
+            )
+        }
+        entry.flag?.let { Text(it, style = style(16f), softWrap = false, modifier = Modifier.at(K_FLAG, top(baseline, 16f))) }
+        PaperText(
+            kackyName(entry),
+            style = style(BODY - 1f, face = Face.BOLD),
+            softWrap = false,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.at(48, top(baseline, BODY, face = face)).width(270.dp),
+            modifier = Modifier.at(K_NAME, top(baseline, BODY - 1f, face = Face.BOLD)).width(K_NAME_W.dp),
         )
-        RightText(
-            "${entry.finishes} carte${if (entry.finishes > 1) "s" else ""}",
-            style(STATUS, color = PaperColors.Soft).copy(fontFeatureSettings = "tnum"),
-            top(baseline, STATUS),
+        CellRight(AnnotatedString("[${entry.finishes}]"), numbers, top(baseline, BODY - 2f), K_FINS)
+        CellRight(AnnotatedString("${entry.firsts} / ${entry.seconds} / ${entry.thirds}"), numbers, top(baseline, BODY - 2f), K_PODIUM)
+        CellRight(
+            AnnotatedString(entry.avgRank?.let { String.format(Locale.FRANCE, "%.1f", it) } ?: "–"),
+            numbers.copy(color = Color(0xFF2F5FB0)),
+            top(baseline, BODY - 2f),
+            K_AVG,
         )
     }
     TapZone(
         "Ouvrir la page du ${standing.event.name} : " +
-            rows.joinToString(", ") { "${it.rank}, ${it.name}, ${it.finishes} cartes" },
+            rows.joinToString(", ") { "${it.rank}, ${it.plainName}, ${it.finishes} cartes" },
         Modifier.at(BANNER_X, y0).size(BANNER_W.dp, (end - y0).dp),
     ) { onOpen(standing.event) }
     return end

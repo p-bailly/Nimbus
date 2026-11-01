@@ -11,8 +11,27 @@ import java.time.Instant
 /** Une édition du Kacky Reloaded. */
 data class KackyEvent(val id: Int, val edition: Int, val name: String, val start: Instant, val end: Instant)
 
-/** Une ligne du classement. */
-data class KackyEntry(val rank: Int, val name: String, val finishes: Int)
+/** Un bout de pseudo d'une seule couleur ([rgb] : 0xRRGGBB, null : la couleur par défaut). */
+data class KackySpan(val text: String, val rgb: Int?)
+
+/**
+ * Une ligne du classement, comme sur kacky.gg : rang, évolution depuis le dernier calcul ([delta], positif =
+ * gagne des places), drapeau, pseudo coloré, cartes terminées, records du monde et 2e/3e places, rang moyen.
+ */
+data class KackyEntry(
+    val rank: Int,
+    val name: List<KackySpan>,
+    val finishes: Int,
+    val delta: Int? = null,
+    /** Drapeau du pays en emoji ; null si le pays est inconnu. */
+    val flag: String? = null,
+    val firsts: Int = 0,
+    val seconds: Int = 0,
+    val thirds: Int = 0,
+    val avgRank: Double? = null,
+) {
+    val plainName: String get() = name.joinToString("") { it.text }
+}
 
 /** L'édition en cours (ou finie depuis peu), son top et le nombre de joueurs classés. */
 data class KackyStanding(val event: KackyEvent, val top: List<KackyEntry>, val players: Int) {
@@ -65,36 +84,62 @@ object KackyShare {
         val top = (0 until (data?.length() ?: 0)).mapNotNull { data?.optJSONObject(it) }.mapNotNull { p ->
             val rank = p.optInt("rank", 0).takeIf { it > 0 } ?: return@mapNotNull null
             // Le pseudo coloré du joueur, sinon son pseudo Trackmania.
-            val name = plain(p.optString("customNickname")).ifEmpty { plain(p.optString("nickname")) }
-            if (name.isEmpty()) null else KackyEntry(rank, name, p.optInt("finishCount"))
+            val name = styled(p.optString("customNickname")).takeIf { it.isNotEmpty() } ?: styled(p.optString("nickname"))
+            if (name.isEmpty()) return@mapNotNull null
+            KackyEntry(
+                rank = rank,
+                name = name,
+                finishes = p.optInt("finishCount"),
+                delta = if (p.isNull("delta")) null else p.optInt("delta").takeIf { it != 0 },
+                flag = flagOf(p.optString("zone")),
+                firsts = p.optInt("worldRecords"),
+                seconds = p.optInt("secondPlaces"),
+                thirds = p.optInt("thirdPlaces"),
+                avgRank = if (p.isNull("averageRankFinishedMaps")) null else p.optDouble("averageRankFinishedMaps"),
+            )
         }.sortedBy { it.rank }.take(TOP)
         return top to (root.optJSONObject("meta")?.optInt("total") ?: 0)
     }
 
+    /** Un nom de Trackmania sans sa mise en forme ; voir [styled]. */
+    fun plain(raw: String): String = styled(raw).joinToString("") { it.text }.replace(Regex("\\s+"), " ").trim()
+
     /**
-     * Un nom de Trackmania sans sa mise en forme : couleurs (« $f00 », jusqu'à trois chiffres hexadécimaux),
-     * styles (« $o », « $i »…), liens (« $l[adresse] ») ; « $$ » vaut un dollar.
+     * Un nom de Trackmania en bouts colorés. Couleur : « $f00 » (trois chiffres hexadécimaux, complétés par des
+     * zéros s'il en manque) ; « $z » et « $g » reviennent à la couleur par défaut ; les styles (« $o », « $i »…)
+     * et les liens (« $l[adresse] ») sont ôtés ; « $$ » vaut un dollar.
      */
-    fun plain(raw: String): String {
-        val out = StringBuilder()
+    fun styled(raw: String): List<KackySpan> {
+        val spans = mutableListOf<KackySpan>()
+        val text = StringBuilder()
+        var color: Int? = null
+        fun flush() {
+            if (text.isNotEmpty()) spans += KackySpan(text.toString(), color)
+            text.clear()
+        }
         var i = 0
         while (i < raw.length) {
             val c = raw[i]
             if (c != '$') {
-                out.append(c)
+                text.append(c)
                 i++
                 continue
             }
             val next = raw.getOrNull(i + 1) ?: break
             i += 2
             when {
-                next == '$' -> out.append('$')
+                next == '$' -> text.append('$')
                 next.isHex() -> {
-                    var digits = 1
-                    while (digits < 3 && raw.getOrNull(i)?.isHex() == true) {
-                        i++
-                        digits++
-                    }
+                    val digits = StringBuilder().append(next)
+                    while (digits.length < 3 && raw.getOrNull(i)?.isHex() == true) digits.append(raw[i++])
+                    while (digits.length < 3) digits.append('0')
+                    flush()
+                    // Chaque chiffre vaut 0x11 fois lui-même : « f » = 0xff.
+                    color = digits.toString().fold(0) { acc, d -> (acc shl 8) or (d.digitToInt(16) * 17) }
+                }
+                next.lowercaseChar() == 'z' || next.lowercaseChar() == 'g' -> {
+                    flush()
+                    color = null
                 }
                 next.lowercaseChar() in "lhp" && raw.getOrNull(i) == '[' -> {
                     val close = raw.indexOf(']', i)
@@ -102,7 +147,24 @@ object KackyShare {
                 }
             }
         }
-        return out.toString().replace(Regex("\\s+"), " ").trim()
+        flush()
+        // Ni blanc de tête ni blanc de queue.
+        val first = spans.firstOrNull() ?: return emptyList()
+        spans[0] = first.copy(text = first.text.trimStart())
+        val last = spans.last()
+        spans[spans.lastIndex] = last.copy(text = last.text.trimEnd())
+        return spans.filter { it.text.isNotEmpty() }
+    }
+
+    private val countries: Map<String, String> by lazy {
+        val byName = java.util.Locale.getISOCountries().associateBy { java.util.Locale("", it).getDisplayCountry(java.util.Locale.ENGLISH) }
+        byName + mapOf("Czech Republic" to "CZ", "Turkey" to "TR", "Türkiye" to "TR", "Russia" to "RU", "South Korea" to "KR", "Macedonia" to "MK")
+    }
+
+    /** Le drapeau en emoji du pays d'une zone Trackmania (« World|Europe|Portugal|Lisboa »), ou null. */
+    fun flagOf(zone: String): String? {
+        val code = countries[zone.split('|').getOrNull(2)?.trim()] ?: return null
+        return String(code.flatMap { listOf(0x1F1E6 + (it - 'A')) }.toIntArray(), 0, 2)
     }
 
     private fun Char.isHex(): Boolean = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'

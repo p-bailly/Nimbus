@@ -23,8 +23,8 @@ class KackyShareTest {
     ],"meta":{"total":4}}"""
 
     private val board = """{"data":[
-        {"rank":2,"playerId":814,"nickname":"LinkMaxTm","customNickname":"${'$'}00d»ғฟ๏« ${'$'}fffĿιиκ.${'$'}f00* ${'$'}m${'$'}bbbLaw","finishCount":19},
-        {"rank":1,"playerId":78231,"nickname":"Blev..","customNickname":"${'$'}F00฿${'$'}F30Ł${'$'}F60Ę${'$'}F90Ѷ","finishCount":21},
+        {"rank":2,"playerId":814,"nickname":"LinkMaxTm","zone":"World|Oceania|Australia|New South Wales","delta":null,"averageRankFinishedMaps":109.89,"worldRecords":1,"secondPlaces":0,"thirdPlaces":1,"customNickname":"${'$'}00d»ғฟ๏« ${'$'}fffĿιиκ.${'$'}f00* ${'$'}m${'$'}bbbLaw","finishCount":19},
+        {"rank":1,"playerId":78231,"nickname":"Blev..","zone":"World|Europe|Portugal|Lisboa","delta":1,"averageRankFinishedMaps":69.82,"worldRecords":0,"secondPlaces":2,"thirdPlaces":2,"customNickname":"${'$'}F00฿${'$'}F30Ł${'$'}F60Ę${'$'}F90Ѷ","finishCount":21},
         {"rank":3,"playerId":65263,"nickname":"SuperBacon53","customNickname":"","finishCount":19},
         {"rank":4,"playerId":60561,"nickname":"BruhHour","customNickname":"x","finishCount":19}
     ],"meta":{"total":1489,"limit":3,"offset":0}}"""
@@ -37,6 +37,16 @@ class KackyShareTest {
         assertEquals("a${'$'}b", KackyShare.plain("a${'$'}${'$'}b"))
         assertEquals("site", KackyShare.plain("${'$'}l[https://x.fr]site${'$'}l"))
         assertEquals("fin", KackyShare.plain("fin${'$'}"))
+    }
+
+    @Test
+    fun `garde les couleurs des pseudos`() {
+        // « Sano » : « Sa » en rouge, « no » en jaune (« ${'$'}FF » est complété en « ${'$'}FF0 »).
+        val spans = KackyShare.styled("${'$'}S${'$'}F00Sa${'$'}FFno")
+        assertEquals(listOf(KackySpan("Sa", 0xFF0000), KackySpan("no", 0xFFFF00)), spans)
+        // Retour à la couleur par défaut, blancs de tête et de queue ôtés.
+        assertEquals(listOf(KackySpan("a", 0x00FF00), KackySpan("b", null)), KackyShare.styled(" ${'$'}0f0a${'$'}zb "))
+        assertEquals(emptyList<KackySpan>(), KackyShare.styled("${'$'}o${'$'}i"))
     }
 
     @Test
@@ -63,9 +73,16 @@ class KackyShareTest {
         assertEquals(1489, players)
         assertEquals(listOf(1, 2, 3), top.map { it.rank })
         assertEquals(21, top[0].finishes)
-        assertEquals("฿ŁĘѶ", top[0].name)
+        assertEquals("฿ŁĘѶ", top[0].plainName)
+        assertEquals(1, top[0].delta)
+        assertEquals(null, top[1].delta)
+        assertEquals("🇵🇹", top[0].flag)
+        assertEquals("🇦🇺", top[1].flag)
+        assertEquals(null, top[2].flag)
+        assertEquals(listOf(0, 2, 2), listOf(top[0].firsts, top[0].seconds, top[0].thirds))
+        assertEquals(69.82, top[0].avgRank!!, 0.001)
         // Sans pseudo coloré : le pseudo Trackmania.
-        assertEquals("SuperBacon53", top[2].name)
+        assertEquals("SuperBacon53", top[2].plainName)
         assertTrue(top.size <= KackyShare.TOP)
     }
 
