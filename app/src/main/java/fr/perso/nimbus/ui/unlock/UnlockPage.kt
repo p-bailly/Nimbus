@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -286,8 +287,6 @@ internal fun UnlockPage(
     val today = now.toLocalDate()
     val dayFigure = remember(today) { DailyFigures.of(today) }
     val unlock by rememberUpdatedState(onUnlock)
-    var basketHidden by remember { mutableStateOf(false) }
-    var lolHidden by remember { mutableStateOf(false) }
 
     PaperCanvas(
         // Glisser vers le haut, n'importe où : déverrouiller.
@@ -325,12 +324,14 @@ internal fun UnlockPage(
         if (state.notes.isNotEmpty()) {
             y = NotesSection(y, state.notes, today, onNote, onDismissNote) + AFTER_BANNER
         }
-        // Un bandeau de matchs glissé de côté disparaît jusqu'au prochain affichage de la page.
-        if (!basketHidden && (state.lines.isNotEmpty() || state.results.isNotEmpty())) {
-            y = GameSection(y, BASKET_LOOK, state.lines + state.results, onBasket, onDismiss = { basketHidden = true }) + AFTER_BANNER
+        // Un bandeau de matchs glissé de côté reste écarté (même écran rallumé) : seul un autre match le fait revenir.
+        val basket = (state.lines + state.results).filter { it.game.id !in HiddenGames.ids }
+        if (basket.isNotEmpty()) {
+            y = GameSection(y, BASKET_LOOK, basket, onBasket, onDismiss = { HiddenGames.hide(basket) }) + AFTER_BANNER
         }
-        if (!lolHidden && (state.lol.isNotEmpty() || state.lolResults.isNotEmpty())) {
-            y = GameSection(y, LOL_LOOK, state.lol + state.lolResults, onLol, onDismiss = { lolHidden = true }) + AFTER_BANNER
+        val lol = (state.lol + state.lolResults).filter { it.game.id !in HiddenGames.ids }
+        if (lol.isNotEmpty()) {
+            y = GameSection(y, LOL_LOOK, lol, onLol, onDismiss = { HiddenGames.hide(lol) }) + AFTER_BANNER
         }
         state.kacky?.let { y = KackySection(y, it, it.live(Instant.now()), onKacky) + AFTER_BANNER }
         // En fond d'écran, la figure passe sous l'empreinte du Pixel, qui ne la cache plus.
@@ -339,6 +340,16 @@ internal fun UnlockPage(
         TapZone("Déverrouiller", Modifier.at(0, y).size(PAPER_WIDTH.dp, (PAPER_HEIGHT - y).coerceAtLeast(0f).dp), onUnlock)
         FigureSection(y, figure ?: dayFigure, if (state.meteo != null && state.sketch != null) 2 else 1, infoShown)
     }
+}
+
+/**
+ * Les matchs dont le bandeau a été glissé de côté, pour toute la durée du processus (page de déverrouillage et
+ * fond d'écran la partagent). Un nouveau match, d'un autre identifiant, fait revenir le bandeau.
+ */
+internal object HiddenGames {
+    private val hidden = mutableStateSetOf<String>()
+    val ids: Set<String> get() = hidden
+    fun hide(lines: List<LiveLine>) { hidden += lines.map { it.game.id } }
 }
 
 // ---------------------------------------------------------------- Fond d'écran
