@@ -124,6 +124,7 @@ object CrayonLogos {
         "πr" to R.drawable.crayon_profmaths,
         "pir" to R.drawable.crayon_profmaths,
         "scan" to R.drawable.crayon_scan,
+        "controle" to R.drawable.crayon_controle,
     )
 
     /** Logo au crayon de [app], ou null s'il n'en a pas. */
