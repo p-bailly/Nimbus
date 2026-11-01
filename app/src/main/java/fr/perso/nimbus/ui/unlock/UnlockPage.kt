@@ -635,9 +635,9 @@ private const val K_RANK = 24f
 private const val K_DELTA = 42f
 private const val K_FLAG = 70f
 private const val K_NAME = 96f
-private const val K_NAME_W = 108f
-private const val K_FINS = 252f
-private const val K_PODIUM = 318f
+private const val K_NAME_W = 96f
+private const val K_FINS = 226f
+private const val K_PODIUM = 312f
 private const val K_AVG = 390f
 
 /** Une couleur de pseudo Trackmania lisible sur le papier : les clairs (blanc, jaune vif) sont assombris. */
@@ -691,10 +691,10 @@ private fun KackySection(y0: Float, standing: KackyStanding, live: Boolean, onOp
     // En-têtes des colonnes, en petit.
     val head = style(11f, color = PaperColors.Soft)
     Text("#", style = head, softWrap = false, modifier = Modifier.at(K_RANK, top(header, 11f)))
-    Text("JOUEUR", style = head, softWrap = false, modifier = Modifier.at(K_NAME, top(header, 11f)))
-    CellRight(AnnotatedString("CARTES"), head, top(header, 11f), K_FINS)
-    CellRight(AnnotatedString("1ER · 2E · 3E"), head, top(header, 11f), K_PODIUM)
-    CellRight(AnnotatedString("RANG MOY."), head, top(header, 11f), K_AVG)
+    Text("PLAYER", style = head, softWrap = false, modifier = Modifier.at(K_NAME, top(header, 11f)))
+    CellRight(AnnotatedString("FINS"), head, top(header, 11f), K_FINS)
+    CellRight(AnnotatedString("1ST / 2ND / 3RD"), head, top(header, 11f), K_PODIUM)
+    CellRight(AnnotatedString("AVG RANK"), head, top(header, 11f), K_AVG)
 
     val numbers = style(BODY - 2f).copy(fontFeatureSettings = "tnum")
     rows.forEachIndexed { i, entry ->
