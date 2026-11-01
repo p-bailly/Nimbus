@@ -2,6 +2,10 @@ package fr.perso.nimbus.data
 
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.Density
+import fr.perso.nimbus.ui.unlock.SKETCH_SHOWN
+import fr.perso.nimbus.ui.unlock.SKETCH_WIDTH
+import fr.perso.nimbus.ui.unlock.TEXT_MARGIN
+import fr.perso.nimbus.ui.unlock.TOP_FADE
 import fr.perso.nimbus.ui.unlock.imageZones
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -22,17 +26,18 @@ class MeteoShareTest {
 
     @Test
     fun `page text in fractions of the sketch`() {
-        // 2 pixels par unité : la page fait 824 pixels de large, le dessin 920, débordant de 48 de chaque côté.
+        // 2 pixels par unité : la page fait 824 pixels de large, le dessin deux fois SKETCH_WIDTH, débordant de chaque côté.
         val density = Density(2f)
-        val shown = 460f * MeteoShare.SKETCH_RATIO * 0.68f * 2f
-        val zones = with(density) { imageZones(listOf(Rect(-48f, 0f, 412f, shown / 2f))) }
+        val overflow = (SKETCH_WIDTH * 2f - 824f) / 2f
+        val shown = SKETCH_WIDTH * MeteoShare.SKETCH_RATIO * SKETCH_SHOWN * 2f
+        val zones = with(density) { imageZones(listOf(Rect(-overflow, 0f, 412f, shown / 2f))) }
         // D'abord le haut coupé, jusqu'au milieu du fondu moins la marge de la gomme.
         assertEquals(0f, zones[0].top, 1e-4f)
         assertEquals(1f, zones[0].right, 1e-4f)
-        assertEquals(0.32f, zones[0].bottom, 1e-4f)
+        assertEquals(1f - SKETCH_SHOWN + (TOP_FADE / 2 - TEXT_MARGIN) / (SKETCH_WIDTH * MeteoShare.SKETCH_RATIO), zones[0].bottom, 1e-4f)
         // Puis le texte : du bord gauche de l'image à son milieu, du haut montré au milieu de ce qui est montré.
         assertEquals(0f, zones[1].left, 1e-4f)
-        assertEquals(0.5f, zones[1].right, 1e-4f)
+        assertEquals((412f + overflow) / (SKETCH_WIDTH * 2f), zones[1].right, 1e-4f)
         assertEquals(0.32f, zones[1].top, 1e-4f)
         assertEquals(0.66f, zones[1].bottom, 1e-4f)
         // Hors de l'image : rien.

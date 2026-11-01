@@ -235,12 +235,13 @@ private const val METEO = 142f
 /**
  * Coloriage : dessiné sur [SKETCH_WIDTH] unités, centré et coupé aux bords de la page (ce n'est que de
  * l'herbe), [SKETCH_TOP] sous le haut du bloc ; on en montre le bas, [SKETCH_SHOWN] de sa hauteur (le
- * ciel le plus haut est coupé).
+ * haut de l'image est vide : le ciel de Météo commence vers le tiers). Le ciel s'étend ainsi derrière tout
+ * le texte, lieu et ciel compris, et s'estompe tout autour ([TOP_FADE], [SIDE_FADE], [BOTTOM_FADE]).
  */
-internal const val SKETCH_WIDTH = 460f
-private const val SKETCH_SHOWN = 0.68f
+internal const val SKETCH_WIDTH = 510f
+internal const val SKETCH_SHOWN = 0.68f
 private val SKETCH_H = SKETCH_WIDTH * MeteoShare.SKETCH_RATIO * SKETCH_SHOWN
-private const val SKETCH_TOP = 24f
+private const val SKETCH_TOP = 0f
 
 /** Entre deux sections : filet 14 sous la fin de l'une, l'autre 16 sous le filet. */
 private const val RULE_GAP = 14f
@@ -501,7 +502,7 @@ private const val SKY_WIDTH = 165f
 
 /**
  * Le coloriage : composé par Météo pour 411 × 287 dp, agrandi au-delà des marges et coupé en haut ; un
- * fondu de quelques unités adoucit la coupe. Ses couleurs sont ravivées (saturation, opacité des
+ * fondu estompe le dessin sur ses quatre bords. Ses couleurs sont ravivées (saturation, opacité des
  * hachures). À chaque réveil, il monte doucement et se colore, en [SKETCH_ANIMATION] ms, puis ne bouge
  * plus : seul le dessin est redessiné pendant ce temps, rien n'est recomposé.
  */
@@ -535,8 +536,22 @@ private fun Sketch(image: ImageBitmap, modifier: Modifier) {
             }
             .drawWithContent {
                 drawContent()
+                // Le dessin s'estompe sur ses quatre bords, dans le papier.
                 drawRect(
-                    Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, startY = 0f, endY = FADE.dp.toPx()),
+                    Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, startY = 0f, endY = TOP_FADE.dp.toPx()),
+                    blendMode = BlendMode.DstIn,
+                )
+                drawRect(
+                    Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent, startY = size.height - BOTTOM_FADE.dp.toPx(), endY = size.height),
+                    blendMode = BlendMode.DstIn,
+                )
+                val side = SIDE_FADE.dp.toPx()
+                drawRect(
+                    Brush.horizontalGradient(0f to Color.Transparent, 1f to Color.Black, startX = 0f, endX = side),
+                    blendMode = BlendMode.DstIn,
+                )
+                drawRect(
+                    Brush.horizontalGradient(0f to Color.Black, 1f to Color.Transparent, startX = size.width - side, endX = size.width),
                     blendMode = BlendMode.DstIn,
                 )
             },
@@ -556,7 +571,10 @@ private fun Sketch(image: ImageBitmap, modifier: Modifier) {
     }
 }
 
-private const val FADE = 10f
+/** Fondu du haut (là où commence le ciel), des côtés et du bas (l'herbe), en unités. */
+internal const val TOP_FADE = 30f
+private const val SIDE_FADE = 44f
+private const val BOTTOM_FADE = 20f
 
 /**
  * Les zones de texte [zones] (en pixels du cadre du coloriage) en fractions de l'image de Météo, telle
@@ -573,7 +591,7 @@ internal fun Density.imageZones(zones: List<Rect>): List<Rect> {
     fun x(px: Float) = (px - left) / w
     fun y(px: Float) = hidden + px / h * SKETCH_SHOWN
     val full = SKETCH_WIDTH * MeteoShare.SKETCH_RATIO
-    val cut = Rect(0f, 0f, 1f, (hidden + (FADE / 2 - TEXT_MARGIN) / full).coerceAtLeast(0.01f))
+    val cut = Rect(0f, 0f, 1f, (hidden + (TOP_FADE / 2 - TEXT_MARGIN) / full).coerceAtLeast(0.01f))
     return listOf(cut) + zones.map { Rect(x(it.left), y(it.top), x(it.right), y(it.bottom)) }
         .filter { it.right > 0f && it.left < 1f && it.bottom > 0f && it.top < 1f }
 }
