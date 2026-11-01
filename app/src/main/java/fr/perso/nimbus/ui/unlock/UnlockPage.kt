@@ -9,7 +9,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -27,8 +30,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -116,6 +121,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 // Page de déverrouillage (maquette H8a, sans en-tête et en plus gros) : sous l'heure, la météo comme l'écran Aujourd'hui de l'appli
 // Météo (et son coloriage, agrandi et ravivé), les messages reçus (WhatsApp, Discord, Messages, Claude…) dans
@@ -256,6 +262,8 @@ internal fun UnlockPage(
     onKacky: (KackyEvent) -> Unit = {},
     /** Ouvrir une notification (après le déverrouillage). */
     onNote: (UnlockNote) -> Unit = {},
+    /** Effacer une notification (glissée de côté). */
+    onDismissNote: (UnlockNote) -> Unit = {},
     /** La figure à montrer (une nouvelle à chaque affichage) ; sans elle, celle du jour. */
     figure: DailyFigure? = null,
     /** Explication de la figure montrée d'emblée (captures). */
@@ -312,7 +320,7 @@ internal fun UnlockPage(
             y = MusicSection(y, music, controls = !wallpaper, onMusic) + AFTER_BANNER
         }
         if (state.notes.isNotEmpty()) {
-            y = NotesSection(y, state.notes, today, onNote) + AFTER_BANNER
+            y = NotesSection(y, state.notes, today, onNote, onDismissNote) + AFTER_BANNER
         }
         if (state.lines.isNotEmpty() || state.results.isNotEmpty()) {
             y = GameSection(y, BASKET_LOOK, state.lines + state.results, onBasket) + AFTER_BANNER
@@ -911,9 +919,15 @@ private const val NOTE_DISC = 36f
  * [MessageApps.MAX_NOTES], les plus récents), puis « et 2 autres » s'il y en a plus ; rend le bas.
  */
 @Composable
-private fun NotesSection(y0: Float, notes: List<UnlockNote>, today: LocalDate, onOpen: (UnlockNote) -> Unit): Float {
+private fun NotesSection(
+    y0: Float,
+    notes: List<UnlockNote>,
+    today: LocalDate,
+    onOpen: (UnlockNote) -> Unit,
+    onDismiss: (UnlockNote) -> Unit,
+): Float {
     val shown = notes.take(MessageApps.MAX_NOTES)
-    shown.forEachIndexed { i, note -> NoteBanner(y0 + (NOTE_H + NOTE_GAP) * i, note, today, onOpen) }
+    shown.forEachIndexed { i, note -> key(note.key) { NoteBanner(y0 + (NOTE_H + NOTE_GAP) * i, note, today, onOpen, onDismiss) } }
     var end = y0 + (NOTE_H + NOTE_GAP) * shown.size - NOTE_GAP
     val more = notes.size - shown.size
     if (more > 0) {
@@ -933,9 +947,54 @@ private fun NotesSection(y0: Float, notes: List<UnlockNote>, today: LocalDate, o
  * puis le texte sur une ligne. Appui : déverrouiller et l'ouvrir.
  */
 @Composable
-private fun NoteBanner(y: Float, note: UnlockNote, today: LocalDate, onOpen: (UnlockNote) -> Unit) {
+private fun NoteBanner(
+    top: Float,
+    note: UnlockNote,
+    today: LocalDate,
+    onOpen: (UnlockNote) -> Unit,
+    onDismiss: (UnlockNote) -> Unit,
+) {
     val color = Color(note.app.color)
     val ink = inkOf(color)
+    // Glisser le bandeau de côté l'efface : au-delà de NOTE_SWIPE (ou lancé), il sort de l'écran puis la
+    // notification est supprimée ; sinon il revient. Le contenu est posé dans un conteneur à la hauteur du bandeau.
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    val shift = remember { Animatable(0f) }
+    val onDismissNow by rememberUpdatedState(onDismiss)
+    val y = 0f
+    Box(
+        Modifier
+            .at(0, top)
+            .size(PAPER_WIDTH.dp, NOTE_H.dp)
+            .graphicsLayer {
+                translationX = shift.value
+                alpha = (1f - abs(shift.value) / (PAPER_WIDTH.dp.toPx() * 0.6f)).coerceIn(0f, 1f)
+            }
+            .draggable(
+                orientation = Orientation.Horizontal,
+                state = rememberDraggableState { delta -> scope.launch { shift.snapTo(shift.value + delta) } },
+                onDragStopped = { velocity ->
+                    val limit = with(density) { NOTE_SWIPE.dp.toPx() }
+                    if (abs(shift.value) > limit || abs(velocity) > 1800f) {
+                        val sign = if (shift.value != 0f) Math.signum(shift.value) else Math.signum(velocity)
+                        shift.animateTo(sign * with(density) { PAPER_WIDTH.dp.toPx() }, tween(160))
+                        onDismissNow(note)
+                    } else {
+                        shift.animateTo(0f, tween(180))
+                    }
+                },
+            ),
+    ) {
+        NoteContent(y, note, today, color, ink, onOpen)
+    }
+}
+
+/** Distance de glissement (en unités de la page) au-delà de laquelle une notification s'efface. */
+private const val NOTE_SWIPE = 110f
+
+@Composable
+private fun NoteContent(y: Float, note: UnlockNote, today: LocalDate, color: Color, ink: Color, onOpen: (UnlockNote) -> Unit) {
     Box(
         Modifier
             .at(BANNER_X, y)

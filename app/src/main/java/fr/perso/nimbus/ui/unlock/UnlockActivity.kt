@@ -115,6 +115,7 @@ class UnlockActivity : ComponentActivity() {
                         onKacky = { startAfterUnlock(Intent(Intent.ACTION_VIEW, Uri.parse(KackyShare.eventUrl(it)))) },
                         onUnlock = { unlock() },
                         onNote = { openNote(it) },
+                        onDismissNote = { BadgeService.dismiss(it.key) },
                         onSketchText = feed::sketchText,
                         figure = figure,
                         onMusic = { action ->
