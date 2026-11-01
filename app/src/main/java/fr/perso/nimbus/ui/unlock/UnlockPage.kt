@@ -33,7 +33,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateSetOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -348,9 +347,10 @@ internal fun UnlockPage(
  * fond d'écran la partagent). Un nouveau match, d'un autre identifiant, fait revenir le bandeau.
  */
 internal object HiddenGames {
-    private val hidden = mutableStateSetOf<String>()
+    // Ensemble immuable dans un état : mutableStateSetOf n'existe pas dans le Compose BOM du projet.
+    private var hidden by mutableStateOf<Set<String>>(emptySet())
     val ids: Set<String> get() = hidden
-    fun hide(lines: List<LiveLine>) { hidden += lines.map { it.game.id } }
+    fun hide(lines: List<LiveLine>) { hidden = hidden + lines.map { it.game.id } }
 }
 
 // ---------------------------------------------------------------- Fond d'écran
