@@ -2,6 +2,7 @@ package fr.perso.nimbus.service
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.os.SystemClock
 import android.os.UserHandle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -57,7 +58,22 @@ class BadgeService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        if (sbn != null && closeMedia(sbn)) return
         refresh()
+    }
+
+    /**
+     * La notification de lecture d'un lecteur dont le bandeau Musique vient d'être écarté : retirée dès
+     * qu'elle redevient effaçable (pendant la lecture, elle est permanente et le système refuse de l'effacer).
+     */
+    private fun closeMedia(sbn: StatusBarNotification): Boolean {
+        val until = mediaClosed[sbn.packageName] ?: return false
+        if (SystemClock.elapsedRealtime() > until) {
+            mediaClosed.remove(sbn.packageName)
+            return false
+        }
+        if (!isMedia(sbn) || !sbn.isClearable) return false
+        return runCatching { cancelNotification(sbn.key) }.isSuccess
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -105,6 +121,28 @@ class BadgeService : NotificationListenerService() {
         fun dismiss(key: String): Boolean = instance?.let {
             runCatching { it.cancelNotification(key) }.isSuccess
         } ?: false
+
+        /** Paquets dont la notification de lecture est à retirer, jusqu'à quand (horloge de [SystemClock]). */
+        private val mediaClosed = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+        /** Pendant combien de temps, après l'arrêt, on attend que le lecteur rende sa notification effaçable. */
+        private const val MEDIA_CLOSE_MS = 10_000L
+
+        private fun isMedia(sbn: StatusBarNotification): Boolean =
+            sbn.notification?.extras?.containsKey(Notification.EXTRA_MEDIA_SESSION) == true
+
+        /**
+         * Retire la notification de lecture de [packageName] (bandeau Musique écarté) : tout de suite si elle
+         * est effaçable, sinon dès que le lecteur, une fois arrêté, la rend effaçable.
+         */
+        fun dismissMedia(packageName: String) {
+            val service = instance ?: return
+            mediaClosed[packageName] = SystemClock.elapsedRealtime() + MEDIA_CLOSE_MS
+            val active = runCatching { service.activeNotifications }.getOrNull() ?: return
+            for (sbn in active) {
+                if (sbn.packageName == packageName) service.closeMedia(sbn)
+            }
+        }
 
         /** Efface toutes les notifications effaçables. */
         fun dismissAll(): Boolean = instance?.let {

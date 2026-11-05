@@ -1127,11 +1127,19 @@ private const val MUSIC_BUTTON = 34f
  * La musique en cours, dans un bandeau colorié à la couleur du lecteur : la pochette (sinon le logo au crayon
  * du lecteur, ou une note), le titre en gras, l'artiste et le lecteur à sa couleur ; à droite,
  * précédent, lecture ou pause, suivant — ou, sur le fond d'écran qui ne reçoit pas les appuis ([controls]
- * faux), « en lecture » ou « en pause ». Appui sur le reste du bandeau : déverrouiller et ouvrir le lecteur.
- * Rend le bas du bandeau.
+ * faux), « en lecture » ou « en pause ». Appui sur le reste du bandeau : déverrouiller et ouvrir le lecteur ;
+ * glissé de côté : la lecture s'arrête et sa notification disparaît ([MusicAction.CLOSE]). Rend le bas du bandeau.
  */
 @Composable
 private fun MusicSection(y: Float, music: Music, controls: Boolean, onAction: (MusicAction) -> Unit): Float {
+    SwipeAway(y, MUSIC_H, onDismiss = { onAction(MusicAction.CLOSE) }) { MusicBanner(music, controls, onAction) }
+    return y + MUSIC_H
+}
+
+/** Le bandeau Musique, posé relativement à son conteneur ([SwipeAway]). */
+@Composable
+private fun MusicBanner(music: Music, controls: Boolean, onAction: (MusicAction) -> Unit) {
+    val y = 0f
     val color = Color(musicColor(music.packageName))
     val ink = inkOf(color)
     Box(
@@ -1208,7 +1216,6 @@ private fun MusicSection(y: Float, music: Music, controls: Boolean, onAction: (M
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.at(left, top(second, 15f)).width(((if (controls) right else 390f) - left).dp),
     )
-    return y + MUSIC_H
 }
 
 /** Précédent, lecture ou pause, suivant : dessinés à l'encre du bandeau, collés à la marge de droite. */

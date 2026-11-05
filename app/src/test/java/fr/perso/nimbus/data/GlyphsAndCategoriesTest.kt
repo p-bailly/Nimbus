@@ -113,6 +113,25 @@ class GlyphsAndCategoriesTest {
     }
 
     @Test
+    fun thunderbirdTookGmailsPlace() {
+        val thunderbird = app("Thunderbird", "net.thunderbird.android")
+        val gmail = app("Gmail", "com.google.android.gm")
+        val slots = PaperSlot.resolve(listOf(gmail, thunderbird), emptyMap(), emptyMap())
+        assertEquals(thunderbird, slots[PaperSlot.THUNDERBIRD])
+        assertTrue(gmail !in slots.values)
+        assertEquals(PaperFamily.ECHANGES, PaperSlot.THUNDERBIRD.family)
+        assertEquals(6, PaperSlot.of(PaperFamily.ECHANGES).size)
+        // L'ancien nom de la place (préférences, sauvegardes) mène à Thunderbird.
+        assertEquals(PaperSlot.THUNDERBIRD, PaperSlot.named("GMAIL"))
+        assertEquals(PaperSlot.WAZE, PaperSlot.named("WAZE"))
+        assertNull(PaperSlot.named("AMAZON"))
+        // Son logo au crayon, par le paquet comme par le nom.
+        assertEquals(R.drawable.crayon_thunderbird, CrayonLogos.of(thunderbird))
+        assertEquals(R.drawable.crayon_thunderbird, CrayonLogos.of(app("Thunderbird", "test.autre")))
+        assertEquals(R.drawable.crayon_thunderbird, CrayonLogos.ofPackage("net.thunderbird.android.beta"))
+    }
+
+    @Test
     fun brandDefaults() {
         assertEquals(GlyphChoice.Colored, AppBrands.glyph(app("Drive", "com.google.android.apps.docs")))
         assertEquals(GlyphChoice.Colored, AppBrands.glyph(app("Play Store", "com.android.vending")))

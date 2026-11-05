@@ -13,6 +13,8 @@ object CrayonLogos {
 
     private val byPackage: Map<String, Int> = mapOf(
         "com.google.android.gm" to R.drawable.crayon_gmail,
+        "net.thunderbird.android" to R.drawable.crayon_thunderbird,
+        "net.thunderbird.android.beta" to R.drawable.crayon_thunderbird,
         "com.reddit.frontpage" to R.drawable.crayon_reddit,
         "com.whatsapp" to R.drawable.crayon_whatsapp,
         "com.whatsapp.w4b" to R.drawable.crayon_whatsapp,
@@ -65,6 +67,8 @@ object CrayonLogos {
     /** Noms affichés (minuscules, sans accents) : les applis sans paquet connu, et les variantes. */
     private val byLabel: Map<String, Int> = mapOf(
         "gmail" to R.drawable.crayon_gmail,
+        "thunderbird" to R.drawable.crayon_thunderbird,
+        "thunderbird beta" to R.drawable.crayon_thunderbird,
         "reddit" to R.drawable.crayon_reddit,
         "whatsapp" to R.drawable.crayon_whatsapp,
         "discord" to R.drawable.crayon_discord,

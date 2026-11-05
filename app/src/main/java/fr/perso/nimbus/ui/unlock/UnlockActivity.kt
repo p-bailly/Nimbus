@@ -119,10 +119,10 @@ class UnlockActivity : ComponentActivity() {
                         onSketchText = feed::sketchText,
                         figure = figure,
                         onMusic = { action ->
-                            if (action == MusicAction.OPEN) {
-                                openMusic(playing)
-                            } else {
-                                playing.controller?.perform(action, playing.music?.playing == true)
+                            when (action) {
+                                MusicAction.OPEN -> openMusic(playing)
+                                MusicAction.CLOSE -> playing.close()
+                                else -> playing.controller?.perform(action, playing.music?.playing == true)
                             }
                         },
                     )

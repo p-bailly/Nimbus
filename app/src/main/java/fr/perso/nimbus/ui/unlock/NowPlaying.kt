@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadata
 import android.media.session.MediaController
+import android.media.session.MediaSession
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
@@ -38,11 +39,17 @@ data class Music(
     val playing: Boolean,
 )
 
-/** Les boutons du bandeau, et l'appui sur le reste du bandeau (ouvrir le lecteur). */
-enum class MusicAction { PREVIOUS, TOGGLE, NEXT, OPEN }
+/**
+ * Les boutons du bandeau, l'appui sur le reste du bandeau (ouvrir le lecteur) et le bandeau glissé de côté
+ * (arrêter la lecture et retirer sa notification : YouTube, Twitch, un onglet du navigateur…).
+ */
+enum class MusicAction { PREVIOUS, TOGGLE, NEXT, OPEN, CLOSE }
 
-/** La musique en cours et le lecteur qui la joue (pour ses boutons). */
-class NowPlaying(val music: Music?, val controller: MediaController?)
+/**
+ * La musique en cours et le lecteur qui la joue (pour ses boutons) ; [close] arrête la lecture, retire la
+ * notification du lecteur et cache le bandeau jusqu'à ce que ce lecteur rejoue.
+ */
+class NowPlaying(val music: Music?, val controller: MediaController?, val close: () -> Unit = {})
 
 /** Une lecture en pause depuis plus longtemps ne s'affiche plus. */
 private const val PAUSE_SHOWN_MS = 30 * 60_000L
@@ -61,24 +68,54 @@ internal fun rememberNowPlaying(): NowPlaying {
         val listener = ComponentName(context, BadgeService::class.java)
         val handler = Handler(Looper.getMainLooper())
         var current: MediaController? = null
+        // Le lecteur écarté, et s'il a cessé de jouer depuis : le bandeau revient s'il rejoue ensuite.
+        var closed: MediaSession.Token? = null
+        var closedStopped = false
+        lateinit var publish: () -> Unit
+        lateinit var pick: (List<MediaController>?) -> Unit
+
         val callback = object : MediaController.Callback() {
-            override fun onMetadataChanged(metadata: MediaMetadata?) {
-                now = NowPlaying(current?.let { music(context, it) }, current)
-            }
+            override fun onMetadataChanged(metadata: MediaMetadata?) = publish()
 
             override fun onPlaybackStateChanged(state: PlaybackState?) {
-                now = NowPlaying(current?.let { music(context, it) }, current)
+                val controller = current
+                if (controller != null && controller.sessionToken == closed) {
+                    if (!playing(controller)) {
+                        closedStopped = true
+                    } else if (closedStopped) {
+                        closed = null // Relancé après l'arrêt : le bandeau revient.
+                    }
+                }
+                publish()
+            }
+
+            override fun onSessionDestroyed() {
+                pick(manager?.let { m -> runCatching { m.getActiveSessions(listener) }.getOrNull() })
             }
         }
 
-        fun pick(sessions: List<MediaController>?) {
+        fun close() {
+            val controller = current ?: return
+            closed = controller.sessionToken
+            closedStopped = !playing(controller)
+            controller.perform(MusicAction.CLOSE, playing = true)
+            BadgeService.dismissMedia(controller.packageName)
+            publish()
+        }
+
+        publish = {
+            val controller = current
+            now = NowPlaying(controller?.takeIf { it.sessionToken != closed }?.let { music(context, it) }, controller, ::close)
+        }
+
+        pick = { sessions ->
             val best = sessions.orEmpty().filter(::shown).maxByOrNull { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) 1 else 0 }
             if (best?.sessionToken != current?.sessionToken) {
                 current?.unregisterCallback(callback)
                 current = best
                 best?.registerCallback(callback, handler)
             }
-            now = NowPlaying(current?.let { music(context, it) }, current)
+            publish()
         }
 
         val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { pick(it) }
@@ -95,6 +132,11 @@ internal fun rememberNowPlaying(): NowPlaying {
         }
     }
     return now
+}
+
+private fun playing(controller: MediaController): Boolean = when (controller.playbackState?.state) {
+    PlaybackState.STATE_PLAYING, PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING -> true
+    else -> false
 }
 
 /** Joue (ou charge), ou est en pause depuis peu. */
@@ -142,6 +184,12 @@ internal fun MediaController.perform(action: MusicAction, playing: Boolean) {
         MusicAction.PREVIOUS -> controls.skipToPrevious()
         MusicAction.TOGGLE -> if (playing) controls.pause() else controls.play()
         MusicAction.NEXT -> controls.skipToNext()
+        // Pause d'abord : un lecteur qui ne sait pas s'arrêter se tait quand même. L'arrêt ferme la
+        // session (le lecteur retire alors sa notification ; un navigateur, celle de son onglet).
+        MusicAction.CLOSE -> {
+            controls.pause()
+            controls.stop()
+        }
         MusicAction.OPEN -> Unit
     }
 }
@@ -150,6 +198,8 @@ internal fun MediaController.perform(action: MusicAction, playing: Boolean) {
 internal fun musicColor(packageName: String): Long = when (packageName) {
     "com.spotify.music" -> 0xFF1DB954
     "com.google.android.apps.youtube.music", "app.revanced.android.apps.youtube.music" -> 0xFFE62117
+    "com.google.android.youtube", "app.revanced.android.youtube", "app.rvx.android.youtube" -> 0xFFFF0033
+    "tv.twitch.android.app" -> 0xFF9146FF
     "deezer.android.app" -> 0xFFA238FF
     "com.apple.android.music" -> 0xFFFA243C
     "com.soundcloud.android" -> 0xFFFF5500

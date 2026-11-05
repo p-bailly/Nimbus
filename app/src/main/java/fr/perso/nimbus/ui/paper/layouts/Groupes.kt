@@ -69,7 +69,7 @@ private const val PAIR = 27f
 /** Échanges dans l'ordre des classes 0 à 5 de ℤ/6ℤ. */
 private val Echanges = listOf(
     PaperSlot.WHATSAPP, PaperSlot.MESSAGES, PaperSlot.DISCORD,
-    PaperSlot.REDDIT, PaperSlot.TELEPHONE, PaperSlot.GMAIL,
+    PaperSlot.REDDIT, PaperSlot.TELEPHONE, PaperSlot.THUNDERBIRD,
 )
 
 /** Rangée du haut, par fibre : φ⁻¹(0) = {0, 3}, φ⁻¹(1) = {1, 4}, φ⁻¹(2) = {2, 5}. */
