@@ -38,7 +38,12 @@ enum class PaperSlot(
         listOf("com.google.android.dialer", "com.samsung.android.dialer", "com.android.dialer"),
         listOf("telephone", "phone"),
     ),
-    GMAIL("Gmail", PaperFamily.ECHANGES, listOf("com.google.android.gm"), listOf("gmail")),
+    // Thunderbird (et sa bêta, puis K-9 Mail, dont il est issu) a remplacé Gmail le 05/11/2026.
+    THUNDERBIRD(
+        "Thunderbird", PaperFamily.ECHANGES,
+        listOf("net.thunderbird.android", "net.thunderbird.android.beta", "com.fsck.k9"),
+        listOf("thunderbird", "k-9 mail"),
+    ),
     // YouTube ReVanced d'abord (son icône est celle de ReVanced : le logo de YouTube la remplace).
     YOUTUBE(
         "YouTube", PaperFamily.ECRAN,
@@ -88,6 +93,13 @@ enum class PaperSlot(
     companion object {
         /** Les places d'une famille, dans l'ordre des figures. */
         fun of(family: PaperFamily): List<PaperSlot> = entries.filter { it.family == family }
+
+        /**
+         * La place d'un nom enregistré (préférences, sauvegardes) ; « GMAIL », l'ancien nom de la place
+         * de Thunderbird, y mène encore.
+         */
+        fun named(name: String): PaperSlot? =
+            if (name == "GMAIL") THUNDERBIRD else entries.firstOrNull { it.name == name }
 
         /**
          * App de chaque place : choix de l'utilisateur ([chosen], s'il est encore installé), puis

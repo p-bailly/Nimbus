@@ -74,7 +74,7 @@ private class Site(val slot: PaperSlot, val x: Double, val y: Double)
 // symétrique pour que quatre sites ne soient jamais cocycliques.
 private val SITES = listOf(
     Site(PaperSlot.WHATSAPP, 63.4, 205.5), Site(PaperSlot.MESSAGES, 168.5, 199.5), Site(PaperSlot.DISCORD, 137.9, 275.0),
-    Site(PaperSlot.REDDIT, 57.0, 304.3), Site(PaperSlot.TELEPHONE, 159.2, 361.0), Site(PaperSlot.GMAIL, 56.9, 397.2),
+    Site(PaperSlot.REDDIT, 57.0, 304.3), Site(PaperSlot.TELEPHONE, 159.2, 361.0), Site(PaperSlot.THUNDERBIRD, 56.9, 397.2),
     Site(PaperSlot.YOUTUBE, 267.5, 204.9), Site(PaperSlot.TWITCH, 356.1, 206.3), Site(PaperSlot.STREMIO, 234.4, 283.6),
     Site(PaperSlot.SPOTIFY, 344.6, 296.7), Site(PaperSlot.PHOTOS, 263.5, 362.5), Site(PaperSlot.CAMERA, 359.0, 392.8),
     Site(PaperSlot.WAZE, 127.3, 448.3), Site(PaperSlot.MAPS, 57.3, 499.4), Site(PaperSlot.METEO, 56.6, 591.6),

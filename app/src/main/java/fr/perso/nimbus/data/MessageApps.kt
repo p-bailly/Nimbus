@@ -21,6 +21,7 @@ object MessageApps {
 
     private val WHATSAPP = MessageApp("WhatsApp", 0xFF25D366)
     private val MESSAGES = MessageApp("Messages", 0xFF1A73E8)
+    private val THUNDERBIRD = MessageApp("Thunderbird", 0xFF1F6FE5)
 
     private val byPackage: Map<String, MessageApp> = mapOf(
         "com.whatsapp" to WHATSAPP,
@@ -36,6 +37,8 @@ object MessageApps {
         "com.instagram.android" to MessageApp("Instagram", 0xFFE1306C),
         "com.snapchat.android" to MessageApp("Snapchat", 0xFFF7C600),
         "com.google.android.gm" to MessageApp("Gmail", 0xFFEA4335),
+        "net.thunderbird.android" to THUNDERBIRD,
+        "net.thunderbird.android.beta" to THUNDERBIRD,
         "com.Slack" to MessageApp("Slack", 0xFF611F69),
         "com.microsoft.teams" to MessageApp("Teams", 0xFF5B5FC7),
         "com.google.android.dialer" to MessageApp("Téléphone", 0xFF188038),

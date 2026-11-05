@@ -514,14 +514,15 @@ class Prefs private constructor(context: Context) {
 
     private fun readSites(key: String): Map<PaperSlot, Offset> =
         readMap(key).mapNotNull { (name, value) ->
-            val slot = PaperSlot.entries.firstOrNull { it.name == name } ?: return@mapNotNull null
+            val slot = PaperSlot.named(name) ?: return@mapNotNull null
             val (x, y) = value.split(',').mapNotNull { it.toFloatOrNull() }.takeIf { it.size == 2 } ?: return@mapNotNull null
             slot to Offset(x, y)
         }.toMap()
 
     private fun readPaperSlots(): Map<PaperSlot, String> =
+        // L'appli choisie pour l'ancienne place de Gmail n'est pas reprise : la place va à Thunderbird.
         readMap(KEY_PAPER_SLOTS).mapNotNull { (name, app) ->
-            PaperSlot.entries.firstOrNull { it.name == name }?.let { it to app }
+            if (name == "GMAIL") null else PaperSlot.named(name)?.let { it to app }
         }.toMap()
 
     private fun readGestureApps(): Map<Gesture, String> =

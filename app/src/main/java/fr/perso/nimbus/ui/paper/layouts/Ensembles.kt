@@ -92,7 +92,7 @@ private val Discs: List<Triple<PaperSlot, Float, Float>> = listOf(
     // S ∩ M, S ∩ U, M ∩ U
     Triple(PaperSlot.YOUTUBE, 209f, 256f),
     Triple(PaperSlot.REDDIT, 176f, 303f),
-    Triple(PaperSlot.GMAIL, 116f, 404f),
+    Triple(PaperSlot.THUNDERBIRD, 116f, 404f),
     Triple(PaperSlot.PHOTOS, 317f, 418f),
     Triple(PaperSlot.DRIVE, 262f, 430f),
     // S seulement
