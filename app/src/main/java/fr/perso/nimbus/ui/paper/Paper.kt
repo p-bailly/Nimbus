@@ -1,5 +1,9 @@
 package fr.perso.nimbus.ui.paper
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.text.format.DateFormat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -68,6 +72,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import fr.perso.nimbus.data.AppEntry
 import fr.perso.nimbus.data.Glyph
 import fr.perso.nimbus.data.PaperFamily
@@ -79,7 +84,8 @@ import fr.perso.nimbus.ui.components.rememberAppGlyph
 import fr.perso.nimbus.ui.components.rememberCrayonLogo
 import fr.perso.nimbus.ui.theme.PaperColors
 import fr.perso.nimbus.ui.theme.PaperTextBase
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -245,15 +251,41 @@ fun PaperClock(top: Float = 66f, timeSize: Float = 44f, dateTop: Float = 114f, d
     )
 }
 
-/** Heure de la page, rafraîchie à chaque minute (ou figée par [PaperEnv.fixedTime]). */
+/**
+ * Heure de la page, rafraîchie à chaque minute (ou figée par [PaperEnv.fixedTime]).
+ *
+ * L'attente seule ne suffit pas : `delay` compte en temps d'activité, arrêté quand le téléphone dort.
+ * La page de déverrouillage, posée à l'extinction, montrait donc au réveil l'heure de l'extinction
+ * jusqu'à une minute durant. Le top de minute du système, l'allumage de l'écran et un changement
+ * d'heure, de fuseau ou de date relisent l'heure aussitôt.
+ */
 @Composable
 fun rememberPaperTime(): State<LocalDateTime> {
     val fixed = LocalPaper.current.fixedTime
+    val context = LocalContext.current.applicationContext
     return produceState(fixed ?: LocalDateTime.now(), fixed) {
         if (fixed != null) return@produceState
-        while (true) {
-            value = LocalDateTime.now()
-            delay(60_000 - System.currentTimeMillis() % 60_000 + 20)
+        val wake = Channel<Unit>(Channel.CONFLATED)
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                wake.trySend(Unit)
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_TICK)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            addAction(Intent.ACTION_DATE_CHANGED)
+        }
+        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        try {
+            while (true) {
+                value = LocalDateTime.now()
+                withTimeoutOrNull(60_000 - System.currentTimeMillis() % 60_000 + 20) { wake.receive() }
+            }
+        } finally {
+            context.unregisterReceiver(receiver)
         }
     }
 }
