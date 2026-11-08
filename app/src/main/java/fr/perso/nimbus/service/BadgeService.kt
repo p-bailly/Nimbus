@@ -2,6 +2,7 @@ package fr.perso.nimbus.service
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.os.Build
 import android.os.SystemClock
 import android.os.UserHandle
 import android.service.notification.NotificationListenerService
@@ -24,6 +25,14 @@ data class NotificationItem(
     val intent: PendingIntent?,
     /** À effacer une fois ouverte. */
     val autoCancel: Boolean,
+    /**
+     * Visibilité sur l'écran verrouillé (`Notification.VISIBILITY_*`) : celle que l'utilisateur a imposée à l'appli ou au
+     * canal (Android 12+), sinon celle de la notification (PRIVATE par défaut).
+     */
+    val lockVisibility: Int = Notification.VISIBILITY_PRIVATE,
+    /** Titre et texte de la version publique de la notification (`publicVersion`), à montrer à la place quand elle est privée. */
+    val publicTitle: String = "",
+    val publicText: String = "",
 )
 
 /** Nombre de notifications actives par paquet, et les notifications elles-mêmes, partagés avec l'interface. */
@@ -98,6 +107,7 @@ class BadgeService : NotificationListenerService() {
             val text = (extras?.getCharSequence(Notification.EXTRA_TEXT) ?: extras?.getCharSequence(Notification.EXTRA_BIG_TEXT))
                 ?.toString().orEmpty()
             if (title.isBlank() && text.isBlank()) continue
+            val publicExtras = n.publicVersion?.extras
             items += NotificationItem(
                 key = sbn.key,
                 packageName = sbn.packageName,
@@ -108,9 +118,21 @@ class BadgeService : NotificationListenerService() {
                 clearable = sbn.isClearable,
                 intent = n.contentIntent,
                 autoCancel = n.flags and Notification.FLAG_AUTO_CANCEL != 0,
+                lockVisibility = lockVisibility(sbn.key, n.visibility),
+                publicTitle = publicExtras?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().trim(),
+                publicText = publicExtras?.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty().trim(),
             )
         }
         BadgeStore.update(counts, items.sortedByDescending { it.time })
+    }
+
+    /** La visibilité imposée par l'utilisateur à l'appli ou au canal (Android 12+), sinon [own], celle de la notification. */
+    private fun lockVisibility(key: String, own: Int): Int {
+        if (Build.VERSION.SDK_INT < 31) return own
+        val ranking = Ranking()
+        val found = runCatching { currentRanking?.getRanking(key, ranking) == true }.getOrDefault(false)
+        val override = if (found) ranking.lockscreenVisibilityOverride else Ranking.VISIBILITY_NO_OVERRIDE
+        return if (override == Ranking.VISIBILITY_NO_OVERRIDE) own else override
     }
 
     companion object {

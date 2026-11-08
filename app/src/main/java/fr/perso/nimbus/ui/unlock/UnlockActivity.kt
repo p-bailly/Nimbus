@@ -3,6 +3,7 @@ package fr.perso.nimbus.ui.unlock
 import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.ContentResolver
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,6 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.addCallback
@@ -115,7 +117,8 @@ class UnlockActivity : ComponentActivity() {
                         onKacky = { startAfterUnlock(Intent(Intent.ACTION_VIEW, Uri.parse(KackyShare.eventUrl(it)))) },
                         onUnlock = { unlock() },
                         onNote = { openNote(it) },
-                        onDismissNote = { BadgeService.dismiss(it.key) },
+                        // Effacer un message, c'est agir sur le téléphone : seulement une fois déverrouillé.
+                        onDismissNote = { note -> unlock { BadgeService.dismiss(note.key) } },
                         onSketchText = feed::sketchText,
                         figure = figure,
                         onMusic = { action ->
@@ -262,13 +265,32 @@ class UnlockActivity : ComponentActivity() {
     }
 }
 
-/** Messages reçus (WhatsApp, Discord, Messages, Claude…), si Nimbus a accès aux notifications. */
+/**
+ * Messages reçus (WhatsApp, Discord, Messages, Claude…), si Nimbus a accès aux notifications, selon les règles de l'écran
+ * verrouillé du système (voir [MessageApps.notes]), relues à chaque changement des notifications.
+ */
 @Composable
 internal fun rememberMessageNotes(): List<UnlockNote> {
     val notifications by BadgeStore.notifications.collectAsStateWithLifecycle()
+    val resolver = LocalContext.current.contentResolver
     return remember(notifications) {
         MessageApps.notes(
-            notifications.map { MessageApps.Candidate(it.key, it.packageName, it.title, it.text, it.time, it.clearable) },
+            notifications.map {
+                MessageApps.Candidate(
+                    it.key, it.packageName, it.title, it.text, it.time, it.clearable,
+                    it.lockVisibility, it.publicTitle, it.publicText,
+                )
+            },
+            showPrivate = lockScreenSetting(resolver, "lock_screen_allow_private_notifications", default = false),
+            showNotifications = lockScreenSetting(resolver, "lock_screen_show_notifications", default = true),
         )
     }
 }
+
+/**
+ * Réglage de l'écran verrouillé du système (Paramètres › Notifications › Notifications sur l'écran de verrouillage). Ces clés ne
+ * sont pas des constantes publiques d'Android : illisible (refus, réglage absent), on prend [default], le choix le plus discret
+ * pour le contenu sensible.
+ */
+private fun lockScreenSetting(resolver: ContentResolver, name: String, default: Boolean): Boolean =
+    runCatching { Settings.Secure.getInt(resolver, name) != 0 }.getOrDefault(default)
