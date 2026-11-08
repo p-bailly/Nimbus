@@ -53,16 +53,41 @@ object MessageApps {
     /** L'appli de messages de [packageName], ou null : ses notifications ne vont pas sur la page. */
     fun of(packageName: String): MessageApp? = byPackage[packageName]
 
+    /** Valeurs de `Notification.VISIBILITY_*` (recopiées : ce fichier n'utilise pas Android, pour ses essais). */
+    const val VISIBILITY_SECRET = -1
+    const val VISIBILITY_PRIVATE = 0
+    const val VISIBILITY_PUBLIC = 1
+
+    /** Ce que montre un message privé quand le contenu sensible est masqué et que l'appli ne donne pas de version publique. */
+    const val HIDDEN_TEXT = "Contenu masqué"
+
     /**
      * Les notifications à montrer, les plus récentes d'abord : celles des applis de messages, effaçables
      * (pas une sauvegarde ou une session en cours), avec un titre ou un texte.
+     *
+     * La page et le fond animé sont posés sur l'écran verrouillé : ils suivent ses règles. Rien si
+     * [showNotifications] est faux (« ne pas afficher les notifications » sur l'écran verrouillé) ; jamais une
+     * notification SECRET ; une notification PRIVATE (le cas par défaut) en entier seulement si [showPrivate]
+     * (« afficher le contenu sensible » du système), sinon sa version publique, ou l'appli seule et
+     * [HIDDEN_TEXT].
      */
     fun notes(
         all: List<Candidate>,
-    ): List<UnlockNote> = all
+        showPrivate: Boolean = false,
+        showNotifications: Boolean = true,
+    ): List<UnlockNote> = if (!showNotifications) emptyList() else all
         .asSequence()
-        .filter { it.clearable && (it.title.isNotBlank() || it.text.isNotBlank()) }
-        .mapNotNull { c -> of(c.packageName)?.let { UnlockNote(c.key, c.packageName, it, c.title.trim(), c.text.trim(), c.time) } }
+        .filter { it.clearable && (it.title.isNotBlank() || it.text.isNotBlank()) && it.lockVisibility != VISIBILITY_SECRET }
+        .mapNotNull { c ->
+            val app = of(c.packageName) ?: return@mapNotNull null
+            val full = c.lockVisibility == VISIBILITY_PUBLIC || showPrivate
+            val (title, text) = when {
+                full -> c.title.trim() to c.text.trim()
+                c.publicTitle.isNotBlank() || c.publicText.isNotBlank() -> c.publicTitle.trim() to c.publicText.trim()
+                else -> "" to HIDDEN_TEXT
+            }
+            UnlockNote(c.key, c.packageName, app, title, text, c.time)
+        }
         .sortedByDescending { it.time }
         .toList()
 
@@ -74,5 +99,9 @@ object MessageApps {
         val text: String,
         val time: Long,
         val clearable: Boolean,
+        /** Visibilité sur l'écran verrouillé ([VISIBILITY_PUBLIC] dans les essais qui ne s'en occupent pas). */
+        val lockVisibility: Int = VISIBILITY_PUBLIC,
+        val publicTitle: String = "",
+        val publicText: String = "",
     )
 }
