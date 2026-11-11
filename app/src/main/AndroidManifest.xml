@@ -57,6 +57,7 @@
             android:resumeWhilePausing="true"
             android:taskAffinity=""
             android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="portrait"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -75,6 +76,7 @@
             android:taskAffinity="fr.perso.nimbus.unlock"
             android:showWhenLocked="true"
             android:theme="@style/Theme.Nimbus.Unlock"
+            android:screenOrientation="portrait"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize" />
 
         <!-- Écran verrouillé : la page de déverrouillage en fond d'écran animé, sous l'heure du système -->
