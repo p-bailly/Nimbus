@@ -113,6 +113,15 @@ class GlyphsAndCategoriesTest {
     }
 
     @Test
+    fun tocHasItsCrayonLogo() {
+        // Le plateau au crayon, par le paquet comme par le nom ; une appli renommée le garde.
+        assertEquals(R.drawable.crayon_toc, CrayonLogos.of(app("Toc", "fr.perso.toc")))
+        assertEquals(R.drawable.crayon_toc, CrayonLogos.of(app("Petits chevaux", "fr.perso.toc")))
+        assertEquals(R.drawable.crayon_toc, CrayonLogos.of(app("Toc", "test.autre")))
+        assertEquals(R.drawable.crayon_toc, CrayonLogos.ofPackage("fr.perso.toc"))
+    }
+
+    @Test
     fun thunderbirdTookGmailsPlace() {
         val thunderbird = app("Thunderbird", "net.thunderbird.android")
         val gmail = app("Gmail", "com.google.android.gm")
